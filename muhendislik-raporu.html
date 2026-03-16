@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mühendislik Raporu</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, sans-serif; font-size: 13px; background: #f0f2f5; }
+    .page { max-width: 1400px; margin: 0 auto; padding: 16px; }
+    h1 { font-size: 20px; margin-bottom: 16px; color: #1a1a2e; }
+
+    .panel { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 16px; margin-bottom: 16px; }
+    .panel h2 { font-size: 14px; font-weight: 700; margin-bottom: 12px; color: #333; border-bottom: 2px solid #8e44ad; padding-bottom: 6px; }
+
+    .btn { padding: 8px 18px; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: 600; }
+    .btn-primary { background: #8e44ad; color: #fff; }
+    .btn-primary:hover { background: #7d3c98; }
+    .btn-success { background: #27ae60; color: #fff; }
+    .btn-success:hover { background: #219150; }
+    .btn-danger { background: #e74c3c; color: #fff; }
+    .btn-info { background: #2980b9; color: #fff; }
+    .btn-row { display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap; align-items: center; }
+
+    /* Kontrol durumu */
+    .kontrol-satir { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 4px; margin-bottom: 6px; font-size: 12px; }
+    .kontrol-satir.mevcut { background: #d5f5e3; border-left: 3px solid #27ae60; }
+    .kontrol-satir.eksik { background: #fadbd8; border-left: 3px solid #e74c3c; }
+    .kontrol-satir .oge-baslik { font-weight: 600; min-width: 200px; }
+    .kontrol-satir .oge-durum { font-size: 11px; color: #555; }
+
+    /* Ayar paneli */
+    .oge-satir { display: flex; align-items: center; gap: 8px; padding: 8px; border-bottom: 1px solid #f0f0f0; flex-wrap: wrap; }
+    .oge-satir:last-child { border-bottom: none; }
+    .oge-satir .oge-ad { min-width: 220px; font-size: 12px; font-weight: 600; color: #333; }
+    .oge-satir label { font-size: 11px; color: #666; }
+    .oge-satir input[type=number] { width: 68px; padding: 4px 6px; border: 1px solid #ccc; border-radius: 3px; font-size: 12px; }
+    .oge-satir input[type=checkbox] { width: 16px; height: 16px; cursor: pointer; }
+    .oge-satir .dpi-info { font-size: 10px; color: #888; background: #f8f8f8; padding: 2px 6px; border-radius: 3px; }
+
+    /* Önizleme */
+    #onizleme-alan { background: #525659; padding: 20px; border-radius: 4px; min-height: 200px; display: flex; justify-content: center; align-items: flex-start; overflow: auto; }
+    #onizleme-alan .pdf-sayfa { background: #fff; box-shadow: 0 4px 20px rgba(0,0,0,0.4); position: relative; }
+
+    #durum-mesaj { font-size: 12px; color: #555; margin-left: 12px; }
+    #ilerleme-cubu { display: none; }
+    #ilerleme-cubu .cubu-arka { background: #ddd; border-radius: 4px; height: 8px; width: 200px; }
+    #ilerleme-cubu .cubu-on { background: #8e44ad; border-radius: 4px; height: 8px; width: 0; transition: width 0.3s; }
+  </style>
+</head>
+<body>
+<div class="page">
+  <h1>📄 Mühendislik Raporu PDF</h1>
+
+  <!-- Kontrol Paneli -->
+  <div class="panel">
+    <h2>🔍 Veri Kontrolü</h2>
+    <p style="font-size:12px;color:#666;margin-bottom:12px;">
+      Rapor oluşturabilmek için önce <strong>kolon-hesaplama.html</strong> ve <strong>elektrik-semasi.html</strong> sayfalarında verileri girip kaydetmeniz gerekmektedir.
+    </p>
+    <div id="kontrol-alan">
+      <p style="color:#888;font-size:12px;">Kontrol etmek için aşağıdaki butona tıklayın.</p>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-info" onclick="kontrolEt()">🔍 Kontrol Et</button>
+    </div>
+  </div>
+
+  <!-- Ayar Paneli -->
+  <div class="panel">
+    <h2>⚙️ Görsel Konum &amp; Ölçek Ayarları</h2>
+    <p style="font-size:11px;color:#888;margin-bottom:12px;">
+      Her görselin PDF üzerindeki konumunu (x, y) ve ölçeğini ayarlayın. PNG'ler 2× DPI ile üretilmiştir.
+    </p>
+    <div id="ayar-paneli">
+      <!-- JavaScript tarafından doldurulur -->
+    </div>
+    <div class="btn-row">
+      <button class="btn" style="background:#95a5a6;color:#fff;" onclick="ayarlariSifirla()">🔄 Varsayılana Sıfırla</button>
+      <button class="btn btn-info" onclick="ayarlariKaydet()">💾 Ayarları Kaydet</button>
+    </div>
+  </div>
+
+  <!-- PDF Oluştur Butonu -->
+  <div class="panel">
+    <h2>📥 PDF Oluştur</h2>
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="pdfOlustur()">📄 PDF Oluştur &amp; İndir</button>
+      <div id="ilerleme-cubu">
+        <div class="cubu-arka"><div class="cubu-on" id="ilerleme-dolgu"></div></div>
+      </div>
+      <span id="durum-mesaj"></span>
+    </div>
+  </div>
+
+  <!-- Önizleme -->
+  <div class="panel">
+    <h2>👁️ Önizleme</h2>
+    <p style="font-size:11px;color:#888;margin-bottom:10px;">PDF boyutuna (A3 yatay) göre ölçeklendirilmiş önizleme.</p>
+    <div id="onizleme-alan">
+      <p style="color:#aaa;font-size:13px;margin-top:60px;">PDF oluşturulduktan sonra önizleme burada görünecek.</p>
+    </div>
+  </div>
+</div>
+
+<!-- pdf-lib -->
+<script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+
+<script>
+// ============================================================
+// Varsayılan öğeler — lsKey: localStorage PNG key'i
+// ============================================================
+var VARSAYILAN_OGELERI = [
+  { id: 'bina',       baslik: '🏢 Bina Görseli',               lsKey: 'rapor_png_bina',       x: 20,  y: 40,   scale: 0.55, dpi: 2, aktif: true  },
+  { id: 'kolon',      baslik: '🏛️ Kolon Şeması',               lsKey: 'rapor_png_kolon',      x: 20,  y: 340,  scale: 0.45, dpi: 2, aktif: true  },
+  { id: 'pano',       baslik: '🗄️ Pano Görseli',               lsKey: 'rapor_png_pano',       x: 20,  y: 700,  scale: 0.45, dpi: 2, aktif: true  },
+  { id: 'tekhat',     baslik: '🔌 Tekhat Şeması',              lsKey: 'rapor_png_tekhat',     x: 20,  y: 900,  scale: 0.45, dpi: 2, aktif: true  },
+  { id: 'cetvel',     baslik: '📋 Yükleme Cetveli',            lsKey: 'rapor_png_cetveli',    x: 20,  y: 1050, scale: 0.60, dpi: 2, aktif: true  },
+  { id: 'tesisatguc', baslik: '⚡ Tesisat Güç Bilgileri',       lsKey: 'rapor_png_tesisatGuc', x: 20,  y: 1280, scale: 0.60, dpi: 2, aktif: true  },
+  { id: 'kofreolem',  baslik: '🔧 Kofre Ölçüm Değerleri',      lsKey: 'rapor_png_kofreOlcum', x: 20,  y: 1420, scale: 0.60, dpi: 2, aktif: true  },
+  { id: 'yapiguc',    baslik: '🏗️ Yapı Güç Bilgileri',         lsKey: 'rapor_png_yapiGuc',    x: 20,  y: 1580, scale: 0.60, dpi: 2, aktif: true  },
+  { id: 'gduzun',     baslik: '📉 GD Hesabı (En Uzun)',        lsKey: 'rapor_png_gdEnUzun',   x: 20,  y: 1760, scale: 0.65, dpi: 2, aktif: true  },
+  { id: 'gdguclu',    baslik: '📉 GD Hesabı (En Güçlü)',       lsKey: 'rapor_png_gdEnGuclu',  x: 380, y: 1760, scale: 0.65, dpi: 2, aktif: true  },
+];
+
+// Çalışma kopyası
+var ogeler = [];
+
+// ============================================================
+// Başlangıçta ayarları yükle
+// ============================================================
+function baslat() {
+  var kaydedilmis = null;
+  try {
+    var raw = localStorage.getItem('rapor_ayarlari_v1');
+    if (raw) kaydedilmis = JSON.parse(raw);
+  } catch (e) {}
+
+  ogeler = VARSAYILAN_OGELERI.map(function(v) {
+    if (kaydedilmis) {
+      var kayitli = kaydedilmis.find(function(k) { return k.id === v.id; });
+      if (kayitli) {
+        return Object.assign({}, v, {
+          x: kayitli.x !== undefined ? kayitli.x : v.x,
+          y: kayitli.y !== undefined ? kayitli.y : v.y,
+          scale: kayitli.scale !== undefined ? kayitli.scale : v.scale,
+          aktif: kayitli.aktif !== undefined ? kayitli.aktif : v.aktif,
+        });
+      }
+    }
+    return Object.assign({}, v);
+  });
+
+  ayarPaneliRender();
+}
+
+// ============================================================
+// Ayar panelini render et
+// ============================================================
+function ayarPaneliRender() {
+  var html = '';
+  ogeler.forEach(function(oge, i) {
+    var varMi = !!localStorage.getItem(oge.lsKey);
+    var durumRenk = varMi ? '#27ae60' : '#e74c3c';
+    var durumIkon = varMi ? '✅' : '❌';
+    html += '<div class="oge-satir">';
+    html += '<input type="checkbox" id="aktif-' + i + '" ' + (oge.aktif ? 'checked' : '') + ' onchange="ogeGuncelle(' + i + ')">';
+    html += '<span class="oge-ad">' + oge.baslik + ' <span style="color:' + durumRenk + ';font-size:11px;">' + durumIkon + '</span></span>';
+    html += '<label>X: <input type="number" id="x-' + i + '" value="' + oge.x + '" step="1" onchange="ogeGuncelle(' + i + ')"></label>';
+    html += '<label>Y: <input type="number" id="y-' + i + '" value="' + oge.y + '" step="1" onchange="ogeGuncelle(' + i + ')"></label>';
+    html += '<label>Ölçek: <input type="number" id="scale-' + i + '" value="' + oge.scale + '" step="0.01" min="0.01" max="5" onchange="ogeGuncelle(' + i + ')"></label>';
+    html += '<span class="dpi-info">DPI: ' + oge.dpi + '× (PNG üretiminde)</span>';
+    html += '</div>';
+  });
+  document.getElementById('ayar-paneli').innerHTML = html;
+}
+
+// ============================================================
+// Öğe değerini güncelle
+// ============================================================
+function ogeGuncelle(i) {
+  ogeler[i].aktif = document.getElementById('aktif-' + i).checked;
+  ogeler[i].x = parseFloat(document.getElementById('x-' + i).value) || 0;
+  ogeler[i].y = parseFloat(document.getElementById('y-' + i).value) || 0;
+  ogeler[i].scale = parseFloat(document.getElementById('scale-' + i).value) || 0.5;
+}
+
+// ============================================================
+// Veri kontrolü
+// ============================================================
+function kontrolEt() {
+  var alan = document.getElementById('kontrol-alan');
+  var html = '';
+  var mevcutSayisi = 0;
+
+  ogeler.forEach(function(oge) {
+    var varMi = !!localStorage.getItem(oge.lsKey);
+    if (varMi) mevcutSayisi++;
+    var sinif = varMi ? 'mevcut' : 'eksik';
+    var ikon = varMi ? '✅' : '❌';
+    var durum = varMi ? 'Hazır' : 'Eksik – Kaynak sayfada kaydet';
+    html += '<div class="kontrol-satir ' + sinif + '">';
+    html += '<span class="oge-baslik">' + ikon + ' ' + oge.baslik + '</span>';
+    html += '<span class="oge-durum">' + durum + '</span>';
+    html += '<span class="oge-durum" style="color:#888;font-size:10px;">(' + oge.lsKey + ')</span>';
+    html += '</div>';
+  });
+
+  html += '<div style="margin-top:10px;padding:10px;background:#f8f9fa;border-radius:4px;font-size:12px;">';
+  html += '<strong>' + mevcutSayisi + ' / ' + ogeler.length + '</strong> görsel hazır.';
+  if (mevcutSayisi === 0) {
+    html += ' <span style="color:#e74c3c;">⚠️ Hiç görsel bulunamadı. Önce diğer sayfalarda verileri girip kaydedin.</span>';
+  } else if (mevcutSayisi < ogeler.length) {
+    html += ' <span style="color:#e67e22;">⚠️ Bazı görseller eksik. PDF\'de eksik görseller atlanacak.</span>';
+  } else {
+    html += ' <span style="color:#27ae60;">✅ Tüm görseller hazır. PDF oluşturabilirsiniz.</span>';
+  }
+  html += '</div>';
+
+  alan.innerHTML = html;
+
+  // Ayar panelini de güncelle (renk durumları için)
+  ayarPaneliRender();
+}
+
+// ============================================================
+// Ayarları kaydet / sıfırla
+// ============================================================
+function ayarlariKaydet() {
+  ogeler.forEach(function(oge, i) { ogeGuncelle(i); });
+  try {
+    localStorage.setItem('rapor_ayarlari_v1', JSON.stringify(
+      ogeler.map(function(o) { return { id: o.id, x: o.x, y: o.y, scale: o.scale, aktif: o.aktif }; })
+    ));
+    durum('✅ Ayarlar kaydedildi!', 2000);
+  } catch (e) {
+    durum('❌ Ayar kayıt hatası: ' + e.message, 3000);
+  }
+}
+
+function ayarlariSifirla() {
+  localStorage.removeItem('rapor_ayarlari_v1');
+  ogeler = VARSAYILAN_OGELERI.map(function(v) { return Object.assign({}, v); });
+  ayarPaneliRender();
+  durum('🔄 Varsayılan ayarlara döndürüldü.', 2000);
+}
+
+// ============================================================
+// Durum mesajı
+// ============================================================
+function durum(mesaj, sure) {
+  var el = document.getElementById('durum-mesaj');
+  el.textContent = mesaj;
+  if (sure) { setTimeout(function() { el.textContent = ''; }, sure); }
+}
+
+function ilerleme(yuzde) {
+  var cubu = document.getElementById('ilerleme-cubu');
+  var dolgu = document.getElementById('ilerleme-dolgu');
+  if (yuzde >= 0) {
+    cubu.style.display = 'flex';
+    dolgu.style.width = yuzde + '%';
+  } else {
+    cubu.style.display = 'none';
+    dolgu.style.width = '0';
+  }
+}
+
+// ============================================================
+// PDF Oluştur
+// ============================================================
+async function pdfOlustur() {
+  // Güncel ayarları al
+  ogeler.forEach(function(oge, i) { ogeGuncelle(i); });
+
+  var aktifOgeler = ogeler.filter(function(o) {
+    return o.aktif && !!localStorage.getItem(o.lsKey);
+  });
+
+  if (aktifOgeler.length === 0) {
+    durum('❌ Aktif ve hazır görsel bulunamadı. Önce Kontrol Et\'e tıklayın.', 4000);
+    return;
+  }
+
+  durum('PDF oluşturuluyor...', 0);
+  ilerleme(5);
+
+  try {
+    var { PDFDocument, rgb, degrees } = PDFLib;
+
+    // Yeni PDF dokümanı oluştur
+    var pdfDoc = await PDFDocument.create();
+
+    // A3 yatay sayfa (420 × 297 mm → 1191 × 842 pt @ 72dpi)
+    var sayfaGenislik = 1191.0;
+    var sayfaYukseklik = 842.0;
+    var sayfa = pdfDoc.addPage([sayfaGenislik, sayfaYukseklik]);
+
+    ilerleme(15);
+
+    // Başlık / kapak bilgisi
+    var proje_veri = null;
+    try {
+      var yapi_raw = localStorage.getItem('proje_yapi_v1');
+      var sema_raw = localStorage.getItem('proje_sema_v1');
+      proje_veri = {
+        projeAdi: '',
+        musteriAdi: '',
+        tarih: '',
+      };
+      if (yapi_raw) {
+        var yapiObj = JSON.parse(yapi_raw);
+        if (yapiObj.params) {
+          proje_veri.projeAdi = yapiObj.params.projeAdi || '';
+          proje_veri.musteriAdi = yapiObj.params.musteriAdi || '';
+          proje_veri.tarih = yapiObj.params.tarih || '';
+        }
+      }
+      if (sema_raw && !proje_veri.projeAdi) {
+        var semaObj = JSON.parse(sema_raw);
+        proje_veri.projeAdi = semaObj.projeAdi || '';
+        proje_veri.musteriAdi = semaObj.musteriAdi || '';
+        proje_veri.tarih = semaObj.tarih || '';
+      }
+    } catch (e) {}
+
+    var adim = 70 / aktifOgeler.length;
+    var toplam = 0;
+
+    // Her aktif öğeyi PDF'e gömme
+    for (var i = 0; i < aktifOgeler.length; i++) {
+      var oge = aktifOgeler[i];
+      var pngBase64 = localStorage.getItem(oge.lsKey);
+      if (!pngBase64) continue;
+
+      durum('İşleniyor: ' + oge.baslik + ' (' + (i + 1) + '/' + aktifOgeler.length + ')...', 0);
+
+      try {
+        // base64 → Uint8Array
+        var pureBase64 = pngBase64;
+        if (pureBase64.startsWith('data:')) {
+          pureBase64 = pureBase64.split(',')[1];
+        }
+        var pngBytes = base64ToUint8Array(pureBase64);
+
+        // PDF'e göm
+        var pngImage = await pdfDoc.embedPng(pngBytes);
+
+        // Gerçek PNG boyutları
+        var imgW = pngImage.width;   // piksel (2× DPI'dan dolayı büyük)
+        var imgH = pngImage.height;
+
+        // Ölçek uygula (DPI çarpanını bölerek PDF noktasına çevir)
+        // PNG 2× ile üretildiğinden, gerçek boyut imgW / oge.dpi
+        var pdfW = (imgW / oge.dpi) * oge.scale;
+        var pdfH = (imgH / oge.dpi) * oge.scale;
+
+        // PDF koordinat sistemi: sol-alt origin (y aşağıya doğru azalır)
+        // Kullanıcı Y'si yukarıdan aşağı sistemi → dönüştür
+        var pdfX = oge.x;
+        var pdfY = sayfaYukseklik - oge.y - pdfH;
+
+        sayfa.drawImage(pngImage, {
+          x: pdfX,
+          y: pdfY,
+          width: pdfW,
+          height: pdfH,
+        });
+      } catch (e) {
+        console.warn(oge.id + ' PDF embed hatası:', e);
+      }
+
+      toplam += adim;
+      ilerleme(15 + toplam);
+    }
+
+    ilerleme(90);
+    durum('PDF dosyası hazırlanıyor...', 0);
+
+    // PDF byte'larını oluştur
+    var pdfBytes = await pdfDoc.save();
+
+    ilerleme(100);
+
+    // İndir
+    var blob = new Blob([pdfBytes], { type: 'application/pdf' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    var dosyaAdi = (proje_veri && proje_veri.projeAdi)
+      ? proje_veri.projeAdi.replace(/[^a-zA-Z0-9çğıöşüÇĞİÖŞÜ\s_-]/g, '').trim() + '_muhendislik_raporu.pdf'
+      : 'muhendislik_raporu.pdf';
+    a.download = dosyaAdi;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    durum('✅ PDF başarıyla oluşturuldu!', 5000);
+    ilerleme(-1);
+
+    // Önizleme güncelle
+    onizlemeGuncelle(pdfBytes);
+
+  } catch (err) {
+    console.error('PDF oluşturma hatası:', err);
+    durum('❌ Hata: ' + err.message, 6000);
+    ilerleme(-1);
+  }
+}
+
+// ============================================================
+// Base64 → Uint8Array
+// ============================================================
+function base64ToUint8Array(base64) {
+  var binary = atob(base64);
+  var bytes = new Uint8Array(binary.length);
+  for (var i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes;
+}
+
+// ============================================================
+// PDF Önizleme (iframe ile)
+// ============================================================
+function onizlemeGuncelle(pdfBytes) {
+  var alan = document.getElementById('onizleme-alan');
+  try {
+    var blob = new Blob([pdfBytes], { type: 'application/pdf' });
+    var url = URL.createObjectURL(blob);
+    alan.innerHTML = '<iframe src="' + url + '#toolbar=0" style="width:100%;min-height:600px;border:none;background:#fff;" title="PDF Önizleme"></iframe>';
+  } catch (e) {
+    alan.innerHTML = '<p style="color:#e74c3c;font-size:12px;">Önizleme yüklenemedi: ' + e.message + '</p>';
+  }
+}
+
+// ============================================================
+// Sayfa yüklenince başlat
+// ============================================================
+document.addEventListener('DOMContentLoaded', function() {
+  baslat();
+  // Otomatik kontrol yap
+  kontrolEt();
+});
+</script>
+</body>
+</html>

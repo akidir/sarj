@@ -1,0 +1,856 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Elektrik Şeması</title>
+  <script src="https://unpkg.com/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, sans-serif; font-size: 13px; background: #f0f2f5; }
+    .page { max-width: 1600px; margin: 0 auto; padding: 16px; }
+    h1 { font-size: 20px; margin-bottom: 16px; color: #1a1a2e; }
+
+    .panel { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 16px; margin-bottom: 16px; }
+    .panel h2 { font-size: 14px; font-weight: 700; margin-bottom: 12px; color: #333; border-bottom: 2px solid #e67e22; padding-bottom: 6px; }
+
+    .form-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; }
+    .form-group label { display: block; font-size: 11px; color: #666; margin-bottom: 3px; }
+    .form-group input, .form-group select {
+      width: 100%; padding: 6px 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 12px;
+    }
+    .form-group input:focus, .form-group select:focus { outline: none; border-color: #e67e22; }
+
+    .btn { padding: 8px 18px; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: 600; }
+    .btn-primary { background: #e67e22; color: #fff; }
+    .btn-primary:hover { background: #ca6f1e; }
+    .btn-success { background: #27ae60; color: #fff; }
+    .btn-success:hover { background: #219150; }
+    .btn-info { background: #2980b9; color: #fff; }
+    .btn-info:hover { background: #2471a3; }
+    .btn-row { display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
+
+    #kayit-mesaj { display: inline-block; margin-left: 12px; font-size: 12px; color: #27ae60; }
+
+    .svg-container { overflow: auto; background: #fff; border: 1px solid #ddd; border-radius: 4px; padding: 8px; }
+    svg { display: block; }
+
+    /* Tekhat şeması */
+    #tekhat-alan svg { font-family: Arial, sans-serif; }
+
+    /* Cetveli tabloları */
+    .cetveli-wrapper { overflow-x: auto; }
+    table.cetveli-tablo { border-collapse: collapse; width: 100%; font-size: 11px; margin-bottom: 12px; }
+    table.cetveli-tablo th { background: #2c3e50; color: #fff; padding: 6px 8px; text-align: center; border: 1px solid #555; }
+    table.cetveli-tablo td { padding: 5px 8px; border: 1px solid #ddd; text-align: center; }
+    table.cetveli-tablo tr:nth-child(even) td { background: #f8f9fa; }
+    table.cetveli-tablo .baslik-satir td { background: #2c3e50; color: #fff; font-weight: bold; }
+    table.cetveli-tablo .toplam-satir td { background: #d5e8d4; font-weight: bold; }
+    table.cetveli-tablo .guc-satir td { background: #fff2cc; }
+    table.cetveli-tablo .kofre-satir td { background: #dae8fc; }
+
+    .tablo-baslik { font-size: 13px; font-weight: bold; color: #2c3e50; margin-bottom: 8px; padding: 6px; background: #ecf0f1; border-left: 4px solid #e67e22; }
+
+    /* GD tabloları */
+    .gd-tablolar { display: flex; gap: 16px; flex-wrap: wrap; }
+    .gd-tablo-block { flex: 1; min-width: 300px; }
+    table.gd-tablo { border-collapse: collapse; width: 100%; font-size: 11px; }
+    table.gd-tablo th { background: #8e44ad; color: #fff; padding: 5px 8px; border: 1px solid #6c3483; text-align: center; }
+    table.gd-tablo td { padding: 4px 8px; border: 1px solid #ddd; text-align: center; }
+    table.gd-tablo tr:nth-child(even) td { background: #fdf9ff; }
+    table.gd-tablo .sonuc-satir td { background: #f5eef8; font-weight: bold; }
+
+    /* Modal */
+    .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; }
+    .modal.active { display: flex; align-items: center; justify-content: center; }
+    .modal-box { background: #fff; border-radius: 8px; padding: 20px; width: 90%; max-width: 700px; max-height: 90vh; overflow-y: auto; }
+    .modal-box h3 { margin-bottom: 14px; color: #1a1a2e; }
+    .modal-kapat { float: right; cursor: pointer; font-size: 18px; color: #888; background: none; border: none; }
+  </style>
+</head>
+<body>
+<div class="page">
+  <h1>⚡ Elektrik Şeması</h1>
+
+  <!-- Proje Bilgileri -->
+  <div class="panel">
+    <h2>Proje Bilgileri</h2>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Proje Adı</label>
+        <input type="text" id="projeAdi" value="Örnek Bina Projesi" />
+      </div>
+      <div class="form-group">
+        <label>Müşteri Adı</label>
+        <input type="text" id="musteriAdi" value="Ahmet Yılmaz" />
+      </div>
+      <div class="form-group">
+        <label>Tarih</label>
+        <input type="date" id="tarih" />
+      </div>
+      <div class="form-group">
+        <label>Mühendis</label>
+        <input type="text" id="muhendis" value="Elektrik Mühendisi" />
+      </div>
+    </div>
+  </div>
+
+  <!-- Tesisat Parametreleri -->
+  <div class="panel">
+    <h2>Tesisat Parametreleri</h2>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Şebeke Gerilimi (V)</label>
+        <input type="number" id="gerilim" value="380" />
+      </div>
+      <div class="form-group">
+        <label>Frekans (Hz)</label>
+        <input type="number" id="frekans" value="50" />
+      </div>
+      <div class="form-group">
+        <label>Bağlantı Tipi</label>
+        <select id="baglantiTipi">
+          <option value="3faz">3 Faz + N + PE</option>
+          <option value="1faz">1 Faz + N + PE</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>İzin Verilen GD (%)</label>
+        <input type="number" id="izinGD" value="3" min="1" max="10" step="0.5" />
+      </div>
+      <div class="form-group">
+        <label>Güç Katsayısı (cosφ)</label>
+        <input type="number" id="cosfi" value="0.9" min="0.5" max="1" step="0.05" />
+      </div>
+      <div class="form-group">
+        <label>Bağlantı Noktası</label>
+        <input type="text" id="baglantiNoktasi" value="Bina Giriş Tablosu" />
+      </div>
+      <div class="form-group">
+        <label>Hat Uzunluğu (m)</label>
+        <input type="number" id="hatUzunlugu" value="30" min="1" />
+      </div>
+      <div class="form-group">
+        <label>İletken Kesiti (mm²)</label>
+        <select id="iletkenKesit">
+          <option value="1.5">1.5 mm²</option>
+          <option value="2.5">2.5 mm²</option>
+          <option value="4" selected>4 mm²</option>
+          <option value="6">6 mm²</option>
+          <option value="10">10 mm²</option>
+          <option value="16">16 mm²</option>
+          <option value="25">25 mm²</option>
+          <option value="35">35 mm²</option>
+          <option value="50">50 mm²</option>
+          <option value="70">70 mm²</option>
+          <option value="95">95 mm²</option>
+          <option value="120">120 mm²</option>
+          <option value="150">150 mm²</option>
+          <option value="185">185 mm²</option>
+          <option value="240">240 mm²</option>
+        </select>
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="guncelle()">🔄 Güncelle &amp; Göster</button>
+      <button class="btn btn-info" onclick="devreyiAc()">➕ Devre Ekle</button>
+      <button class="btn btn-success" onclick="saveState()">💾 Kaydet</button>
+      <span id="kayit-mesaj"></span>
+    </div>
+  </div>
+
+  <!-- Devre Tablosu -->
+  <div class="panel">
+    <h2>Devreler</h2>
+    <div style="overflow-x:auto;">
+      <table id="devre-tablo" style="border-collapse:collapse;width:100%;font-size:12px;">
+        <thead>
+          <tr style="background:#2c3e50;color:#fff;">
+            <th style="padding:7px 10px;border:1px solid #555;">Devre No</th>
+            <th style="padding:7px 10px;border:1px solid #555;">Devre Adı</th>
+            <th style="padding:7px 10px;border:1px solid #555;">Güç (W)</th>
+            <th style="padding:7px 10px;border:1px solid #555;">Akım (A)</th>
+            <th style="padding:7px 10px;border:1px solid #555;">Sigorta (A)</th>
+            <th style="padding:7px 10px;border:1px solid #555;">Kesit (mm²)</th>
+            <th style="padding:7px 10px;border:1px solid #555;">Uzunluk (m)</th>
+            <th style="padding:7px 10px;border:1px solid #555;">Faz</th>
+            <th style="padding:7px 10px;border:1px solid #555;">İşlem</th>
+          </tr>
+        </thead>
+        <tbody id="devre-tbody"></tbody>
+      </table>
+    </div>
+    <button class="btn btn-primary" style="margin-top:10px;" onclick="devreyiAc()">➕ Devre Ekle</button>
+  </div>
+
+  <!-- Tekhat Şeması -->
+  <div class="panel">
+    <h2>🔌 Tekhat Şeması</h2>
+    <div id="tekhat-alan" class="svg-container">
+      <!-- SVG burada oluşacak (id="katman_1") -->
+    </div>
+  </div>
+
+  <!-- Yükleme Cetveli ve Tablolar -->
+  <div class="panel">
+    <h2>📋 Yükleme Cetveli &amp; Tablolar</h2>
+    <div id="cetveli-canli-alan">
+      <!-- cetveliGuncelle() tarafından doldurulur -->
+      <div id="cetveli-yuklemeCetveli"></div>
+      <div id="cetveli-tesisatGuc"></div>
+      <div id="cetveli-kofreOlcum"></div>
+      <div id="cetveli-yapiGuc"></div>
+    </div>
+  </div>
+
+  <!-- GD Hesabı -->
+  <div class="panel">
+    <h2>📉 Gerilim Düşümü Hesabı</h2>
+    <div id="gd-canli-alan" class="gd-tablolar">
+      <div id="gd-tablo-enuzun" class="gd-tablo-block"></div>
+      <div id="gd-tablo-enguclu" class="gd-tablo-block"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Devre Ekleme Modalı -->
+<div id="devre-modal" class="modal">
+  <div class="modal-box">
+    <button class="modal-kapat" onclick="kapatModal()">✕</button>
+    <h3>Devre Ekle / Düzenle</h3>
+    <input type="hidden" id="duzenleme-idx" value="-1" />
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Devre Adı</label>
+        <input type="text" id="md-ad" value="Aydınlatma" />
+      </div>
+      <div class="form-group">
+        <label>Güç (W)</label>
+        <input type="number" id="md-guc" value="1000" min="0" />
+      </div>
+      <div class="form-group">
+        <label>Sigorta (A)</label>
+        <input type="number" id="md-sigorta" value="16" min="1" />
+      </div>
+      <div class="form-group">
+        <label>İletken Kesiti (mm²)</label>
+        <select id="md-kesit">
+          <option value="1.5">1.5</option>
+          <option value="2.5" selected>2.5</option>
+          <option value="4">4</option>
+          <option value="6">6</option>
+          <option value="10">10</option>
+          <option value="16">16</option>
+          <option value="25">25</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Uzunluk (m)</label>
+        <input type="number" id="md-uzunluk" value="15" min="1" />
+      </div>
+      <div class="form-group">
+        <label>Faz</label>
+        <select id="md-faz">
+          <option value="1">1 Faz</option>
+          <option value="3">3 Faz</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Devre Tipi</label>
+        <select id="md-tip">
+          <option value="aydinlatma">Aydınlatma</option>
+          <option value="priz">Priz</option>
+          <option value="motor">Motor</option>
+          <option value="klima">Klima</option>
+          <option value="diger">Diğer</option>
+        </select>
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-success" onclick="devreKaydet()">✅ Kaydet</button>
+      <button class="btn" style="background:#95a5a6;color:#fff;" onclick="kapatModal()">İptal</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// Global veri
+// ============================================================
+var devreler = [
+  { ad: 'Aydınlatma Kat 1', guc: 1200, sigorta: 16, kesit: 2.5, uzunluk: 25, faz: 1, tip: 'aydinlatma' },
+  { ad: 'Priz Kat 1', guc: 2000, sigorta: 16, kesit: 2.5, uzunluk: 20, faz: 1, tip: 'priz' },
+  { ad: 'Aydınlatma Kat 2', guc: 1200, sigorta: 16, kesit: 2.5, uzunluk: 35, faz: 1, tip: 'aydinlatma' },
+  { ad: 'Priz Kat 2', guc: 2000, sigorta: 16, kesit: 2.5, uzunluk: 30, faz: 1, tip: 'priz' },
+  { ad: 'Klima', guc: 3500, sigorta: 20, kesit: 4, uzunluk: 15, faz: 1, tip: 'klima' },
+  { ad: 'Asansör Motor', guc: 5500, sigorta: 25, kesit: 6, uzunluk: 40, faz: 3, tip: 'motor' },
+];
+
+// ============================================================
+// Yardımcı hesap
+// ============================================================
+function hesaplaAkim(guc, gerilim, faz, cosfi) {
+  gerilim = gerilim || 380;
+  cosfi = cosfi || 0.9;
+  if (faz === 3) {
+    return guc / (Math.sqrt(3) * gerilim * cosfi);
+  } else {
+    return guc / (230 * cosfi);
+  }
+}
+
+function hesaplaGD(guc, uzunluk, kesit, faz) {
+  // ρ Cu ≈ 0.0175 Ω·mm²/m
+  var rho = 0.0175;
+  var cosfi = parseFloat(document.getElementById('cosfi').value) || 0.9;
+  var gerilim = parseFloat(document.getElementById('gerilim').value) || 380;
+  var R = rho * uzunluk / kesit;
+  var akim = hesaplaAkim(guc, gerilim, faz, cosfi);
+  var dV;
+  if (faz === 3) {
+    dV = Math.sqrt(3) * akim * R;
+    return (dV / gerilim) * 100;
+  } else {
+    dV = 2 * akim * R;
+    return (dV / 230) * 100;
+  }
+}
+
+// ============================================================
+// Devre tablosu render
+// ============================================================
+function devreTablosunuRender() {
+  var tbody = document.getElementById('devre-tbody');
+  var gerilim = parseFloat(document.getElementById('gerilim').value) || 380;
+  var cosfi = parseFloat(document.getElementById('cosfi').value) || 0.9;
+  var rows = '';
+  devreler.forEach(function(d, i) {
+    var akim = hesaplaAkim(d.guc, gerilim, d.faz, cosfi).toFixed(2);
+    rows += '<tr style="' + (i % 2 === 0 ? '' : 'background:#f9f9f9') + '">';
+    rows += '<td style="padding:5px 8px;border:1px solid #ddd;">' + (i + 1) + '</td>';
+    rows += '<td style="padding:5px 8px;border:1px solid #ddd;">' + d.ad + '</td>';
+    rows += '<td style="padding:5px 8px;border:1px solid #ddd;">' + d.guc + '</td>';
+    rows += '<td style="padding:5px 8px;border:1px solid #ddd;">' + akim + '</td>';
+    rows += '<td style="padding:5px 8px;border:1px solid #ddd;">' + d.sigorta + '</td>';
+    rows += '<td style="padding:5px 8px;border:1px solid #ddd;">' + d.kesit + '</td>';
+    rows += '<td style="padding:5px 8px;border:1px solid #ddd;">' + d.uzunluk + '</td>';
+    rows += '<td style="padding:5px 8px;border:1px solid #ddd;">' + d.faz + 'F</td>';
+    rows += '<td style="padding:5px 8px;border:1px solid #ddd;">';
+    rows += '<button onclick="devreduzenle(' + i + ')" style="background:#3498db;color:#fff;border:none;border-radius:3px;padding:3px 8px;cursor:pointer;font-size:11px;margin-right:4px;">✏️</button>';
+    rows += '<button onclick="devresil(' + i + ')" style="background:#e74c3c;color:#fff;border:none;border-radius:3px;padding:3px 8px;cursor:pointer;font-size:11px;">🗑️</button>';
+    rows += '</td></tr>';
+  });
+  tbody.innerHTML = rows;
+}
+
+// ============================================================
+// Tekhat Şeması SVG
+// ============================================================
+function tekhatSvgOlustur() {
+  var svgW = 1800;
+  var svgH = 560;
+  var gerilim = parseFloat(document.getElementById('gerilim').value) || 380;
+  var baglantiTipi = document.getElementById('baglantiTipi').value;
+  var toplamGuc = devreler.reduce(function(s, d) { return s + d.guc; }, 0);
+  var cosfi = parseFloat(document.getElementById('cosfi').value) || 0.9;
+  var anaAkim = hesaplaAkim(toplamGuc, gerilim, 3, cosfi).toFixed(1);
+
+  var lines = [];
+  lines.push('<svg id="katman_1" xmlns="http://www.w3.org/2000/svg" width="' + svgW + '" height="' + svgH + '" viewBox="0 0 ' + svgW + ' ' + svgH + '" style="background:#fff;">');
+
+  // Başlık
+  lines.push('<rect width="' + svgW + '" height="' + svgH + '" fill="#fff"/>');
+  lines.push('<text x="' + svgW/2 + '" y="30" text-anchor="middle" font-size="16" font-weight="bold" fill="#1a1a2e">TEKHATLı ŞEMA</text>');
+  lines.push('<text x="' + svgW/2 + '" y="50" text-anchor="middle" font-size="11" fill="#666">' + gerilim + 'V · ' + baglantiTipi + ' · Toplam Güç: ' + (toplamGuc/1000).toFixed(2) + ' kW · İlk Akım: ~' + anaAkim + 'A</text>');
+
+  // Şebeke girişi
+  var girisX = 60, girisY = 120;
+  lines.push('<line x1="' + girisX + '" y1="' + girisY + '" x2="' + (girisX + 40) + '" y2="' + girisY + '" stroke="#e74c3c" stroke-width="3"/>');
+  lines.push('<text x="' + (girisX - 5) + '" y="' + (girisY - 10) + '" font-size="10" fill="#e74c3c">ŞEBEKE</text>');
+  lines.push('<text x="' + (girisX - 5) + '" y="' + (girisY + 20) + '" font-size="9" fill="#666">' + gerilim + 'V</text>');
+
+  // Sayaç
+  var sayacX = girisX + 40, sayacY = girisY - 18;
+  lines.push('<rect x="' + sayacX + '" y="' + sayacY + '" width="50" height="36" fill="#1a252f" stroke="#2c3e50" stroke-width="2" rx="3"/>');
+  lines.push('<rect x="' + (sayacX + 4) + '" y="' + (sayacY + 4) + '" width="42" height="16" fill="#0d6b3a" rx="1"/>');
+  lines.push('<text x="' + (sayacX + 25) + '" y="' + (sayacY + 15) + '" text-anchor="middle" font-size="8" fill="#00ff88">kWh</text>');
+  lines.push('<text x="' + (sayacX + 25) + '" y="' + (sayacY + 30) + '" text-anchor="middle" font-size="8" fill="#ecf0f1">SAYAÇ</text>');
+
+  // Ana kablo
+  var anaBusX = sayacX + 90, anaBusY = girisY;
+  lines.push('<line x1="' + (sayacX + 50) + '" y1="' + girisY + '" x2="' + anaBusX + '" y2="' + girisY + '" stroke="#e74c3c" stroke-width="3"/>');
+
+  // Ana şalter
+  var anaS_X = sayacX + 50, anaS_Y = girisY - 18;
+  lines.push('<rect x="' + anaS_X + '" y="' + anaS_Y + '" width="40" height="36" fill="#2c3e50" stroke="#1a252f" stroke-width="2" rx="3"/>');
+  lines.push('<text x="' + (anaS_X + 20) + '" y="' + (anaS_Y + 14) + '" text-anchor="middle" font-size="8" fill="#ecf0f1">ANA</text>');
+  lines.push('<text x="' + (anaS_X + 20) + '" y="' + (anaS_Y + 27) + '" text-anchor="middle" font-size="8" fill="#f39c12">100A</text>');
+
+  // Dikey ana bara
+  var baraX = anaBusX;
+  var baraYStart = girisY;
+  var baraYEnd = Math.min(girisY + Math.max(150, devreler.length * 60), svgH - 60);
+  lines.push('<line x1="' + baraX + '" y1="' + baraYStart + '" x2="' + baraX + '" y2="' + baraYEnd + '" stroke="#c0392b" stroke-width="4"/>');
+  lines.push('<rect x="' + (baraX - 6) + '" y="' + baraYStart + '" width="12" height="' + (baraYEnd - baraYStart) + '" fill="#c0392b" opacity="0.15"/>');
+  lines.push('<text x="' + (baraX + 10) + '" y="' + (baraYStart - 5) + '" font-size="10" fill="#c0392b" font-weight="bold">ANA BARA</text>');
+
+  // Devre kolları
+  var colSpacing = Math.min(160, (svgW - baraX - 80) / Math.max(1, devreler.length));
+  var startY = baraYStart + 30;
+
+  devreler.forEach(function(d, i) {
+    var dx = baraX + 60 + i * colSpacing;
+    var dalY = startY + 30;
+
+    // Bağlantı çizgisi baradan
+    lines.push('<line x1="' + baraX + '" y1="' + dalY + '" x2="' + dx + '" y2="' + dalY + '" stroke="#e74c3c" stroke-width="2"/>');
+    lines.push('<line x1="' + dx + '" y1="' + dalY + '" x2="' + dx + '" y2="' + (dalY + 20) + '" stroke="#e74c3c" stroke-width="2"/>');
+
+    // Sigorta sembolü (kutu)
+    lines.push('<rect x="' + (dx - 12) + '" y="' + (dalY + 20) + '" width="24" height="20" fill="#e74c3c" stroke="#c0392b" stroke-width="1.5" rx="2"/>');
+    lines.push('<text x="' + dx + '" y="' + (dalY + 34) + '" text-anchor="middle" font-size="8" fill="#fff">C' + d.sigorta + '</text>');
+
+    // Kablo sonrası
+    lines.push('<line x1="' + dx + '" y1="' + (dalY + 40) + '" x2="' + dx + '" y2="' + (dalY + 70) + '" stroke="#2c3e50" stroke-width="1.5"/>');
+
+    // Yük sembolü
+    var tur = d.tip;
+    if (tur === 'motor') {
+      lines.push('<circle cx="' + dx + '" cy="' + (dalY + 85) + '" r="15" fill="#2980b9" stroke="#1a5276" stroke-width="1.5"/>');
+      lines.push('<text x="' + dx + '" y="' + (dalY + 90) + '" text-anchor="middle" font-size="10" fill="#fff">M</text>');
+    } else if (tur === 'klima') {
+      lines.push('<rect x="' + (dx - 14) + '" y="' + (dalY + 70) + '" width="28" height="22" fill="#27ae60" stroke="#1e8449" stroke-width="1.5" rx="3"/>');
+      lines.push('<text x="' + dx + '" y="' + (dalY + 85) + '" text-anchor="middle" font-size="9" fill="#fff">❄</text>');
+    } else if (tur === 'aydinlatma') {
+      lines.push('<circle cx="' + dx + '" cy="' + (dalY + 82) + '" r="12" fill="#f39c12" stroke="#d68910" stroke-width="1.5"/>');
+      lines.push('<text x="' + dx + '" y="' + (dalY + 87) + '" text-anchor="middle" font-size="11" fill="#fff">☀</text>');
+    } else {
+      lines.push('<rect x="' + (dx - 12) + '" y="' + (dalY + 70) + '" width="24" height="24" fill="#8e44ad" stroke="#6c3483" stroke-width="1.5" rx="2"/>');
+      lines.push('<text x="' + dx + '" y="' + (dalY + 86) + '" text-anchor="middle" font-size="9" fill="#fff">∿</text>');
+    }
+
+    // Etiketler
+    var kesit = d.kesit + 'mm²';
+    lines.push('<text x="' + (dx + 4) + '" y="' + (dalY + 60) + '" font-size="8" fill="#555">' + kesit + '</text>');
+    lines.push('<text x="' + (dx + 4) + '" y="' + (dalY + 70) + '" font-size="8" fill="#555">' + d.uzunluk + 'm</text>');
+
+    // Devre adı (döndürülmüş)
+    var adKisa = d.ad.length > 12 ? d.ad.substring(0, 12) + '…' : d.ad;
+    lines.push('<text x="' + dx + '" y="' + (dalY + 115) + '" text-anchor="middle" font-size="9" fill="#2c3e50">' + adKisa + '</text>');
+    lines.push('<text x="' + dx + '" y="' + (dalY + 127) + '" text-anchor="middle" font-size="8" fill="#888">' + (d.guc >= 1000 ? (d.guc/1000).toFixed(1) + 'kW' : d.guc + 'W') + '</text>');
+  });
+
+  lines.push('</svg>');
+  return lines.join('\n');
+}
+
+// ============================================================
+// Yükleme Cetveli
+// ============================================================
+function cetveliGuncelle() {
+  var gerilim = parseFloat(document.getElementById('gerilim').value) || 380;
+  var cosfi = parseFloat(document.getElementById('cosfi').value) || 0.9;
+
+  var toplamGuc1F = 0, toplamGuc3F = 0, toplamAkim1F = 0, toplamAkim3F = 0;
+  devreler.forEach(function(d) {
+    var a = hesaplaAkim(d.guc, gerilim, d.faz, cosfi);
+    if (d.faz === 1) { toplamGuc1F += d.guc; toplamAkim1F += a; }
+    else { toplamGuc3F += d.guc; toplamAkim3F += a; }
+  });
+  var toplamGuc = toplamGuc1F + toplamGuc3F;
+  var toplamAkim = hesaplaAkim(toplamGuc, gerilim, 3, cosfi);
+
+  // ---- Yükleme Cetveli ----
+  var cetvelHtml = '<div class="tablo-baslik">📋 YÜKLEME CETVELİ</div>';
+  cetvelHtml += '<div class="cetveli-wrapper"><table class="cetveli-tablo">';
+  cetvelHtml += '<thead><tr>';
+  cetvelHtml += '<th>No</th><th>Devre Adı</th><th>Tip</th><th>Faz</th><th>Güç (W)</th><th>Güç (kW)</th>';
+  cetvelHtml += '<th>Akım (A)</th><th>Sigorta (A)</th><th>Kesit (mm²)</th><th>Uzunluk (m)</th><th>GD (%)</th>';
+  cetvelHtml += '</tr></thead><tbody>';
+  devreler.forEach(function(d, i) {
+    var akim = hesaplaAkim(d.guc, gerilim, d.faz, cosfi);
+    var gd = hesaplaGD(d.guc, d.uzunluk, d.kesit, d.faz);
+    var izin = parseFloat(document.getElementById('izinGD').value) || 3;
+    var gdRenk = gd > izin ? 'color:#e74c3c;font-weight:bold;' : (gd > izin * 0.8 ? 'color:#e67e22;' : 'color:#27ae60;');
+    cetvelHtml += '<tr>';
+    cetvelHtml += '<td>' + (i + 1) + '</td>';
+    cetvelHtml += '<td>' + d.ad + '</td>';
+    cetvelHtml += '<td>' + d.tip + '</td>';
+    cetvelHtml += '<td>' + d.faz + 'F</td>';
+    cetvelHtml += '<td>' + d.guc + '</td>';
+    cetvelHtml += '<td>' + (d.guc / 1000).toFixed(2) + '</td>';
+    cetvelHtml += '<td>' + akim.toFixed(2) + '</td>';
+    cetvelHtml += '<td>' + d.sigorta + '</td>';
+    cetvelHtml += '<td>' + d.kesit + '</td>';
+    cetvelHtml += '<td>' + d.uzunluk + '</td>';
+    cetvelHtml += '<td style="' + gdRenk + '">' + gd.toFixed(2) + '</td>';
+    cetvelHtml += '</tr>';
+  });
+  cetvelHtml += '<tr class="toplam-satir">';
+  cetvelHtml += '<td colspan="4" style="text-align:right;font-weight:bold;">TOPLAM</td>';
+  cetvelHtml += '<td>' + toplamGuc + '</td>';
+  cetvelHtml += '<td>' + (toplamGuc / 1000).toFixed(2) + '</td>';
+  cetvelHtml += '<td>' + toplamAkim.toFixed(2) + '</td>';
+  cetvelHtml += '<td colspan="4">—</td>';
+  cetvelHtml += '</tr>';
+  cetvelHtml += '</tbody></table></div>';
+
+  document.getElementById('cetveli-yuklemeCetveli').innerHTML = cetvelHtml;
+
+  // ---- Tesisat Güç Bilgileri ----
+  var tesisatHtml = '<div class="tablo-baslik" style="margin-top:16px;">⚡ TESİSAT GÜÇ BİLGİLERİ</div>';
+  tesisatHtml += '<div class="cetveli-wrapper"><table class="cetveli-tablo">';
+  tesisatHtml += '<thead><tr><th>Parametre</th><th>1 Fazlı</th><th>3 Fazlı</th><th>Toplam</th></tr></thead>';
+  tesisatHtml += '<tbody>';
+  tesisatHtml += '<tr class="guc-satir"><td>Bağlı Güç (W)</td><td>' + toplamGuc1F + '</td><td>' + toplamGuc3F + '</td><td>' + toplamGuc + '</td></tr>';
+  tesisatHtml += '<tr><td>Bağlı Güç (kW)</td><td>' + (toplamGuc1F/1000).toFixed(2) + '</td><td>' + (toplamGuc3F/1000).toFixed(2) + '</td><td>' + (toplamGuc/1000).toFixed(2) + '</td></tr>';
+  tesisatHtml += '<tr class="guc-satir"><td>Hesap Akımı (A)</td><td>' + toplamAkim1F.toFixed(2) + '</td><td>' + toplamAkim3F.toFixed(2) + '</td><td>' + toplamAkim.toFixed(2) + '</td></tr>';
+  tesisatHtml += '<tr><td>Güç Katsayısı (cosφ)</td><td colspan="3">' + cosfi + '</td></tr>';
+  tesisatHtml += '<tr class="guc-satir"><td>Şebeke Gerilimi (V)</td><td colspan="3">' + gerilim + 'V</td></tr>';
+  tesisatHtml += '<tr><td>Görünen Güç (kVA)</td><td>' + (toplamGuc1F / cosfi / 1000).toFixed(2) + '</td><td>' + (toplamGuc3F / cosfi / 1000).toFixed(2) + '</td><td>' + (toplamGuc / cosfi / 1000).toFixed(2) + '</td></tr>';
+  tesisatHtml += '</tbody></table></div>';
+
+  document.getElementById('cetveli-tesisatGuc').innerHTML = tesisatHtml;
+
+  // ---- Kofre Ölçüm Değerleri ----
+  var kofreHtml = '<div class="tablo-baslik" style="margin-top:16px;">🔧 KOFRE ÖLÇÜM DEĞERLERİ</div>';
+  kofreHtml += '<div class="cetveli-wrapper"><table class="cetveli-tablo">';
+  kofreHtml += '<thead><tr><th>Ölçüm</th><th>Faz R</th><th>Faz S</th><th>Faz T</th><th>Nötr (N)</th></tr></thead>';
+  kofreHtml += '<tbody>';
+  var iletken = parseFloat(document.getElementById('iletkenKesit').value) || 4;
+  var hatUzunlugu = parseFloat(document.getElementById('hatUzunlugu').value) || 30;
+  var rho = 0.0175;
+  var R_hat = rho * hatUzunlugu / iletken;
+  var U_hat = gerilim / Math.sqrt(3);
+  kofreHtml += '<tr class="kofre-satir"><td>Ölçülen Gerilim (V)</td><td>' + (U_hat * 0.99).toFixed(1) + '</td><td>' + (U_hat * 1.01).toFixed(1) + '</td><td>' + (U_hat).toFixed(1) + '</td><td>0</td></tr>';
+  kofreHtml += '<tr><td>Hat Direnci (Ω)</td><td colspan="4">' + R_hat.toFixed(4) + ' Ω</td></tr>';
+  kofreHtml += '<tr class="kofre-satir"><td>İletken Kesiti</td><td colspan="4">' + iletken + ' mm²</td></tr>';
+  kofreHtml += '<tr><td>Hat Uzunluğu</td><td colspan="4">' + hatUzunlugu + ' m</td></tr>';
+  kofreHtml += '<tr class="kofre-satir"><td>Hesap Akımı</td><td colspan="4">' + toplamAkim.toFixed(2) + ' A</td></tr>';
+  kofreHtml += '</tbody></table></div>';
+
+  document.getElementById('cetveli-kofreOlcum').innerHTML = kofreHtml;
+
+  // ---- Yapı Güç Bilgileri ----
+  var yapiHtml = '<div class="tablo-baslik" style="margin-top:16px;">🏗️ YAPI GÜÇ BİLGİLERİ</div>';
+  yapiHtml += '<div class="cetveli-wrapper"><table class="cetveli-tablo">';
+  yapiHtml += '<thead><tr><th>Kalem</th><th>Güç (kW)</th><th>Oran (%)</th><th>Açıklama</th></tr></thead>';
+  yapiHtml += '<tbody>';
+  var aydinlatmaGuc = devreler.filter(function(d) { return d.tip === 'aydinlatma'; }).reduce(function(s, d) { return s + d.guc; }, 0);
+  var prizGuc = devreler.filter(function(d) { return d.tip === 'priz'; }).reduce(function(s, d) { return s + d.guc; }, 0);
+  var motorGuc = devreler.filter(function(d) { return d.tip === 'motor'; }).reduce(function(s, d) { return s + d.guc; }, 0);
+  var klimaGuc = devreler.filter(function(d) { return d.tip === 'klima'; }).reduce(function(s, d) { return s + d.guc; }, 0);
+  var digerGuc = toplamGuc - aydinlatmaGuc - prizGuc - motorGuc - klimaGuc;
+  var satirlar = [
+    ['Aydınlatma', aydinlatmaGuc],
+    ['Priz / Genel', prizGuc],
+    ['Motor / Mekanik', motorGuc],
+    ['Klima / İklimlendirme', klimaGuc],
+    ['Diğer', digerGuc],
+  ];
+  satirlar.forEach(function(s) {
+    var oran = toplamGuc ? ((s[1] / toplamGuc) * 100).toFixed(1) : '0.0';
+    yapiHtml += '<tr><td>' + s[0] + '</td><td>' + (s[1]/1000).toFixed(2) + '</td><td>' + oran + '%</td><td>—</td></tr>';
+  });
+  yapiHtml += '<tr class="toplam-satir"><td>TOPLAM</td><td>' + (toplamGuc/1000).toFixed(2) + '</td><td>100%</td><td>—</td></tr>';
+  yapiHtml += '</tbody></table></div>';
+
+  document.getElementById('cetveli-yapiGuc').innerHTML = yapiHtml;
+}
+
+// ============================================================
+// GD Tabloları
+// ============================================================
+function gdTabloGuncelle() {
+  var gerilim = parseFloat(document.getElementById('gerilim').value) || 380;
+  var cosfi = parseFloat(document.getElementById('cosfi').value) || 0.9;
+  var izin = parseFloat(document.getElementById('izinGD').value) || 3;
+
+  // Devre yoksa çık
+  if (!devreler.length) return;
+
+  // Her devre için GD hesapla
+  var devreGD = devreler.map(function(d) {
+    return { d: d, gd: hesaplaGD(d.guc, d.uzunluk, d.kesit, d.faz) };
+  });
+
+  // En uzun devre (uzunluk en fazla)
+  var enUzun = devreler.reduce(function(a, b) { return b.uzunluk > a.uzunluk ? b : a; }, devreler[0]);
+  // En güçlü devre (güç en fazla)
+  var enGuclu = devreler.reduce(function(a, b) { return b.guc > a.guc ? b : a; }, devreler[0]);
+
+  function gdTablo(baslik, d) {
+    var akim = hesaplaAkim(d.guc, gerilim, d.faz, cosfi);
+    var gd = hesaplaGD(d.guc, d.uzunluk, d.kesit, d.faz);
+    var rho = 0.0175;
+    var R = rho * d.uzunluk / d.kesit;
+    var dV = (d.faz === 3) ? Math.sqrt(3) * akim * R : 2 * akim * R;
+    var durum = gd <= izin ? '✅ UYGUN' : '❌ AŞIM';
+    var durumRenk = gd <= izin ? '#27ae60' : '#e74c3c';
+
+    return '<div class="tablo-baslik">' + baslik + '</div>' +
+      '<table class="gd-tablo">' +
+      '<thead><tr><th>Parametre</th><th>Değer</th><th>Birim</th></tr></thead>' +
+      '<tbody>' +
+      '<tr><td>Devre Adı</td><td>' + d.ad + '</td><td>—</td></tr>' +
+      '<tr><td>Bağlı Güç</td><td>' + d.guc + '</td><td>W</td></tr>' +
+      '<tr><td>Hat Uzunluğu</td><td>' + d.uzunluk + '</td><td>m</td></tr>' +
+      '<tr><td>İletken Kesiti</td><td>' + d.kesit + '</td><td>mm²</td></tr>' +
+      '<tr><td>Faz</td><td>' + d.faz + '</td><td>—</td></tr>' +
+      '<tr><td>Hesap Akımı</td><td>' + akim.toFixed(3) + '</td><td>A</td></tr>' +
+      '<tr><td>İletken Direnci ρ</td><td>' + rho + '</td><td>Ω·mm²/m</td></tr>' +
+      '<tr><td>Hat Direnci R</td><td>' + R.toFixed(4) + '</td><td>Ω</td></tr>' +
+      '<tr><td>Gerilim Düşümü ΔU</td><td>' + dV.toFixed(3) + '</td><td>V</td></tr>' +
+      '<tr><td>Gerilim Düşümü</td><td>' + gd.toFixed(3) + '</td><td>%</td></tr>' +
+      '<tr><td>İzin Verilen GD</td><td>' + izin + '</td><td>%</td></tr>' +
+      '<tr class="sonuc-satir"><td>Durum</td><td colspan="2" style="color:' + durumRenk + ';">' + durum + '</td></tr>' +
+      '</tbody></table>';
+  }
+
+  document.getElementById('gd-tablo-enuzun').innerHTML = gdTablo('📉 GD HESABI – EN UZUN DEVRE', enUzun);
+  document.getElementById('gd-tablo-enguclu').innerHTML = gdTablo('📉 GD HESABI – EN GÜÇLÜ DEVRE', enGuclu);
+}
+
+// ============================================================
+// Genel güncelleme
+// ============================================================
+function guncelle() {
+  devreTablosunuRender();
+  var svgStr = tekhatSvgOlustur();
+  document.getElementById('tekhat-alan').innerHTML = svgStr;
+  cetveliGuncelle();
+  gdTabloGuncelle();
+}
+
+// ============================================================
+// Modal işlemleri
+// ============================================================
+function devreyiAc() {
+  document.getElementById('duzenleme-idx').value = -1;
+  document.getElementById('md-ad').value = 'Yeni Devre';
+  document.getElementById('md-guc').value = 1000;
+  document.getElementById('md-sigorta').value = 16;
+  document.getElementById('md-kesit').value = '2.5';
+  document.getElementById('md-uzunluk').value = 15;
+  document.getElementById('md-faz').value = '1';
+  document.getElementById('md-tip').value = 'aydinlatma';
+  document.getElementById('devre-modal').classList.add('active');
+}
+
+function devreduzenle(i) {
+  var d = devreler[i];
+  document.getElementById('duzenleme-idx').value = i;
+  document.getElementById('md-ad').value = d.ad;
+  document.getElementById('md-guc').value = d.guc;
+  document.getElementById('md-sigorta').value = d.sigorta;
+  document.getElementById('md-kesit').value = d.kesit;
+  document.getElementById('md-uzunluk').value = d.uzunluk;
+  document.getElementById('md-faz').value = d.faz;
+  document.getElementById('md-tip').value = d.tip;
+  document.getElementById('devre-modal').classList.add('active');
+}
+
+function devresil(i) {
+  if (confirm('Bu devreyi silmek istiyor musunuz?')) {
+    devreler.splice(i, 1);
+    guncelle();
+  }
+}
+
+function devreKaydet() {
+  var idx = parseInt(document.getElementById('duzenleme-idx').value);
+  var d = {
+    ad: document.getElementById('md-ad').value,
+    guc: parseFloat(document.getElementById('md-guc').value) || 0,
+    sigorta: parseFloat(document.getElementById('md-sigorta').value) || 16,
+    kesit: parseFloat(document.getElementById('md-kesit').value) || 2.5,
+    uzunluk: parseFloat(document.getElementById('md-uzunluk').value) || 15,
+    faz: parseInt(document.getElementById('md-faz').value),
+    tip: document.getElementById('md-tip').value
+  };
+  if (idx >= 0) {
+    devreler[idx] = d;
+  } else {
+    devreler.push(d);
+  }
+  kapatModal();
+}
+
+function kapatModal() {
+  document.getElementById('devre-modal').classList.remove('active');
+  guncelle();
+  saveState();
+}
+
+// ============================================================
+// SVG → PNG Base64 dönüştürücü
+// ============================================================
+function svgToPngBase64(svgString, pxW, pxH, dpiMul) {
+  return new Promise(function(resolve, reject) {
+    dpiMul = dpiMul || 2;
+    var blob = new Blob([svgString], {type: 'image/svg+xml;charset=utf-8'});
+    var url = URL.createObjectURL(blob);
+    var img = new Image();
+    img.onload = function() {
+      var cw = (pxW || img.naturalWidth || 800) * dpiMul;
+      var ch = (pxH || img.naturalHeight || 600) * dpiMul;
+      var canvas = document.createElement('canvas');
+      canvas.width = cw;
+      canvas.height = ch;
+      var ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, cw, ch);
+      ctx.drawImage(img, 0, 0, cw, ch);
+      URL.revokeObjectURL(url);
+      resolve(canvas.toDataURL('image/png'));
+    };
+    img.onerror = function() {
+      URL.revokeObjectURL(url);
+      reject(new Error('SVG yüklenemedi'));
+    };
+    img.src = url;
+  });
+}
+
+// ============================================================
+// LocalStorage Kayıt
+// ============================================================
+function saveState() {
+  var state = {
+    projeAdi: document.getElementById('projeAdi').value,
+    musteriAdi: document.getElementById('musteriAdi').value,
+    tarih: document.getElementById('tarih').value,
+    muhendis: document.getElementById('muhendis').value,
+    gerilim: document.getElementById('gerilim').value,
+    frekans: document.getElementById('frekans').value,
+    baglantiTipi: document.getElementById('baglantiTipi').value,
+    izinGD: document.getElementById('izinGD').value,
+    cosfi: document.getElementById('cosfi').value,
+    baglantiNoktasi: document.getElementById('baglantiNoktasi').value,
+    hatUzunlugu: document.getElementById('hatUzunlugu').value,
+    iletkenKesit: document.getElementById('iletkenKesit').value,
+    devreler: devreler,
+    svgString: document.getElementById('tekhat-alan').innerHTML,
+    cetveliHtml: document.getElementById('cetveli-canli-alan').innerHTML,
+    savedAt: new Date().toISOString()
+  };
+
+  try {
+    localStorage.setItem('proje_sema_v1', JSON.stringify(state));
+  } catch (e) {
+    console.warn('proje_sema_v1 kayıt hatası:', e);
+  }
+
+  // Async PNG üretimi
+  setTimeout(function() {
+    // 1. Tekhat SVG → PNG
+    var svgEl = document.getElementById('katman_1');
+    if (svgEl) {
+      // hit-layer'ları geçici kaldır, serialize et, geri koy
+      var hitLayers = svgEl.querySelectorAll('.hit-layer');
+      var yedekler = [];
+      hitLayers.forEach(function(el) {
+        yedekler.push({ parent: el.parentNode, next: el.nextSibling, el: el });
+        el.parentNode.removeChild(el);
+      });
+      var svgStr = new XMLSerializer().serializeToString(svgEl);
+      yedekler.forEach(function(item) {
+        if (item.next) item.parent.insertBefore(item.el, item.next);
+        else item.parent.appendChild(item.el);
+      });
+
+      svgToPngBase64(svgStr, 1800, 560, 2)
+        .then(function(png) { localStorage.setItem('rapor_png_tekhat', png); })
+        .catch(function(e) { console.warn('Tekhat PNG hatası:', e); });
+    }
+
+    // 2-7. HTML tabloları → html2canvas → PNG
+    var htmlGorevler = [
+      { divId: 'cetveli-yuklemeCetveli', key: 'rapor_png_cetveli' },
+      { divId: 'cetveli-tesisatGuc',     key: 'rapor_png_tesisatGuc' },
+      { divId: 'cetveli-kofreOlcum',     key: 'rapor_png_kofreOlcum' },
+      { divId: 'cetveli-yapiGuc',        key: 'rapor_png_yapiGuc' },
+      { divId: 'gd-tablo-enuzun',        key: 'rapor_png_gdEnUzun' },
+      { divId: 'gd-tablo-enguclu',       key: 'rapor_png_gdEnGuclu' },
+    ];
+
+    htmlGorevler.forEach(function(g) {
+      var el = document.getElementById(g.divId);
+      if (el && typeof html2canvas === 'function') {
+        html2canvas(el, {
+          backgroundColor: '#ffffff',
+          scale: 2,
+          useCORS: true,
+          logging: false
+        }).then(function(canvas) {
+          localStorage.setItem(g.key, canvas.toDataURL('image/png'));
+        }).catch(function(e) {
+          console.warn(g.key + ' PNG hatası:', e);
+        });
+      }
+    });
+
+    var mesaj = document.getElementById('kayit-mesaj');
+    if (mesaj) {
+      mesaj.textContent = '✅ Kaydedildi!';
+      setTimeout(function() { mesaj.textContent = ''; }, 3000);
+    }
+  }, 300);
+
+  var mesaj = document.getElementById('kayit-mesaj');
+  if (mesaj) { mesaj.textContent = '💾 Kaydediliyor...'; }
+}
+
+// ============================================================
+// Kayıtlı veriyi yükle
+// ============================================================
+function loadState() {
+  try {
+    var raw = localStorage.getItem('proje_sema_v1');
+    if (!raw) return false;
+    var s = JSON.parse(raw);
+
+    if (s.projeAdi) document.getElementById('projeAdi').value = s.projeAdi;
+    if (s.musteriAdi) document.getElementById('musteriAdi').value = s.musteriAdi;
+    if (s.tarih) document.getElementById('tarih').value = s.tarih;
+    if (s.muhendis) document.getElementById('muhendis').value = s.muhendis;
+    if (s.gerilim) document.getElementById('gerilim').value = s.gerilim;
+    if (s.frekans) document.getElementById('frekans').value = s.frekans;
+    if (s.baglantiTipi) document.getElementById('baglantiTipi').value = s.baglantiTipi;
+    if (s.izinGD) document.getElementById('izinGD').value = s.izinGD;
+    if (s.cosfi) document.getElementById('cosfi').value = s.cosfi;
+    if (s.baglantiNoktasi) document.getElementById('baglantiNoktasi').value = s.baglantiNoktasi;
+    if (s.hatUzunlugu) document.getElementById('hatUzunlugu').value = s.hatUzunlugu;
+    if (s.iletkenKesit) document.getElementById('iletkenKesit').value = s.iletkenKesit;
+    if (s.devreler && s.devreler.length) { devreler = s.devreler; }
+    return true;
+  } catch (e) {
+    console.warn('loadState hatası:', e);
+    return false;
+  }
+}
+
+// ============================================================
+// Yardımcı fonksiyonlar (geriye uyumluluk için korunuyor)
+// ============================================================
+function buildTesisatGucTablosu() {
+  return document.getElementById('cetveli-tesisatGuc').innerHTML;
+}
+function buildKofreOlcumTablosu() {
+  return document.getElementById('cetveli-kofreOlcum').innerHTML;
+}
+function buildYapiGucTablosu() {
+  return document.getElementById('cetveli-yapiGuc').innerHTML;
+}
+
+// ============================================================
+// Sayfa yüklendiğinde
+// ============================================================
+document.addEventListener('DOMContentLoaded', function() {
+  document.getElementById('tarih').value = new Date().toISOString().split('T')[0];
+  var yukledik = loadState();
+  guncelle();
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Kolon Hesaplama</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, sans-serif; font-size: 13px; background: #f0f2f5; }
+    .page { max-width: 1400px; margin: 0 auto; padding: 16px; }
+    h1 { font-size: 20px; margin-bottom: 16px; color: #1a1a2e; }
+
+    .panel { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 16px; margin-bottom: 16px; }
+    .panel h2 { font-size: 14px; font-weight: 700; margin-bottom: 12px; color: #333; border-bottom: 2px solid #4a90e2; padding-bottom: 6px; }
+
+    .form-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; }
+    .form-group label { display: block; font-size: 11px; color: #666; margin-bottom: 3px; }
+    .form-group input, .form-group select {
+      width: 100%; padding: 6px 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 12px;
+    }
+    .form-group input:focus, .form-group select:focus { outline: none; border-color: #4a90e2; }
+
+    .btn { padding: 8px 18px; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: 600; }
+    .btn-primary { background: #4a90e2; color: #fff; }
+    .btn-primary:hover { background: #357abd; }
+    .btn-success { background: #27ae60; color: #fff; }
+    .btn-success:hover { background: #219150; }
+    .btn-row { display: flex; gap: 10px; margin-top: 12px; }
+
+    .svg-container { overflow: auto; background: #fff; border: 1px solid #ddd; border-radius: 4px; padding: 8px; }
+    svg { display: block; }
+
+    .tabs { display: flex; gap: 0; border-bottom: 2px solid #4a90e2; margin-bottom: 0; }
+    .tab-btn { padding: 8px 20px; border: 1px solid #ccc; border-bottom: none; background: #f5f5f5; cursor: pointer; font-size: 12px; border-radius: 4px 4px 0 0; margin-right: 2px; }
+    .tab-btn.active { background: #4a90e2; color: #fff; border-color: #4a90e2; font-weight: 600; }
+
+    .tab-content { display: none; padding-top: 16px; }
+    .tab-content.active { display: block; }
+
+    #kayit-mesaj { display: inline-block; margin-left: 12px; font-size: 12px; color: #27ae60; }
+
+    table.hesap-tablo { border-collapse: collapse; width: 100%; font-size: 12px; }
+    table.hesap-tablo th, table.hesap-tablo td {
+      border: 1px solid #ccc; padding: 5px 8px; text-align: center;
+    }
+    table.hesap-tablo th { background: #4a90e2; color: #fff; }
+    table.hesap-tablo tr:nth-child(even) { background: #f9f9f9; }
+  </style>
+</head>
+<body>
+<div class="page">
+  <h1>🏢 Kolon Hesaplama</h1>
+
+  <!-- Proje Bilgileri -->
+  <div class="panel">
+    <h2>Proje Bilgileri</h2>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Proje Adı</label>
+        <input type="text" id="projeAdi" value="Örnek Bina Projesi" />
+      </div>
+      <div class="form-group">
+        <label>Müşteri Adı</label>
+        <input type="text" id="musteriAdi" value="Ahmet Yılmaz" />
+      </div>
+      <div class="form-group">
+        <label>Adres</label>
+        <input type="text" id="adres" value="İstanbul" />
+      </div>
+      <div class="form-group">
+        <label>Tarih</label>
+        <input type="date" id="tarih" />
+      </div>
+    </div>
+  </div>
+
+  <!-- Bina Parametreleri -->
+  <div class="panel">
+    <h2>Bina Parametreleri</h2>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Kat Sayısı</label>
+        <input type="number" id="katSayisi" value="5" min="1" max="30" />
+      </div>
+      <div class="form-group">
+        <label>Bina Genişliği (m)</label>
+        <input type="number" id="binaGenislik" value="12" min="4" />
+      </div>
+      <div class="form-group">
+        <label>Bina Derinliği (m)</label>
+        <input type="number" id="binaDerinlik" value="10" min="4" />
+      </div>
+      <div class="form-group">
+        <label>Kat Yüksekliği (m)</label>
+        <input type="number" id="katYukseklik" value="3" min="2" step="0.1" />
+      </div>
+      <div class="form-group">
+        <label>Kolon Aralığı X (m)</label>
+        <input type="number" id="kolonArX" value="4" min="2" step="0.5" />
+      </div>
+      <div class="form-group">
+        <label>Kolon Aralığı Y (m)</label>
+        <input type="number" id="kolonArY" value="5" min="2" step="0.5" />
+      </div>
+      <div class="form-group">
+        <label>Kolon Boyutu (cm)</label>
+        <input type="number" id="kolonBoyutu" value="40" min="20" max="100" step="5" />
+      </div>
+      <div class="form-group">
+        <label>Zemin Kat</label>
+        <select id="zeminKat">
+          <option value="1">Var</option>
+          <option value="0">Yok</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Çatı Tipi</label>
+        <select id="catiTipi">
+          <option value="duz">Düz Çatı</option>
+          <option value="egik">Eğik Çatı</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Pano Parametreleri -->
+    <h2 style="margin-top:16px;">Pano Parametreleri</h2>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Pano Tipi</label>
+        <select id="panoTipi">
+          <option value="dikili">Dikili Tip</option>
+          <option value="duvar">Duvar Tipi</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Sigorta Sayısı</label>
+        <input type="number" id="sigortaSayisi" value="8" min="1" max="32" />
+      </div>
+      <div class="form-group">
+        <label>Ana Sigorta (A)</label>
+        <input type="number" id="anaSigorta" value="100" min="10" />
+      </div>
+      <div class="form-group">
+        <label>Sayaç Tipi</label>
+        <select id="sayacTipi">
+          <option value="tek">Tek Fazlı</option>
+          <option value="uc">Üç Fazlı</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="hesaplaVeGoster()">🔄 Hesapla &amp; Göster</button>
+      <button class="btn btn-success" onclick="saveToStorage()">💾 Kaydet</button>
+      <span id="kayit-mesaj"></span>
+    </div>
+  </div>
+
+  <!-- Sekmeli Görsel Alan -->
+  <div class="panel">
+    <div class="tabs">
+      <button class="tab-btn active" onclick="sekmeAc('bina-tab', this)">🏢 Bina Görseli</button>
+      <button class="tab-btn" onclick="sekmeAc('kolon-tab', this)">🏛️ Kolon Şeması</button>
+      <button class="tab-btn" onclick="sekmeAc('pano-tab', this)">🗄️ Sayaç Panosu</button>
+    </div>
+
+    <div id="bina-tab" class="tab-content active">
+      <div class="svg-container">
+        <div id="bina-svg-alan"></div>
+      </div>
+    </div>
+    <div id="kolon-tab" class="tab-content">
+      <div class="svg-container">
+        <div id="kolon-svg-alan"></div>
+      </div>
+    </div>
+    <div id="pano-tab" class="tab-content">
+      <div class="svg-container">
+        <div id="pano-svg-alan"></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ============================================================
+// Global değişkenler
+// ============================================================
+var binaSvg = '';
+var kolonSvg = '';
+var panoSvg = '';
+
+// ============================================================
+// Sekme kontrolü
+// ============================================================
+function sekmeAc(id, btn) {
+  document.querySelectorAll('.tab-content').forEach(function(el) { el.classList.remove('active'); });
+  document.querySelectorAll('.tab-btn').forEach(function(el) { el.classList.remove('active'); });
+  document.getElementById(id).classList.add('active');
+  btn.classList.add('active');
+}
+
+// ============================================================
+// Bina SVG oluşturma
+// ============================================================
+function _binaSvgOlustur(params) {
+  var katlar = params.katSayisi;
+  var genislik = params.binaGenislik;
+  var derinlik = params.binaDerinlik;
+  var katH = params.katYukseklik;
+  var catiTipi = params.catiTipi;
+  var zeminKat = params.zeminKat;
+
+  var svgW = 600;
+  var svgH = 500;
+
+  var binaW = 260;
+  var katPx = 40;
+  var toplamKat = katlar + (zeminKat ? 1 : 0);
+  var binaH = toplamKat * katPx;
+  var catiH = (catiTipi === 'egik') ? 60 : 0;
+  var bX = 170;
+  var bY = svgH - 60 - binaH - catiH;
+
+  var lines = [];
+  lines.push('<svg xmlns="http://www.w3.org/2000/svg" width="' + svgW + '" height="' + svgH + '" viewBox="0 0 ' + svgW + ' ' + svgH + '">');
+  lines.push('<rect width="' + svgW + '" height="' + svgH + '" fill="#f8f9fa"/>');
+
+  // Başlık
+  lines.push('<text x="' + (svgW/2) + '" y="28" text-anchor="middle" font-size="15" font-weight="bold" fill="#1a1a2e">BİNA GÖRSELI</text>');
+  lines.push('<text x="' + (svgW/2) + '" y="46" text-anchor="middle" font-size="11" fill="#666">' + katlar + ' Katlı · ' + genislik + 'm × ' + derinlik + 'm · Kat Yüksekliği: ' + katH + 'm</text>');
+
+  // Zemin çizgisi
+  var zeminY = svgH - 60;
+  lines.push('<line x1="60" y1="' + zeminY + '" x2="' + (svgW - 60) + '" y2="' + zeminY + '" stroke="#555" stroke-width="3"/>');
+
+  // Bina gövdesi
+  lines.push('<rect x="' + bX + '" y="' + (bY + catiH) + '" width="' + binaW + '" height="' + binaH + '" fill="#dce8f7" stroke="#2c3e50" stroke-width="2"/>');
+
+  // Kat çizgileri ve pencereler
+  for (var k = 0; k < toplamKat; k++) {
+    var ky = bY + catiH + binaH - (k + 1) * katPx;
+    lines.push('<line x1="' + bX + '" y1="' + ky + '" x2="' + (bX + binaW) + '" y2="' + ky + '" stroke="#8aa8c8" stroke-width="0.8"/>');
+    // Pencereler (2 adet)
+    var pW = 28, pH = 22;
+    for (var p = 0; p < 3; p++) {
+      var px = bX + 20 + p * 80;
+      var py = ky + (katPx - pH) / 2;
+      lines.push('<rect x="' + px + '" y="' + py + '" width="' + pW + '" height="' + pH + '" fill="#b8dff7" stroke="#4a90e2" stroke-width="1"/>');
+      lines.push('<line x1="' + (px + pW/2) + '" y1="' + py + '" x2="' + (px + pW/2) + '" y2="' + (py + pH) + '" stroke="#4a90e2" stroke-width="0.6"/>');
+      lines.push('<line x1="' + px + '" y1="' + (py + pH/2) + '" x2="' + (px + pW) + '" y2="' + (py + pH/2) + '" stroke="#4a90e2" stroke-width="0.6"/>');
+    }
+    // Kat numarası
+    var katLabel = (zeminKat && k === 0) ? 'Z' : (zeminKat ? k : k + 1) + '.Kat';
+    lines.push('<text x="' + (bX - 8) + '" y="' + (ky + katPx/2 + 4) + '" text-anchor="end" font-size="10" fill="#555">' + katLabel + '</text>');
+  }
+
+  // Çatı
+  if (catiTipi === 'egik') {
+    var cx = bX + binaW / 2;
+    var cy = bY;
+    lines.push('<polygon points="' + bX + ',' + (bY + catiH) + ' ' + cx + ',' + cy + ' ' + (bX + binaW) + ',' + (bY + catiH) + '" fill="#c0392b" stroke="#922b21" stroke-width="2"/>');
+  } else {
+    lines.push('<rect x="' + bX + '" y="' + bY + '" width="' + binaW + '" height="' + catiH + '" fill="#95a5a6" stroke="#2c3e50" stroke-width="1.5"/>');
+  }
+
+  // Kapı
+  var kapW = 32, kapH = 34;
+  var kapX = bX + binaW/2 - kapW/2;
+  var kapY = zeminY - kapH;
+  lines.push('<rect x="' + kapX + '" y="' + kapY + '" width="' + kapW + '" height="' + kapH + '" fill="#8B6914" stroke="#5D4037" stroke-width="1.5"/>');
+  lines.push('<circle cx="' + (kapX + 6) + '" cy="' + (kapY + kapH/2) + '" r="2" fill="#gold"/>');
+
+  // Boyutlar
+  lines.push('<line x1="' + (bX - 30) + '" y1="' + (bY + catiH) + '" x2="' + (bX - 30) + '" y2="' + zeminY + '" stroke="#e74c3c" stroke-width="1" marker-start="url(#arr)" marker-end="url(#arr)"/>');
+  lines.push('<text x="' + (bX - 32) + '" y="' + (bY + catiH + binaH/2 + 4) + '" text-anchor="end" font-size="10" fill="#e74c3c">' + (toplamKat * katH) + 'm</text>');
+  lines.push('<line x1="' + bX + '" y1="' + (zeminY + 22) + '" x2="' + (bX + binaW) + '" y2="' + (zeminY + 22) + '" stroke="#e74c3c" stroke-width="1"/>');
+  lines.push('<text x="' + (bX + binaW/2) + '" y="' + (zeminY + 36) + '" text-anchor="middle" font-size="10" fill="#e74c3c">' + genislik + 'm</text>');
+
+  // İnsan silüeti (ölçek için)
+  var insanX = bX + binaW + 30;
+  var insanY = zeminY;
+  lines.push('<line x1="' + insanX + '" y1="' + (insanY - 30) + '" x2="' + insanX + '" y2="' + insanY + '" stroke="#555" stroke-width="2"/>');
+  lines.push('<circle cx="' + insanX + '" cy="' + (insanY - 36) + '" r="6" fill="#555"/>');
+  lines.push('<text x="' + (insanX + 10) + '" y="' + (insanY - 12) + '" font-size="9" fill="#555">1.80m</text>');
+
+  lines.push('</svg>');
+  return lines.join('\n');
+}
+
+// ============================================================
+// Kolon Şeması SVG
+// ============================================================
+function renderKolon(params) {
+  var genislik = params.binaGenislik;
+  var derinlik = params.binaDerinlik;
+  var arX = params.kolonArX;
+  var arY = params.kolonArY;
+  var boyut = params.kolonBoyutu;
+
+  var kolonW = Math.ceil(genislik / arX) + 1;
+  var kolonH = Math.ceil(derinlik / arY) + 1;
+
+  var svgW = 1400;
+  var svgH = 900;
+  var marginL = 80, marginT = 80, marginR = 60, marginB = 60;
+  var alanW = svgW - marginL - marginR;
+  var alanH = svgH - marginT - marginB;
+  var adimX = alanW / (kolonW - 1 || 1);
+  var adimY = alanH / (kolonH - 1 || 1);
+  var kolonPx = Math.max(8, Math.min(20, boyut / 5));
+
+  var lines = [];
+  lines.push('<svg xmlns="http://www.w3.org/2000/svg" width="' + svgW + '" height="' + svgH + '" viewBox="0 0 ' + svgW + ' ' + svgH + '">');
+  lines.push('<rect width="' + svgW + '" height="' + svgH + '" fill="#ffffff"/>');
+
+  // Başlık
+  lines.push('<text x="' + svgW/2 + '" y="36" text-anchor="middle" font-size="18" font-weight="bold" fill="#1a1a2e">KOLON ŞEMASI</text>');
+  lines.push('<text x="' + svgW/2 + '" y="58" text-anchor="middle" font-size="13" fill="#666">' + genislik + 'm × ' + derinlik + 'm · Kolon Aralığı: ' + arX + 'm × ' + arY + 'm · Kolon: ' + boyut + 'cm × ' + boyut + 'cm</text>');
+
+  // Kirişler (yatay)
+  for (var ky = 0; ky < kolonH; ky++) {
+    var y = marginT + ky * adimY;
+    lines.push('<line x1="' + marginL + '" y1="' + y + '" x2="' + (marginL + alanW) + '" y2="' + y + '" stroke="#8aa8c8" stroke-width="4"/>');
+    // Y ekseni etiketi
+    lines.push('<text x="' + (marginL - 10) + '" y="' + (y + 4) + '" text-anchor="end" font-size="11" fill="#888">' + (ky * arY).toFixed(1) + 'm</text>');
+  }
+  // Kirişler (dikey)
+  for (var kx = 0; kx < kolonW; kx++) {
+    var x = marginL + kx * adimX;
+    lines.push('<line x1="' + x + '" y1="' + marginT + '" x2="' + x + '" y2="' + (marginT + alanH) + '" stroke="#8aa8c8" stroke-width="4"/>');
+    // X ekseni etiketi
+    lines.push('<text x="' + x + '" y="' + (marginT - 12) + '" text-anchor="middle" font-size="11" fill="#888">' + (kx * arX).toFixed(1) + 'm</text>');
+  }
+
+  // Kolonlar
+  var kolonIdx = 1;
+  for (var j = 0; j < kolonH; j++) {
+    for (var i = 0; i < kolonW; i++) {
+      var cx = marginL + i * adimX;
+      var cy = marginT + j * adimY;
+      // Kolon dolgusu
+      lines.push('<rect x="' + (cx - kolonPx/2) + '" y="' + (cy - kolonPx/2) + '" width="' + kolonPx + '" height="' + kolonPx + '" fill="#2c3e50" stroke="#1a252f" stroke-width="1"/>');
+      // Kolon etiketi
+      lines.push('<text x="' + cx + '" y="' + (cy - kolonPx/2 - 4) + '" text-anchor="middle" font-size="9" fill="#2c3e50">K' + kolonIdx + '</text>');
+      kolonIdx++;
+    }
+  }
+
+  // Ölçüler
+  lines.push('<text x="' + (marginL + alanW/2) + '" y="' + (svgH - 12) + '" text-anchor="middle" font-size="13" fill="#e74c3c">Toplam Genişlik: ' + genislik + ' m</text>');
+  lines.push('<text x="14" y="' + (marginT + alanH/2) + '" text-anchor="middle" font-size="13" fill="#e74c3c" transform="rotate(-90, 14, ' + (marginT + alanH/2) + ')">Toplam Derinlik: ' + derinlik + ' m</text>');
+
+  // Lejant
+  var lx = svgW - 200, ly = marginT;
+  lines.push('<rect x="' + lx + '" y="' + ly + '" width="180" height="80" fill="#f8f9fa" stroke="#ccc" stroke-width="1" rx="4"/>');
+  lines.push('<text x="' + (lx + 10) + '" y="' + (ly + 18) + '" font-size="11" font-weight="bold" fill="#333">LEJANT</text>');
+  lines.push('<rect x="' + (lx + 10) + '" y="' + (ly + 26) + '" width="12" height="12" fill="#2c3e50"/>');
+  lines.push('<text x="' + (lx + 28) + '" y="' + (ly + 37) + '" font-size="10" fill="#333">Kolon (' + boyut + '×' + boyut + ' cm)</text>');
+  lines.push('<line x1="' + (lx + 10) + '" y1="' + (ly + 55) + '" x2="' + (lx + 22) + '" y2="' + (ly + 55) + '" stroke="#8aa8c8" stroke-width="4"/>');
+  lines.push('<text x="' + (lx + 28) + '" y="' + (ly + 59) + '" font-size="10" fill="#333">Kiriş</text>');
+
+  lines.push('<text x="' + (marginL) + '" y="' + (svgH - 30) + '" font-size="11" fill="#888">Toplam Kolon: ' + (kolonW * kolonH) + ' adet</text>');
+
+  lines.push('</svg>');
+  return lines.join('\n');
+}
+
+// ============================================================
+// Pano SVG
+// ============================================================
+function renderDikiliPano(params) {
+  var sigortaSayisi = params.sigortaSayisi;
+  var anaSigorta = params.anaSigorta;
+  var sayacTipi = params.sayacTipi;
+
+  var svgW = 1100;
+  var svgH = 700;
+  var pW = 340, pH = 500;
+  var pX = (svgW - pW) / 2, pY = 80;
+
+  var lines = [];
+  lines.push('<svg xmlns="http://www.w3.org/2000/svg" width="' + svgW + '" height="' + svgH + '" viewBox="0 0 ' + svgW + ' ' + svgH + '">');
+  lines.push('<rect width="' + svgW + '" height="' + svgH + '" fill="#f8f9fa"/>');
+
+  // Başlık
+  lines.push('<text x="' + svgW/2 + '" y="36" text-anchor="middle" font-size="16" font-weight="bold" fill="#1a1a2e">DİKİLİ TİP SAYAÇ PANOSU</text>');
+  lines.push('<text x="' + svgW/2 + '" y="56" text-anchor="middle" font-size="12" fill="#666">Ana Sigorta: ' + anaSigorta + 'A · Sayaç: ' + (sayacTipi === 'uc' ? 'Üç Fazlı' : 'Tek Fazlı') + ' · ' + sigortaSayisi + ' Devre</text>');
+
+  // Pano gövdesi
+  lines.push('<rect x="' + pX + '" y="' + pY + '" width="' + pW + '" height="' + pH + '" fill="#d0d8e4" stroke="#2c3e50" stroke-width="3" rx="4"/>');
+  lines.push('<rect x="' + (pX + 10) + '" y="' + (pY + 10) + '" width="' + (pW - 20) + '" height="' + (pH - 20) + '" fill="#e8edf4" stroke="#95a5a6" stroke-width="1" rx="2"/>');
+
+  // Ana şalter
+  var asX = pX + pW/2 - 30, asY = pY + 30;
+  lines.push('<rect x="' + asX + '" y="' + asY + '" width="60" height="40" fill="#2c3e50" stroke="#1a252f" stroke-width="2" rx="4"/>');
+  lines.push('<text x="' + (asX + 30) + '" y="' + (asY + 15) + '" text-anchor="middle" font-size="9" fill="#ecf0f1">ANA</text>');
+  lines.push('<text x="' + (asX + 30) + '" y="' + (asY + 28) + '" text-anchor="middle" font-size="9" fill="#ecf0f1">ŞALTER</text>');
+  lines.push('<text x="' + (asX + 30) + '" y="' + (asY + 38) + '" text-anchor="middle" font-size="8" fill="#f39c12">' + anaSigorta + 'A</text>');
+
+  // Sayaç
+  var sayX = pX + pW/2 - 45, sayY = asY + 60;
+  lines.push('<rect x="' + sayX + '" y="' + sayY + '" width="90" height="55" fill="#1a252f" stroke="#2c3e50" stroke-width="1.5" rx="3"/>');
+  lines.push('<rect x="' + (sayX + 5) + '" y="' + (sayY + 5) + '" width="80" height="25" fill="#0d6b3a" rx="2"/>');
+  lines.push('<text x="' + (sayX + 45) + '" y="' + (sayY + 21) + '" text-anchor="middle" font-size="10" fill="#00ff88">000000</text>');
+  lines.push('<text x="' + (sayX + 45) + '" y="' + (sayY + 44) + '" text-anchor="middle" font-size="9" fill="#ecf0f1">SAYAÇ</text>');
+  lines.push('<text x="' + (sayX + 45) + '" y="' + (sayY + 54) + '" text-anchor="middle" font-size="8" fill="#95a5a6">' + (sayacTipi === 'uc' ? '3F' : '1F') + '</text>');
+
+  // Devre sigortaları
+  var sigY = sayY + 75;
+  var sigPerRow = 4;
+  var sigW = 38, sigH = 34;
+  var sigMargin = 12;
+  var rowCount = Math.ceil(sigortaSayisi / sigPerRow);
+  var startX = pX + 20;
+
+  for (var i = 0; i < sigortaSayisi; i++) {
+    var row = Math.floor(i / sigPerRow);
+    var col = i % sigPerRow;
+    var sx = startX + col * (sigW + sigMargin);
+    var sy = sigY + row * (sigH + 10);
+
+    lines.push('<rect x="' + sx + '" y="' + sy + '" width="' + sigW + '" height="' + sigH + '" fill="#e74c3c" stroke="#c0392b" stroke-width="1.5" rx="3"/>');
+    lines.push('<text x="' + (sx + sigW/2) + '" y="' + (sy + 13) + '" text-anchor="middle" font-size="8" fill="#fff">C16</text>');
+    lines.push('<text x="' + (sx + sigW/2) + '" y="' + (sy + 24) + '" text-anchor="middle" font-size="7" fill="#fff">D' + (i + 1) + '</text>');
+  }
+
+  // Topraklama barası
+  var tbY = sigY + rowCount * (sigH + 10) + 10;
+  if (tbY < pY + pH - 30) {
+    lines.push('<rect x="' + (pX + 15) + '" y="' + tbY + '" width="' + (pW - 30) + '" height="16" fill="#27ae60" stroke="#1e8449" stroke-width="1.5" rx="2"/>');
+    lines.push('<text x="' + (pX + pW/2) + '" y="' + (tbY + 11) + '" text-anchor="middle" font-size="9" fill="#fff">TOPRAKLAMA BARASI (PE)</text>');
+  }
+
+  // Açıklama etiketi
+  lines.push('<text x="' + (pX + pW + 20) + '" y="' + (pY + 40) + '" font-size="11" fill="#333" font-weight="bold">PANO BİLGİLERİ</text>');
+  lines.push('<text x="' + (pX + pW + 20) + '" y="' + (pY + 60) + '" font-size="10" fill="#555">Ana Sigorta: ' + anaSigorta + 'A</text>');
+  lines.push('<text x="' + (pX + pW + 20) + '" y="' + (pY + 78) + '" font-size="10" fill="#555">Devre Sayısı: ' + sigortaSayisi + '</text>');
+  lines.push('<text x="' + (pX + pW + 20) + '" y="' + (pY + 96) + '" font-size="10" fill="#555">Sayaç: ' + (sayacTipi === 'uc' ? 'Üç Fazlı' : 'Tek Fazlı') + '</text>');
+  lines.push('<text x="' + (pX + pW + 20) + '" y="' + (pY + 114) + '" font-size="10" fill="#555">Tip: Dikili (Bağımsız Bölüm)</text>');
+
+  lines.push('</svg>');
+  return lines.join('\n');
+}
+
+function renderDuvarPano(params) {
+  var sigortaSayisi = params.sigortaSayisi;
+  var anaSigorta = params.anaSigorta;
+  var sayacTipi = params.sayacTipi;
+
+  var svgW = 1100;
+  var svgH = 700;
+  var pW = 300, pH = 380;
+  var pX = (svgW - pW) / 2, pY = 100;
+
+  var lines = [];
+  lines.push('<svg xmlns="http://www.w3.org/2000/svg" width="' + svgW + '" height="' + svgH + '" viewBox="0 0 ' + svgW + ' ' + svgH + '">');
+  lines.push('<rect width="' + svgW + '" height="' + svgH + '" fill="#f8f9fa"/>');
+
+  // Başlık
+  lines.push('<text x="' + svgW/2 + '" y="36" text-anchor="middle" font-size="16" font-weight="bold" fill="#1a1a2e">DUVAR TİPİ SAYAÇ PANOSU</text>');
+  lines.push('<text x="' + svgW/2 + '" y="56" text-anchor="middle" font-size="12" fill="#666">Ana Sigorta: ' + anaSigorta + 'A · Sayaç: ' + (sayacTipi === 'uc' ? 'Üç Fazlı' : 'Tek Fazlı') + ' · ' + sigortaSayisi + ' Devre</text>');
+
+  // Duvar
+  lines.push('<rect x="0" y="' + (pY - 20) + '" width="' + svgW + '" height="' + (pH + 60) + '" fill="#e8dcc8" stroke="none"/>');
+  lines.push('<line x1="0" y1="' + (pY - 20) + '" x2="' + svgW + '" y2="' + (pY - 20) + '" stroke="#c4a882" stroke-width="2" stroke-dasharray="8,4"/>');
+
+  // Pano
+  lines.push('<rect x="' + pX + '" y="' + pY + '" width="' + pW + '" height="' + pH + '" fill="#bdc3c7" stroke="#7f8c8d" stroke-width="3" rx="6"/>');
+  lines.push('<rect x="' + (pX + 8) + '" y="' + (pY + 8) + '" width="' + (pW - 16) + '" height="' + (pH - 16) + '" fill="#d5d8dc" stroke="#aab7b8" stroke-width="1" rx="3"/>');
+
+  // Ana şalter
+  var asX = pX + 20, asY = pY + 20;
+  lines.push('<rect x="' + asX + '" y="' + asY + '" width="50" height="34" fill="#2c3e50" stroke="#1a252f" stroke-width="1.5" rx="3"/>');
+  lines.push('<text x="' + (asX + 25) + '" y="' + (asY + 13) + '" text-anchor="middle" font-size="8" fill="#ecf0f1">ANA</text>');
+  lines.push('<text x="' + (asX + 25) + '" y="' + (asY + 25) + '" text-anchor="middle" font-size="7" fill="#f39c12">' + anaSigorta + 'A</text>');
+
+  // Sayaç
+  var sayX = pX + 80, sayY = pY + 20;
+  lines.push('<rect x="' + sayX + '" y="' + sayY + '" width="80" height="50" fill="#1a252f" stroke="#2c3e50" stroke-width="1.5" rx="3"/>');
+  lines.push('<rect x="' + (sayX + 4) + '" y="' + (sayY + 4) + '" width="72" height="22" fill="#0d6b3a" rx="2"/>');
+  lines.push('<text x="' + (sayX + 40) + '" y="' + (sayY + 18) + '" text-anchor="middle" font-size="9" fill="#00ff88">000000</text>');
+  lines.push('<text x="' + (sayX + 40) + '" y="' + (sayY + 38) + '" text-anchor="middle" font-size="8" fill="#ecf0f1">SAYAÇ</text>');
+  lines.push('<text x="' + (sayX + 40) + '" y="' + (sayY + 48) + '" text-anchor="middle" font-size="7" fill="#95a5a6">' + (sayacTipi === 'uc' ? '3F' : '1F') + '</text>');
+
+  // Devre sigortaları
+  var sigY = pY + 85;
+  var sigPerRow = 5;
+  var sigW = 34, sigH = 30;
+  var sigMargin = 10;
+  var startX = pX + 16;
+
+  for (var i = 0; i < sigortaSayisi; i++) {
+    var row = Math.floor(i / sigPerRow);
+    var col = i % sigPerRow;
+    var sx = startX + col * (sigW + sigMargin);
+    var sy = sigY + row * (sigH + 8);
+
+    lines.push('<rect x="' + sx + '" y="' + sy + '" width="' + sigW + '" height="' + sigH + '" fill="#e74c3c" stroke="#c0392b" stroke-width="1.5" rx="2"/>');
+    lines.push('<text x="' + (sx + sigW/2) + '" y="' + (sy + 12) + '" text-anchor="middle" font-size="7" fill="#fff">C16</text>');
+    lines.push('<text x="' + (sx + sigW/2) + '" y="' + (sy + 22) + '" text-anchor="middle" font-size="6.5" fill="#fff">D' + (i + 1) + '</text>');
+  }
+
+  lines.push('</svg>');
+  return lines.join('\n');
+}
+
+function renderPano(params) {
+  if (params.panoTipi === 'duvar') {
+    return renderDuvarPano(params);
+  }
+  return renderDikiliPano(params);
+}
+
+// ============================================================
+// Ana hesaplama ve göster
+// ============================================================
+function getParams() {
+  return {
+    projeAdi: document.getElementById('projeAdi').value,
+    musteriAdi: document.getElementById('musteriAdi').value,
+    adres: document.getElementById('adres').value,
+    tarih: document.getElementById('tarih').value,
+    katSayisi: parseInt(document.getElementById('katSayisi').value) || 5,
+    binaGenislik: parseFloat(document.getElementById('binaGenislik').value) || 12,
+    binaDerinlik: parseFloat(document.getElementById('binaDerinlik').value) || 10,
+    katYukseklik: parseFloat(document.getElementById('katYukseklik').value) || 3,
+    kolonArX: parseFloat(document.getElementById('kolonArX').value) || 4,
+    kolonArY: parseFloat(document.getElementById('kolonArY').value) || 5,
+    kolonBoyutu: parseInt(document.getElementById('kolonBoyutu').value) || 40,
+    zeminKat: parseInt(document.getElementById('zeminKat').value),
+    catiTipi: document.getElementById('catiTipi').value,
+    panoTipi: document.getElementById('panoTipi').value,
+    sigortaSayisi: parseInt(document.getElementById('sigortaSayisi').value) || 8,
+    anaSigorta: parseInt(document.getElementById('anaSigorta').value) || 100,
+    sayacTipi: document.getElementById('sayacTipi').value
+  };
+}
+
+function hesaplaVeGoster() {
+  var params = getParams();
+
+  binaSvg = _binaSvgOlustur(params);
+  kolonSvg = renderKolon(params);
+  panoSvg = renderPano(params);
+
+  document.getElementById('bina-svg-alan').innerHTML = binaSvg;
+  document.getElementById('kolon-svg-alan').innerHTML = kolonSvg;
+  document.getElementById('pano-svg-alan').innerHTML = panoSvg;
+}
+
+// ============================================================
+// SVG → PNG Base64 dönüştürücü
+// ============================================================
+function svgToPngBase64(svgString, pxW, pxH, dpiMul) {
+  return new Promise(function(resolve, reject) {
+    dpiMul = dpiMul || 2;
+    var blob = new Blob([svgString], {type: 'image/svg+xml;charset=utf-8'});
+    var url = URL.createObjectURL(blob);
+    var img = new Image();
+    img.onload = function() {
+      var cw = (pxW || img.naturalWidth || 800) * dpiMul;
+      var ch = (pxH || img.naturalHeight || 600) * dpiMul;
+      var canvas = document.createElement('canvas');
+      canvas.width = cw;
+      canvas.height = ch;
+      var ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, cw, ch);
+      ctx.drawImage(img, 0, 0, cw, ch);
+      URL.revokeObjectURL(url);
+      resolve(canvas.toDataURL('image/png'));
+    };
+    img.onerror = function() {
+      URL.revokeObjectURL(url);
+      reject(new Error('SVG yüklenemedi'));
+    };
+    img.src = url;
+  });
+}
+
+// ============================================================
+// LocalStorage Kayıt
+// ============================================================
+function saveToStorage() {
+  var params = getParams();
+
+  // Eğer henüz hesaplanmadıysa hesapla
+  if (!binaSvg) { hesaplaVeGoster(); }
+
+  var data = {
+    params: params,
+    binaSvg: binaSvg,
+    kolonSvg: kolonSvg,
+    panoSvg: panoSvg,
+    binaHtml: document.getElementById('bina-svg-alan').innerHTML,
+    savedAt: new Date().toISOString()
+  };
+
+  try {
+    localStorage.setItem('proje_yapi_v1', JSON.stringify(data));
+  } catch (e) {
+    console.warn('proje_yapi_v1 kayıt hatası (boyut limiti?):', e);
+  }
+
+  // PNG üretimi (async, UI bloklamaz)
+  setTimeout(function() {
+    var pngGorevleri = [];
+    if (binaSvg) {
+      pngGorevleri.push(
+        svgToPngBase64(binaSvg, 600, 500, 2)
+          .then(function(png) { localStorage.setItem('rapor_png_bina', png); })
+          .catch(function(e) { console.warn('Bina PNG hatası:', e); })
+      );
+    }
+    if (kolonSvg) {
+      pngGorevleri.push(
+        svgToPngBase64(kolonSvg, 1400, 900, 2)
+          .then(function(png) { localStorage.setItem('rapor_png_kolon', png); })
+          .catch(function(e) { console.warn('Kolon PNG hatası:', e); })
+      );
+    }
+    if (panoSvg) {
+      pngGorevleri.push(
+        svgToPngBase64(panoSvg, 1100, 700, 2)
+          .then(function(png) { localStorage.setItem('rapor_png_pano', png); })
+          .catch(function(e) { console.warn('Pano PNG hatası:', e); })
+      );
+    }
+
+    Promise.all(pngGorevleri).then(function() {
+      var mesaj = document.getElementById('kayit-mesaj');
+      mesaj.textContent = '✅ Kaydedildi!';
+      setTimeout(function() { mesaj.textContent = ''; }, 3000);
+    });
+  }, 200);
+
+  var mesaj = document.getElementById('kayit-mesaj');
+  mesaj.textContent = '💾 Kaydediliyor...';
+}
+
+// ============================================================
+// Kayıtlı veri varsa yükle
+// ============================================================
+function loadFromStorage() {
+  try {
+    var raw = localStorage.getItem('proje_yapi_v1');
+    if (!raw) return;
+    var data = JSON.parse(raw);
+    var p = data.params;
+    if (!p) return;
+
+    if (p.projeAdi) document.getElementById('projeAdi').value = p.projeAdi;
+    if (p.musteriAdi) document.getElementById('musteriAdi').value = p.musteriAdi;
+    if (p.adres) document.getElementById('adres').value = p.adres;
+    if (p.tarih) document.getElementById('tarih').value = p.tarih;
+    if (p.katSayisi) document.getElementById('katSayisi').value = p.katSayisi;
+    if (p.binaGenislik) document.getElementById('binaGenislik').value = p.binaGenislik;
+    if (p.binaDerinlik) document.getElementById('binaDerinlik').value = p.binaDerinlik;
+    if (p.katYukseklik) document.getElementById('katYukseklik').value = p.katYukseklik;
+    if (p.kolonArX) document.getElementById('kolonArX').value = p.kolonArX;
+    if (p.kolonArY) document.getElementById('kolonArY').value = p.kolonArY;
+    if (p.kolonBoyutu) document.getElementById('kolonBoyutu').value = p.kolonBoyutu;
+    if (p.zeminKat !== undefined) document.getElementById('zeminKat').value = p.zeminKat;
+    if (p.catiTipi) document.getElementById('catiTipi').value = p.catiTipi;
+    if (p.panoTipi) document.getElementById('panoTipi').value = p.panoTipi;
+    if (p.sigortaSayisi) document.getElementById('sigortaSayisi').value = p.sigortaSayisi;
+    if (p.anaSigorta) document.getElementById('anaSigorta').value = p.anaSigorta;
+    if (p.sayacTipi) document.getElementById('sayacTipi').value = p.sayacTipi;
+
+    if (data.binaSvg) {
+      binaSvg = data.binaSvg;
+      document.getElementById('bina-svg-alan').innerHTML = binaSvg;
+    }
+    if (data.kolonSvg) {
+      kolonSvg = data.kolonSvg;
+      document.getElementById('kolon-svg-alan').innerHTML = kolonSvg;
+    }
+    if (data.panoSvg) {
+      panoSvg = data.panoSvg;
+      document.getElementById('pano-svg-alan').innerHTML = panoSvg;
+    }
+  } catch (e) {
+    console.warn('Yükleme hatası:', e);
+  }
+}
+
+// Sayfa yüklendiğinde
+document.addEventListener('DOMContentLoaded', function() {
+  document.getElementById('tarih').value = new Date().toISOString().split('T')[0];
+  loadFromStorage();
+  if (!binaSvg) { hesaplaVeGoster(); }
+});
+</script>
+</body>
+</html>
