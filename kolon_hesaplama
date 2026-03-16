@@ -149,36 +149,6 @@
   var LS_KEY = 'proje_yapi_v1';
 
   // ══════════════════════════════════════
-  // SVG → PNG BASE64 (Rapor için)
-  // ══════════════════════════════════════
-  function svgToPngBase64(svgString, pxW, pxH, dpiMul) {
-    return new Promise(function(resolve, reject) {
-      dpiMul = dpiMul || 2;
-      var blob = new Blob([svgString], {type:'image/svg+xml;charset=utf-8'});
-      var url = URL.createObjectURL(blob);
-      var img = new Image();
-      img.onload = function() {
-        var cw = (pxW || img.naturalWidth || 800) * dpiMul;
-        var ch = (pxH || img.naturalHeight || 600) * dpiMul;
-        var canvas = document.createElement('canvas');
-        canvas.width = cw;
-        canvas.height = ch;
-        var ctx = canvas.getContext('2d');
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, cw, ch);
-        ctx.drawImage(img, 0, 0, cw, ch);
-        URL.revokeObjectURL(url);
-        resolve(canvas.toDataURL('image/png'));
-      };
-      img.onerror = function() {
-        URL.revokeObjectURL(url);
-        reject(new Error('SVG PNG dönüşüm hatası'));
-      };
-      img.src = url;
-    });
-  }
-
-  // ══════════════════════════════════════
   // STATE
   // ══════════════════════════════════════
   var state = {
@@ -229,24 +199,6 @@
     };
     localStorage.setItem(LS_KEY, JSON.stringify(data));
     showSaveIndicator();
-    // ── Rapor PNG üretimi (async, UI bloklamaz) ──
-    setTimeout(function() {
-      if (binaSvg) {
-        svgToPngBase64(binaSvg, 600, 500, 2)
-          .then(function(png) { try { localStorage.setItem('rapor_png_bina', png); } catch(e){} })
-          .catch(function(e) { console.warn('Bina PNG hatası:', e); });
-      }
-      if (kolonSvg) {
-        svgToPngBase64(kolonSvg, 1400, 900, 2)
-          .then(function(png) { try { localStorage.setItem('rapor_png_kolon', png); } catch(e){} })
-          .catch(function(e) { console.warn('Kolon PNG hatası:', e); });
-      }
-      if (panoSvg) {
-        svgToPngBase64(panoSvg, 1100, 700, 2)
-          .then(function(png) { try { localStorage.setItem('rapor_png_pano', png); } catch(e){} })
-          .catch(function(e) { console.warn('Pano PNG hatası:', e); });
-      }
-    }, 200);
   } catch (e) { console.warn('[saveToStorage] error:', e); }
 }
 
