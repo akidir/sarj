@@ -1,0 +1,1411 @@
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kolon Hesaplama</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #eef2f7; padding: 20px; }
+  .yapi-container { display: flex; flex-wrap: wrap; gap: 30px; max-width: 1400px; margin: 0 0 0 50px; }
+  .info-table { flex: 0 0 360px; background: #ffffff; border-radius: 16px; padding: 24px 22px; box-shadow: -5px 0px 25px 20px rgba(0,0,0,0.10); align-self: flex-start; }
+  .info-table-title { font-size: 15px; font-weight: 700; color: #262626; margin-bottom: 18px; text-align: center; }
+  .info-table-subtitle { font-size: 14px; font-weight: 700; color: #262626; margin-bottom: 14px; text-align: center; }
+  .info-divider { border: none; border-top: 1px solid #d0d4da; margin: 16px 0; }
+  .info-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+  .info-row label { font-size: 13px; color: #262626; font-weight: 400; flex: 1; white-space: nowrap; }
+  .info-row.indented label { padding-left: 28px; position: relative; }
+  .info-row.indented label::before { content: '•'; position: absolute; left: 14px; color: #262626; }
+  .info-row input, .info-row select { width: 120px; flex-shrink: 0; padding: 7px 10px; border: 1px solid #d8dce2; border-radius: 8px; text-align: center; font-size: 13px; font-weight: 500; color: #262626; background: #fff; outline: none; }
+  .info-row select { text-align: left; }
+  .info-row input:focus, .info-row select:focus { border-color: #3498db; box-shadow: 0 0 0 2px rgba(52,152,219,0.15); }
+  .info-spacer { height: 4px; }
+  .building-wrapper { flex: 1; min-width: 300px; display: flex; flex-direction: column; align-items: stretch; }
+  .building-outer { display: flex; align-items: stretch; border: 3px double #2c3e50; background: #fff; width: fit-content; min-width: 280px; max-width: 100%; align-self: center; }
+  .side-strips { display: flex; flex-direction: row; flex-shrink: 0; }
+  .strip { writing-mode: vertical-lr; transform: rotate(180deg); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 12px; color: #2c3e50; padding: 10px 4px; min-width: 34px; letter-spacing: 1px; border-right: 3px double #2c3e50; background: #fff; cursor: pointer; position: relative; user-select: none; transition: box-shadow 0.2s, background 0.2s; }
+  .strip:hover { background: #f7f9fc; box-shadow: inset 2px 0 6px rgba(0,0,0,0.08), inset -2px 0 6px rgba(0,0,0,0.04); }
+  .strip:active { background: #eef2f7; }
+  .strip-menu { display: none; position: absolute; z-index: 100; background: #fff; border: 2px solid #2c3e50; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); min-width: 150px; overflow: hidden; writing-mode: horizontal-tb; transform: rotate(180deg); left: calc(100% + 8px); top: 50%; margin-top: -20px; }
+  .strip-menu.show { display: block; }
+  .strip-menu-item { padding: 10px 14px; font-size: 13px; font-weight: 600; color: #f39c12; cursor: pointer; white-space: nowrap; transition: background 0.15s; display: flex; align-items: center; gap: 6px; }
+  .strip-menu-item:hover { background: #fef9e7; }
+  .strip-menu-item.selected { color: #e67e22; background: #fef3cd; }
+  .floors-container { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  .floor-row { display: flex; align-items: stretch; border-bottom: 3px double #2c3e50; min-height: 80px; }
+  .floor-row:last-child { border-bottom: none; }
+  .units-area { flex: 1; display: flex; flex-wrap: nowrap; padding: 10px 8px; gap: 6px; align-items: center; justify-content: center; }
+  .unit-box { min-width: 70px; max-width: 140px; flex: 1 1 auto; min-height: 48px; border: 2px double #7f8c8d; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 12px; cursor: default; transition: all 0.3s; background: #fff; color: #2c3e50; padding: 4px 8px; white-space: nowrap; }
+  .unit-box.mevcut { background: #fff; color: #2c3e50; }
+  .unit-box.istek { background: #fef9e7; color: #e67e22; border-color: #f39c12; box-shadow: 0 0 6px rgba(243,156,18,0.3); }
+  .floor-label-btn { writing-mode: vertical-lr; transform: rotate(180deg); min-width: 40px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 12px; color: #2c3e50; cursor: pointer; border: none; border-left: 3px double #2c3e50; padding: 8px 3px; transition: background 0.2s, box-shadow 0.2s; position: relative; user-select: none; background: #fff; }
+  .floor-label-btn:hover { background: #f7f9fc; box-shadow: inset 2px 0 6px rgba(0,0,0,0.08), inset -2px 0 6px rgba(0,0,0,0.04); }
+  .floor-label-btn:active { background: #eef2f7; }
+  .floor-menu { display: none; position: absolute; z-index: 100; background: #fff; border: 2px solid #2c3e50; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); min-width: 160px; overflow: hidden; transform: rotate(180deg); writing-mode: horizontal-tb; right: calc(100% + 8px); top: 50%; }
+  .floor-menu.show { display: block; }
+  .floor-menu-item { padding: 10px 14px; font-size: 13px; font-weight: 600; color: #2c3e50; cursor: pointer; border-bottom: 1px solid #eee; white-space: nowrap; transition: background 0.15s; display: flex; align-items: center; gap: 6px; }
+  .floor-menu-item:last-child { border-bottom: none; }
+  .floor-menu-item:hover { background: #ebf5fb; }
+  .floor-menu-item.add { color: #27ae60; }
+  .floor-menu-item.remove { color: #e74c3c; }
+  .floor-menu-item.istek-btn { color: #f39c12; }
+  .floor-menu-item.disabled { color: #bbb; cursor: not-allowed; background: #f9f9f9; }
+  .floor-menu-item.disabled:hover { background: #f9f9f9; }
+  .validation-error { display: none; background: #e74c3c; color: #fff; text-align: center; padding: 12px 20px; border-radius: 8px; margin-top: 12px; font-weight: 700; font-size: 13px; align-self: center; animation: shake 0.4s ease; }
+  .validation-error.show { display: block; }
+  @keyframes shake { 0%,100%{transform:translateX(0)} 20%,60%{transform:translateX(-6px)} 40%,80%{transform:translateX(6px)} }
+  .floor-summary { margin-top: 15px; background: #fff; border-radius: 8px; padding: 12px 16px; font-size: 13px; color: #555; box-shadow: 0 1px 4px rgba(0,0,0,0.08); align-self: center; width: fit-content; min-width: 280px; max-width: 100%; }
+  .floor-summary h4 { margin-bottom: 8px; color: #2c3e50; font-size: 14px; }
+  .floor-summary-row { display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid #eee; gap: 40px; }
+  .floor-summary-row:last-child { border-bottom: none; }
+  .kolon-section { max-width: 1400px; margin: 30px auto 0; }
+  .kolon-header { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+  .kolon-header h3 { color: #2c3e50; font-size: 16px; margin: 0; }
+  .kolon-header .badge { background: #3498db; color: #fff; font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 20px; }
+  .kolon-info { font-size: 12px; color: #7f8c8d; margin-bottom: 12px; }
+  .svg-container { background: #fff; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); padding: 20px; overflow: auto; }
+  .pano-info-bar { background: #f5f5f5; padding: 8px 16px; font-size: 12px; color: #555; border-radius: 8px; margin-bottom: 12px; border: 1px solid #e0e0e0; }
+  .toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(100px); background: #2c3e50; color: #fff; padding: 12px 24px; border-radius: 8px; font-size: 13px; font-weight: 600; z-index: 9999; transition: transform 0.3s ease; pointer-events: none; }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+  .save-indicator { position: fixed; top: 16px; right: 16px; background: #27ae60; color: #fff; font-size: 11px; font-weight: 700; padding: 5px 12px; border-radius: 20px; opacity: 0; transition: opacity 0.4s; z-index: 9999; pointer-events: none; }
+  .save-indicator.show { opacity: 1; }
+</style>
+</head>
+<body>
+
+<div class="yapi-container">
+  <div class="info-table">
+    <div class="info-table-title">Yapı Bilgileri</div>
+    <div class="info-row">
+      <label>Yapı Toplam Tesisat Sayısı</label>
+      <input type="number" id="totalTesisat" value="10" min="3">
+    </div>
+    <div class="info-row indented">
+      <label>Asansör</label>
+      <input type="number" id="asansor" value="1" min="0">
+    </div>
+    <div class="info-row indented">
+      <label>Ortak Alan</label>
+      <input type="number" id="ortakAlan" value="1" min="0">
+    </div>
+    <div class="info-row indented">
+      <label>Toplam Bağımsız</label>
+      <input type="number" id="toplamBagimsiz" value="8" min="1">
+    </div>
+    <div class="info-spacer"></div>
+    <div class="info-row">
+      <label>Yapı Kat Sayısı</label>
+      <input type="number" id="katSayisi" value="3" min="1" max="30">
+    </div>
+    <hr class="info-divider">
+    <div class="info-table-subtitle">Ana Dağıtım Panosu Bilgileri</div>
+    <div class="info-row">
+      <label>Ana Dağıtım Panosu Katı</label>
+      <select id="adpKatSelect"></select>
+    </div>
+    <div class="info-row">
+      <label>Ana Dağıtım Panosu Tipi</label>
+      <select id="adpTipi">
+        <option value="dikili">Dikili Tip</option>
+        <option value="duvar">Duvar Tipi</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="building-wrapper">
+    <div class="building-outer" id="buildingOuter"></div>
+    <div class="floor-summary" id="floorSummary"></div>
+    <div class="validation-error" id="validationError">
+      ⚠️ Lütfen devam etmeden önce bir bağımsızı "İSTEK" olarak işaretleyin!
+    </div>
+  </div>
+</div>
+
+<div class="kolon-section">
+  <div class="kolon-header">
+    <h3>⚡ Kolon Şeması</h3>
+    <span class="badge" id="kolonBadge">Canlı ��nizleme</span>
+  </div>
+  <div class="kolon-info" id="kolonInfo"></div>
+  <div class="svg-container" id="svgContainer"></div>
+</div>
+
+<div class="kolon-section" id="panoSection">
+  <div class="kolon-header">
+    <h3>🔌 Sayaç Panosu</h3>
+    <span class="badge">Canlı Önizleme</span>
+  </div>
+  <div class="pano-info-bar" id="panoInfoBar"></div>
+  <div class="svg-container" id="panoSvgContainer"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+<div class="save-indicator" id="saveIndicator">💾 Kaydedildi</div>
+<script>
+(function () {
+
+  // ══════════════════════════════════════
+  // localStorage ANAHTAR — proje_yapi_v1 (rapor sayfasıyla eşleştirildi)
+  // ══════════════════════════════════════
+  var LS_KEY = 'proje_yapi_v1';
+
+  // ══════════════════════════════════════
+  // STATE
+  // ══════════════════════════════════════
+  var state = {
+    totalTesisat: 10, asansor: 1, ortakAlan: 1, toplamBagimsiz: 8,
+    katSayisi: 3, floors: [], istekFloor: null, istekUnit: null
+  };
+  var adpKatAdi      = '1. Bodrum';
+  var adpKatValue    = 'bodrum_1';
+  var adpTipiValue   = 'dikili';
+  var adpSelectBuilt = false;
+  var $ = function (id) { return document.getElementById(id); };
+
+  // ══════════════════════════════════════
+  // localStorage — KAYDET / YÜKLE
+  // ══════════════════════════════════════
+   function saveToStorage() {
+  try {
+    var kolonSvgEl = document.querySelector('#svgContainer svg');
+    var kolonSvg = '';
+    if (kolonSvgEl) { try { kolonSvg = new XMLSerializer().serializeToString(kolonSvgEl); } catch(e) {} }
+
+    var panoSvgEl = document.querySelector('#panoSvgContainer svg');
+    var panoSvg = '';
+    if (panoSvgEl) { try { panoSvg = new XMLSerializer().serializeToString(panoSvgEl); } catch(e) {} }
+
+    // ── Bina görseli: writing-mode sorunu için özel snapshot ──
+    var binaHtml = buildBinaSnapshot();
+
+        // ── Bina görseli SVG olarak da kaydet (PDF için daha temiz render) ──
+    var binaSvg = _binaSvgOlustur();
+
+    var data = {
+      totalTesisat  : state.totalTesisat,
+      asansor       : state.asansor,
+      ortakAlan     : state.ortakAlan,
+      toplamBagimsiz: state.toplamBagimsiz,
+      katSayisi     : state.katSayisi,
+      floors        : JSON.parse(JSON.stringify(state.floors)),
+      istekFloor    : state.istekFloor,
+      istekUnit     : state.istekUnit,
+      adpKatAdi     : adpKatAdi,
+      adpKatValue   : adpKatValue,
+      adpTipiValue  : adpTipiValue,
+      kolonSvg      : kolonSvg,
+      panoSvg       : panoSvg,
+      binaHtml      : binaHtml,
+      binaSvg       : binaSvg
+    };
+    localStorage.setItem(LS_KEY, JSON.stringify(data));
+    showSaveIndicator();
+  } catch (e) { console.warn('[saveToStorage] error:', e); }
+}
+
+// ── Bina görselini writing-mode KULLANMADAN üret (html2canvas uyumlu) ──
+function buildBinaSnapshot() {
+  var floors = state.floors;
+  if (!floors || floors.length === 0) return '';
+
+  var asansor = state.asansor;
+  var ortakAlan = state.ortakAlan;
+  var istekFloor = state.istekFloor;
+  var istekUnit = state.istekUnit;
+
+  var maxU = 1;
+  floors.forEach(function(f) { if (f.units.length > maxU) maxU = f.units.length; });
+
+  var cellW = 110, cellH = 80, sideW = 44, labelW = 52, padding = 8;
+  var totalCols = maxU;
+  var innerW = totalCols * cellW + (totalCols - 1) * 6 + padding * 2;
+  var sideCount = (asansor > 0 ? 1 : 0) + (ortakAlan > 0 ? 1 : 0);
+  var totalW = sideCount * sideW + innerW + labelW;
+  var totalH = floors.length * cellH;
+
+  var html = '<div style="display:inline-flex;align-items:stretch;border:3px double #2c3e50;background:#fff;font-family:Segoe UI,Tahoma,sans-serif;font-size:11px;">';
+
+  // Sol side strips (yatay metin — writing-mode YOK)
+  if (sideCount > 0) {
+    html += '<div style="display:flex;flex-direction:row;">';
+    if (asansor > 0) {
+      html += '<div style="width:' + sideW + 'px;border-right:3px double #2c3e50;background:#fff;display:flex;align-items:center;justify-content:center;padding:4px;">';
+      html += '<span style="display:inline-block;transform:rotate(-90deg);white-space:nowrap;font-weight:700;font-size:11px;color:#2c3e50;">Asansör x' + asansor + '</span>';
+      html += '</div>';
+    }
+    if (ortakAlan > 0) {
+      html += '<div style="width:' + sideW + 'px;border-right:3px double #2c3e50;background:#fff;display:flex;align-items:center;justify-content:center;padding:4px;">';
+      html += '<span style="display:inline-block;transform:rotate(-90deg);white-space:nowrap;font-weight:700;font-size:11px;color:#2c3e50;">Ortak Alan x' + ortakAlan + '</span>';
+      html += '</div>';
+    }
+    html += '</div>';
+  }
+
+  // Katlar
+  html += '<div style="display:flex;flex-direction:column;">';
+  for (var i = floors.length - 1; i >= 0; i--) {
+    var floor = floors[i];
+    var isIstekKat = (istekFloor === i);
+    html += '<div style="display:flex;align-items:stretch;border-bottom:' + (i > 0 ? '3px double #2c3e50' : 'none') + ';min-height:' + cellH + 'px;">';
+
+    // Units
+    html += '<div style="display:flex;flex-wrap:nowrap;padding:8px;gap:6px;align-items:center;justify-content:center;flex:1;">';
+    floor.units.forEach(function(type, uIdx) {
+      var isIstek = isIstekKat && uIdx === istekUnit;
+      if (isIstek) {
+        html += '<div style="min-width:70px;flex:1;min-height:48px;border:2px solid #f39c12;border-radius:4px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;background:#fef9e7;color:#e67e22;padding:4px 8px;">İSTEK</div>';
+      } else {
+        html += '<div style="min-width:70px;flex:1;min-height:48px;border:2px double #7f8c8d;border-radius:4px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;background:#fff;color:#2c3e50;padding:4px 8px;">MEVCUT</div>';
+      }
+    });
+    html += '</div>';
+
+    // Kat etiketi (sağda, yatay OLMAYAN, döndürülmüş span ile)
+    html += '<div style="width:' + labelW + 'px;border-left:3px double #2c3e50;display:flex;align-items:center;justify-content:center;background:#fff;">';
+    html += '<span style="display:inline-block;transform:rotate(-90deg);white-space:nowrap;font-weight:700;font-size:11px;color:#2c3e50;">' + floor.name + '</span>';
+    html += '</div>';
+
+    html += '</div>';
+  }
+  html += '</div>';
+  html += '</div>';
+
+  return html;
+}
+
+
+// Bina görselini Pure SVG olarak oluştur
+function _binaSvgOlustur() {
+  var floors    = state.floors;
+  var asansor   = state.asansor;
+  var ortakAlan = state.ortakAlan;
+  var istekFloor = state.istekFloor;
+  var istekUnit  = state.istekUnit;
+
+  if (!floors || floors.length === 0) return '';
+
+  // Boyutlar
+  var stripW    = 38;
+  var unitW     = 100;
+  var unitH     = 70;
+  var unitInnerH = 42;
+  var labelW    = 48;
+  var padX      = 10;
+  var unitGap   = 8;
+  var borderW   = 2;
+
+  var maxU = 1;
+  floors.forEach(function(f) { if (f.units.length > maxU) maxU = f.units.length; });
+
+  var totalStrips = (asansor > 0 ? 1 : 0) + (ortakAlan > 0 ? 1 : 0);
+  var stripsTotalW = totalStrips * stripW;
+  var contentW = maxU * unitW + (maxU - 1) * unitGap + padX * 2;
+  var totalW = stripsTotalW + contentW + labelW;
+  var totalH = floors.length * unitH;
+
+  var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="' + totalW + '" height="' + totalH + '" viewBox="0 0 ' + totalW + ' ' + totalH + '">';
+
+  // Stiller
+  svg += '<defs><style>';
+  svg += '.bina-border { fill:none; stroke:#2c3e50; stroke-width:' + borderW + '; }';
+  svg += '.bina-border-double { fill:none; stroke:#2c3e50; stroke-width:1; }';
+  svg += '.bina-text { font-family:Segoe UI,Arial,sans-serif; font-weight:700; fill:#2c3e50; }';
+  svg += '.bina-text-istek { font-family:Segoe UI,Arial,sans-serif; font-weight:700; fill:#e67e22; }';
+  svg += '.unit-border { fill:#fff; stroke:#7f8c8d; stroke-width:1.5; }';
+  svg += '.unit-border-istek { fill:#fef9e7; stroke:#f39c12; stroke-width:2; }';
+  svg += '</style></defs>';
+
+  // Dış çerçeve
+  svg += '<rect x="1" y="1" width="' + (totalW - 2) + '" height="' + (totalH - 2) + '" fill="#fff" stroke="#2c3e50" stroke-width="2"/>';
+
+  // Side strips (Asansör, Ortak Alan)
+  var sx = 0;
+  if (asansor > 0) {
+    // Strip arka plan
+    svg += '<rect x="' + sx + '" y="0" width="' + stripW + '" height="' + totalH + '" fill="#fff"/>';
+    // Sağ kenar çizgi
+    svg += '<line x1="' + (sx + stripW) + '" y1="0" x2="' + (sx + stripW) + '" y2="' + totalH + '" stroke="#2c3e50" stroke-width="2"/>';
+    // Dikey metin
+    var cy = totalH / 2;
+    svg += '<text x="' + (sx + stripW / 2) + '" y="' + cy + '" transform="rotate(-90,' + (sx + stripW / 2) + ',' + cy + ')" text-anchor="middle" class="bina-text" font-size="11">Asansör x' + asansor + '</text>';
+    sx += stripW;
+  }
+  if (ortakAlan > 0) {
+    svg += '<rect x="' + sx + '" y="0" width="' + stripW + '" height="' + totalH + '" fill="#fff"/>';
+    svg += '<line x1="' + (sx + stripW) + '" y1="0" x2="' + (sx + stripW) + '" y2="' + totalH + '" stroke="#2c3e50" stroke-width="2"/>';
+    var cy2 = totalH / 2;
+    svg += '<text x="' + (sx + stripW / 2) + '" y="' + cy2 + '" transform="rotate(-90,' + (sx + stripW / 2) + ',' + cy2 + ')" text-anchor="middle" class="bina-text" font-size="11">Ortak Alan x' + ortakAlan + '</text>';
+    sx += stripW;
+  }
+
+  var floorsX = sx;
+
+  // Katlar (yukarıdan aşağıya: en üst kat = son index)
+  for (var i = floors.length - 1; i >= 0; i--) {
+    var rowIdx = floors.length - 1 - i;
+    var fy = rowIdx * unitH;
+    var floor = floors[i];
+
+    // Kat satırı alt çizgi (son kat hariç)
+    if (i > 0) {
+      svg += '<line x1="' + floorsX + '" y1="' + (fy + unitH) + '" x2="' + (floorsX + contentW + labelW) + '" y2="' + (fy + unitH) + '" stroke="#2c3e50" stroke-width="2"/>';
+    }
+
+    // Birimler
+    var numU = floor.units.length;
+    var totalUnitsW = numU * unitW + Math.max(0, numU - 1) * unitGap;
+    var startUX = floorsX + padX + (contentW - padX * 2 - totalUnitsW) / 2;
+
+    floor.units.forEach(function(type, uIdx) {
+      var ux = startUX + uIdx * (unitW + unitGap);
+      var uy = fy + (unitH - unitInnerH) / 2;
+      var isIstek = (istekFloor === i && istekUnit === uIdx);
+
+      if (isIstek) {
+        svg += '<rect x="' + ux + '" y="' + uy + '" width="' + unitW + '" height="' + unitInnerH + '" rx="4" ry="4" class="unit-border-istek"/>';
+        svg += '<text x="' + (ux + unitW / 2) + '" y="' + (uy + unitInnerH / 2 + 5) + '" text-anchor="middle" class="bina-text-istek" font-size="12">İSTEK</text>';
+      } else {
+        svg += '<rect x="' + ux + '" y="' + uy + '" width="' + unitW + '" height="' + unitInnerH + '" rx="4" ry="4" class="unit-border"/>';
+        svg += '<text x="' + (ux + unitW / 2) + '" y="' + (uy + unitInnerH / 2 + 5) + '" text-anchor="middle" class="bina-text" font-size="12">MEVCUT</text>';
+      }
+    });
+
+    // Kat etiketi — sağ taraf dikey ayırıcı + dikey metin
+    var labelX = floorsX + contentW;
+    svg += '<line x1="' + labelX + '" y1="' + fy + '" x2="' + labelX + '" y2="' + (fy + unitH) + '" stroke="#2c3e50" stroke-width="2"/>';
+    var labelCY = fy + unitH / 2;
+    svg += '<text x="' + (labelX + labelW / 2) + '" y="' + labelCY + '" transform="rotate(-90,' + (labelX + labelW / 2) + ',' + labelCY + ')" text-anchor="middle" class="bina-text" font-size="11">' + floor.name + '</text>';
+  }
+
+  svg += '</svg>';
+  return svg;
+}
+  function loadFromStorage() {
+    try {
+      var raw = localStorage.getItem(LS_KEY);
+      if (!raw) return false;
+      var data = JSON.parse(raw);
+      state.totalTesisat   = data.totalTesisat   || 10;
+      state.asansor        = data.asansor        || 0;
+      state.ortakAlan      = data.ortakAlan      || 0;
+      state.toplamBagimsiz = data.toplamBagimsiz || 8;
+      state.katSayisi      = data.katSayisi      || 3;
+      state.floors         = data.floors         || [];
+      state.istekFloor     = (data.istekFloor !== undefined) ? data.istekFloor : null;
+      state.istekUnit      = (data.istekUnit  !== undefined) ? data.istekUnit  : null;
+      adpKatAdi            = data.adpKatAdi    || '1. Bodrum';
+      adpKatValue          = data.adpKatValue  || 'bodrum_1';
+      adpTipiValue         = data.adpTipiValue || 'dikili';
+      return true;
+    } catch (e) { return false; }
+  }
+
+  function showSaveIndicator() {
+    var el = $('saveIndicator');
+    el.classList.add('show');
+    clearTimeout(el._timer);
+    el._timer = setTimeout(function () { el.classList.remove('show'); }, 1500);
+  }
+
+  var saveTimer = null;
+  function scheduleSave() {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(saveToStorage, 400);
+  }
+
+  // ══════════════════════════════════════
+  // INPUT ALANLARINI GÜNCELLE
+  // ══════════════════════════════════════
+  function syncInputsFromState() {
+    $('totalTesisat').value   = state.totalTesisat;
+    $('asansor').value        = state.asansor;
+    $('ortakAlan').value      = state.ortakAlan;
+    $('toplamBagimsiz').value = state.toplamBagimsiz;
+    $('katSayisi').value      = state.katSayisi;
+    $('adpTipi').value        = adpTipiValue;
+  }
+
+  // ══════════════════════════════════════
+  // YAPI BİLGİLERİ
+  // ══════════════════════════════════════
+  function distributeUnits() {
+    var totalFloors = state.katSayisi + 1;
+    var base = Math.floor(state.toplamBagimsiz / totalFloors);
+    var remainder = state.toplamBagimsiz % totalFloors;
+    var newFloors = [];
+    for (var i = 0; i < totalFloors; i++) {
+      var cnt = base + (i >= totalFloors - remainder ? 1 : 0);
+      var units = [];
+      for (var u = 0; u < cnt; u++) units.push('mevcut');
+      newFloors.push({ name: i === 0 ? 'Zemin Kat' : i + '. Kat', units: units });
+    }
+    if (state.istekFloor !== null && state.istekUnit !== null) {
+      if (state.istekFloor < newFloors.length &&
+          state.istekUnit < newFloors[state.istekFloor].units.length) {
+        newFloors[state.istekFloor].units[state.istekUnit] = 'istek';
+      } else {
+        state.istekFloor = null; state.istekUnit = null;
+      }
+    }
+    state.floors = newFloors;
+  }
+
+  function renderBuilding() {
+    var container = $('buildingOuter');
+    container.innerHTML = '';
+    var maxU = 1;
+    state.floors.forEach(function (f) { if (f.units.length > maxU) maxU = f.units.length; });
+    var calculatedWidth = (state.asansor > 0 ? 36 : 0) + (state.ortakAlan > 0 ? 36 : 0) +
+                          maxU * 110 + (maxU - 1) * 6 + 30 + 42;
+    container.style.width = Math.max(280, calculatedWidth) + 'px';
+
+    var strips = document.createElement('div');
+    strips.className = 'side-strips';
+    strips.style.borderRight = '3px double #2c3e50';
+
+    for (var a = 0; a < state.asansor; a++) {
+      (function(aIdx) {
+        var stripEl = document.createElement('div');
+        stripEl.className = 'strip';
+        var isSelected = (state.istekFloor === -1 && state.istekUnit === aIdx);
+        stripEl.textContent = 'Asansör x' + state.asansor;
+        if (isSelected) { stripEl.style.background = '#fef9e7'; stripEl.style.color = '#e67e22'; }
+        var menu = document.createElement('div'); menu.className = 'strip-menu';
+        var istekItem = document.createElement('div');
+        istekItem.className = 'strip-menu-item' + (isSelected ? ' selected' : '');
+        istekItem.innerHTML = isSelected ? '🔶 İstek Seçili ✓' : '🔶 İstek Seç';
+        if (!isSelected) {
+          istekItem.addEventListener('click', function(e) { e.stopPropagation(); setIstekOrtak(-1, aIdx); });
+        }
+        menu.appendChild(istekItem);
+        stripEl.appendChild(menu);
+        stripEl.addEventListener('click', function(e) { e.stopPropagation(); closeAllMenus(); menu.classList.toggle('show'); });
+        strips.appendChild(stripEl);
+      })(a);
+    }
+
+    for (var o = 0; o < state.ortakAlan; o++) {
+      (function(oIdx) {
+        var unitIdx = state.asansor + oIdx;
+        var stripEl = document.createElement('div');
+        stripEl.className = 'strip';
+        var isSelected = (state.istekFloor === -1 && state.istekUnit === unitIdx);
+        stripEl.textContent = 'Ortak Alan x' + state.ortakAlan;
+        if (isSelected) { stripEl.style.background = '#fef9e7'; stripEl.style.color = '#e67e22'; }
+        var menu = document.createElement('div'); menu.className = 'strip-menu';
+        var istekItem = document.createElement('div');
+        istekItem.className = 'strip-menu-item' + (isSelected ? ' selected' : '');
+        istekItem.innerHTML = isSelected ? '🔶 İstek Seçili ✓' : '🔶 İstek Seç';
+        if (!isSelected) {
+          istekItem.addEventListener('click', function(e) { e.stopPropagation(); setIstekOrtak(-1, unitIdx); });
+        }
+        menu.appendChild(istekItem);
+        stripEl.appendChild(menu);
+        stripEl.addEventListener('click', function(e) { e.stopPropagation(); closeAllMenus(); menu.classList.toggle('show'); });
+        strips.appendChild(stripEl);
+      })(o);
+    }
+
+    container.appendChild(strips);
+    var floorsDiv = document.createElement('div');
+    floorsDiv.className = 'floors-container';
+
+    for (var i = state.floors.length - 1; i >= 0; i--) {
+      (function (idx) {
+        var floor = state.floors[idx];
+        var row = document.createElement('div'); row.className = 'floor-row';
+        var unitsArea = document.createElement('div'); unitsArea.className = 'units-area';
+        floor.units.forEach(function (type) {
+          var box = document.createElement('div');
+          box.className = 'unit-box ' + type;
+          box.textContent = type === 'istek' ? 'İSTEK' : 'MEVCUT';
+          unitsArea.appendChild(box);
+        });
+        row.appendChild(unitsArea);
+
+        var btn = document.createElement('div');
+        btn.className = 'floor-label-btn';
+        btn.style.position = 'relative';
+        var btnText = document.createElement('span');
+        btnText.textContent = floor.name;
+        btn.appendChild(btnText);
+
+        var menu = document.createElement('div'); menu.className = 'floor-menu';
+        var canAdd = getActiveUnitCount() < state.toplamBagimsiz;
+        var hasIstek = state.istekFloor === idx;
+
+        var addItem = document.createElement('div');
+        addItem.className = 'floor-menu-item add' + (!canAdd ? ' disabled' : '');
+        addItem.innerHTML = '➕ Bağımsız Ekle';
+        if (canAdd) addItem.addEventListener('click', function (e) { e.stopPropagation(); addUnit(idx); });
+        menu.appendChild(addItem);
+
+        var removeItem = document.createElement('div');
+        removeItem.className = 'floor-menu-item remove' + (floor.units.length === 0 ? ' disabled' : '');
+        removeItem.innerHTML = '➖ Bağımsız Sil';
+        if (floor.units.length > 0) removeItem.addEventListener('click', function (e) { e.stopPropagation(); removeUnit(idx); });
+        menu.appendChild(removeItem);
+
+        var istekDisabled = floor.units.length === 0 || hasIstek;
+        var istekItem = document.createElement('div');
+        istekItem.className = 'floor-menu-item istek-btn' + (istekDisabled ? ' disabled' : '');
+        istekItem.innerHTML = hasIstek ? '🔶 İstek Seçili ✓' : '🔶 İstek Bağımsız';
+        if (!istekDisabled) istekItem.addEventListener('click', function (e) { e.stopPropagation(); setIstekAuto(idx); });
+        menu.appendChild(istekItem);
+
+        btn.appendChild(menu);
+        btn.addEventListener('click', function (e) { e.stopPropagation(); closeAllMenus(); menu.classList.toggle('show'); });
+        row.appendChild(btn);
+        floorsDiv.appendChild(row);
+      })(i);
+    }
+
+    container.appendChild(floorsDiv);
+    renderSummary();
+    hideValidationError();
+    renderKolon();
+    scheduleSave();
+  }
+
+  function renderSummary() {
+    var summary = $('floorSummary');
+    summary.style.width = $('buildingOuter').style.width;
+    var html = '<h4>📊 Kat Bazlı Bağımsız Dağılımı</h4>';
+    for (var i = state.floors.length - 1; i >= 0; i--) {
+      var f = state.floors[i];
+      var ic = 0; f.units.forEach(function (u) { if (u === 'istek') ic++; });
+      html += '<div class="floor-summary-row"><span>' + f.name + '</span><span>' + f.units.length + ' bağımsız' +
+              (ic > 0 ? ' <span style="color:#f39c12;font-weight:700;">(1 İstek)</span>' : '') + '</span></div>';
+    }
+    summary.innerHTML = html;
+  }
+
+  function getActiveUnitCount() {
+    var s = 0; state.floors.forEach(function (f) { s += f.units.length; }); return s;
+  }
+  function closeAllMenus() {
+    document.querySelectorAll('.floor-menu').forEach(function (m) { m.classList.remove('show'); });
+    document.querySelectorAll('.strip-menu').forEach(function (m) { m.classList.remove('show'); });
+  }
+  function showToast(msg) {
+    var t = $('toast'); t.textContent = msg; t.classList.add('show');
+    setTimeout(function () { t.classList.remove('show'); }, 2500);
+  }
+  function hideValidationError() { $('validationError').classList.remove('show'); }
+
+  function setIstekOrtak(floorIdx, unitIdx) {
+    if (state.istekFloor !== null && state.istekFloor >= 0 &&
+        state.istekUnit !== null &&
+        state.istekFloor < state.floors.length &&
+        state.istekUnit < state.floors[state.istekFloor].units.length) {
+      state.floors[state.istekFloor].units[state.istekUnit] = 'mevcut';
+    }
+    state.istekFloor = floorIdx; state.istekUnit = unitIdx;
+    closeAllMenus(); renderBuilding();
+    var label = unitIdx < state.asansor ? 'Asansör' : 'Ortak Alan';
+    showToast('     ' + label + ' İSTEK olarak işaretlendi.');
+  }
+
+  function setIstekAuto(floorIdx) {
+    if (state.istekFloor === -1) { state.istekFloor = null; state.istekUnit = null; }
+    if (state.istekFloor !== null && state.istekUnit !== null &&
+        state.istekFloor < state.floors.length &&
+        state.istekUnit < state.floors[state.istekFloor].units.length) {
+      state.floors[state.istekFloor].units[state.istekUnit] = 'mevcut';
+    }
+    var floor = state.floors[floorIdx], sel = 0;
+    for (var u = 0; u < floor.units.length; u++) { if (floor.units[u] === 'mevcut') { sel = u; break; } }
+    floor.units[sel] = 'istek'; state.istekFloor = floorIdx; state.istekUnit = sel;
+    closeAllMenus(); renderBuilding();
+    showToast('🔶 ' + floor.name + ' - Bağımsız ' + (sel + 1) + ' İSTEK olarak işaretlendi.');
+  }
+
+  function addUnit(floorIdx) {
+    if (getActiveUnitCount() >= state.toplamBagimsiz) { showToast('⚠️ Toplam bağımsız sayısına ulaşıldı!'); closeAllMenus(); return; }
+    state.floors[floorIdx].units.push('mevcut'); closeAllMenus(); renderBuilding();
+    showToast('✅ ' + state.floors[floorIdx].name + ' katına bağımsız eklendi.');
+  }
+
+  function removeUnit(floorIdx) {
+    var floor = state.floors[floorIdx];
+    if (floor.units.length === 0) { showToast('⚠️ Bu katta silinecek bağımsız yok.'); closeAllMenus(); return; }
+    if (state.istekFloor === floorIdx && state.istekUnit >= floor.units.length - 1) {
+      state.istekFloor = null; state.istekUnit = null;
+    }
+    floor.units.pop(); closeAllMenus(); renderBuilding();
+    showToast('🗑️ ' + floor.name + ' katından bağımsız silindi.');
+  }
+
+  // ══════════════════════════════════════
+  // ADP SELECT
+  // ══════════════════════════════════════
+  function buildAdpSelect() {
+    var sel = $('adpKatSelect');
+    sel.innerHTML = '';
+    var optZ = document.createElement('option');
+    optZ.value = 'zemin'; optZ.textContent = 'Zemin Kat';
+    sel.appendChild(optZ);
+    for (var b = 1; b <= 4; b++) {
+      var opt = document.createElement('option');
+      opt.value = 'bodrum_' + b;
+      opt.textContent = b + '. Bodrum';
+      sel.appendChild(opt);
+    }
+    var found = false;
+    for (var i = 0; i < sel.options.length; i++) {
+      if (sel.options[i].value === adpKatValue) { found = true; break; }
+    }
+    sel.value = found ? adpKatValue : 'bodrum_1';
+    if (!found) { adpKatValue = 'bodrum_1'; adpKatAdi = '1. Bodrum'; }
+    if (!adpSelectBuilt) {
+      sel.addEventListener('change', function () {
+        adpKatValue = sel.value;
+        if (adpKatValue === 'zemin') adpKatAdi = 'Zemin Kat';
+        else adpKatAdi = adpKatValue.replace('bodrum_', '') + '. Bodrum';
+        scheduleSave();
+        renderKolon();
+      });
+      adpSelectBuilt = true;
+    }
+  }
+
+  function syncFromTotal() {
+    state.totalTesisat = parseInt($('totalTesisat').value) || 3;
+    state.asansor = parseInt($('asansor').value) || 0;
+    state.ortakAlan = parseInt($('ortakAlan').value) || 0;
+    state.toplamBagimsiz = Math.max(1, state.totalTesisat - state.asansor - state.ortakAlan);
+    $('toplamBagimsiz').value = state.toplamBagimsiz;
+    state.katSayisi = parseInt($('katSayisi').value) || 1;
+    state.istekFloor = null; state.istekUnit = null;
+    distributeUnits(); buildAdpSelect(); renderBuilding();
+  }
+
+  function syncFromBagimsiz() {
+    state.toplamBagimsiz = parseInt($('toplamBagimsiz').value) || 1;
+    state.asansor = parseInt($('asansor').value) || 0;
+    state.ortakAlan = parseInt($('ortakAlan').value) || 0;
+    state.totalTesisat = state.toplamBagimsiz + state.asansor + state.ortakAlan;
+    $('totalTesisat').value = state.totalTesisat;
+    state.katSayisi = parseInt($('katSayisi').value) || 1;
+    state.istekFloor = null; state.istekUnit = null;
+    distributeUnits(); buildAdpSelect(); renderBuilding();
+  }
+
+  $('totalTesisat').addEventListener('input', syncFromTotal);
+  $('asansor').addEventListener('input', syncFromTotal);
+  $('ortakAlan').addEventListener('input', syncFromTotal);
+  $('toplamBagimsiz').addEventListener('input', syncFromBagimsiz);
+  $('katSayisi').addEventListener('input', syncFromTotal);
+  $('adpTipi').addEventListener('change', function () {
+    adpTipiValue = $('adpTipi').value; scheduleSave(); renderKolon();
+  });
+  document.addEventListener('click', function () { closeAllMenus(); });
+
+  // ══════════════════════════════════════
+  // KOLON SABİT ÖLÇÜLER
+  // ══════════════════════════════════════
+  var KAT_YUKSEKLIGI       = 62.1;
+  var SAYAC_GIRIS_DERINLIK = 50.5;
+  var ISTEK_PAY            = 90;
+  var ISTEK_DT_UST_OFFSET  = 18;
+  var KOLON_SAYAC = { kutuW: 14, kutuH: 20.4, kutuDx: -8.7, line1: 4.3, line2: 6.1, line3: 7.7 };
+  var REL = { elipse1Y: 29, sigorta1Y: 34.3, sigorta1AltY: 40.6, araLine: 51.5, sigorta2Y: 53.4, sigorta2AltY: 59.6, kolonSolDx: -3.3, kolonSagDx: 0, solHatDx: -3.4 };
+  var DT          = { w: 41.8, h: 13.8, dx: -22.2 };
+  var ADP_BAR_H   = 11.1;
+  var KAT_LABEL_W = 66.5;
+
+  function f2(n) { return n.toFixed(2); }
+
+  function drawTopraklama(attachX, attachY) {
+    var tx = attachX - 591.4, ty = attachY - 597.9;
+    return '<g transform="translate(' + f2(tx) + ',' + f2(ty) + ')">'
+      + '<line class="st-line-thin" x1="597.1" y1="622" x2="585.6" y2="622"/>'
+      + '<line class="st-line-thin" x1="596.2" y1="623.5" x2="586.6" y2="623.5"/>'
+      + '<line class="st-line-thin" x1="595.2" y1="625" x2="587.5" y2="625"/>'
+      + '<line class="st-line-thin" x1="594.2" y1="626.5" x2="588.6" y2="626.5"/>'
+      + '<rect x="612.4" y="596.2" class="st-rect-thin" width="25" height="3.3"/>'
+      + '<circle class="st-rect-thin" cx="616.2" cy="597.9" r="0.6"/>'
+      + '<circle class="st-rect-thin" cx="620.3" cy="597.9" r="0.6"/>'
+      + '<circle class="st-rect-thin" cx="624.5" cy="597.9" r="0.6"/>'
+      + '<circle class="st-rect-thin" cx="628.7" cy="597.9" r="0.6"/>'
+      + '<circle class="st-rect-thin" cx="632.8" cy="597.9" r="0.6"/>'
+      + '<line class="st-line-thin" x1="616.2" y1="597.9" x2="616.2" y2="555.9"/>'
+      + '<line class="st-line-thin" x1="620.3" y1="597.9" x2="620.3" y2="555.9"/>'
+      + '<line class="st-line-thin" x1="624.5" y1="597.9" x2="624.5" y2="555.9"/>'
+      + '<line class="st-line-thin" x1="628.7" y1="597.9" x2="628.7" y2="555.9"/>'
+      + '<line class="st-line-thin" x1="632.8" y1="597.9" x2="632.8" y2="555.9"/>'
+      + '<line class="st-line-thin" x1="612.4" y1="597.9" x2="591.4" y2="597.9"/>'
+      + '<line class="st-line-thin" x1="591.4" y1="622" x2="591.4" y2="597.9"/>'
+      + '<text transform="matrix(1 0 0 1 611 609.9555)" class="st-text st-text-9">Eşpotansiyel Bara</text>'
+      + '<text transform="matrix(1 0 0 1 579.996 571.437)"><tspan x="0" y="0" class="st-text st-text-9">25 mm2 CU</tspan>'
+      + '<tspan x="-43" y="7.2" class="st-text st-text-9">Korozyona karşı korumalıdır</tspan></text>'
+      + '<text transform="matrix(1 0 0 1 565.9808 637.7227)" class="st-text st-text-9">Temel Topraklama</text>'
+      + '</g>';
+  }
+
+  function drawKofre(attachX, attachY) {
+    var tx = attachX - 739.7, ty = attachY - 555.9;
+    return '<g transform="translate(' + f2(tx) + ',' + f2(ty) + ')">'
+      + '<text transform="matrix(1 0 0 1 745.6688 596.2412)" class="st-text st-text-9">3x70+35 mm2 15m</text>'
+      + '<text transform="matrix(1 0 0 1 826.275 587.799)" class="st-text st-text-9">Y.S.Y.A </text>'
+      + '<text transform="matrix(1 0 0 1 829.608 614.3505)" class="st-text st-text-9">3x40A</text>'
+      + '<rect x="826.2" y="593.9" class="st-rect-thin" width="22.5" height="11.5"/>'
+      + '<line class="st-line-thin" x1="848.7" y1="593.9" x2="826.3" y2="605.4"/>'
+      + '<line class="st-line-thin" x1="848.8" y1="605.6" x2="826.3" y2="594.1"/>'
+      + '<polygon class="st-line-thin" points="859.3,599.6 850.1,594.3 850.1,605"/>'
+      + '<line class="st-line-thin" x1="826.3" y1="599.7" x2="709.7" y2="599.7"/>'
+      + '<line class="st-line-thin" x1="709.7" y1="555.9" x2="709.7" y2="599.8"/>'
+      + '</g>';
+  }
+
+  function drawSarj(attachX, attachY) {
+    var tx = attachX - 720.5, ty = attachY - 445.7;
+    return '<g transform="translate(' + f2(tx) + ',' + f2(ty) + ')">'
+      + '<ellipse class="st-rect-thin" cx="720.5" cy="461.4" rx="0.8" ry="0.8"/>'
+      + '<ellipse class="st-rect-thin" cx="720.5" cy="467.7" rx="0.8" ry="0.8"/>'
+      + '<line class="st-rect-thin" x1="721.4" y1="461.3" x2="723.7" y2="466.6"/>'
+      + '<line class="st-rect-thin" x1="722.5" y1="464.2" x2="726.1" y2="462.8"/>'
+      + '<polygon class="st-fill" points="728.5,461.6 726.7,464.2 725.4,461.3"/>'
+      + '<line class="st-line-thin" x1="720.5" y1="460.6" x2="720.5" y2="445.7"/>'
+      + '<line class="st-line-thin" x1="720.5" y1="468.5" x2="720.5" y2="484.1"/>'
+      + '<line class="st-line-thin" x1="720.5" y1="492" x2="720.5" y2="503.1"/>'
+      + '<ellipse class="st-rect-thin" cx="720.5" cy="484.8" rx="0.8" ry="0.8"/>'
+      + '<ellipse class="st-rect-thin" cx="720.5" cy="491" rx="0.8" ry="0.8"/>'
+      + '<line class="st-rect-thin" x1="721.3" y1="484.6" x2="723.7" y2="489.9"/>'
+      + '<line class="st-rect-thin" x1="722.5" y1="487.5" x2="726.1" y2="486.1"/>'
+      + '<polygon class="st-fill" points="728.5,484.9 726.7,487.5 725.4,484.6"/>'
+      + '<ellipse class="st-rect-thin" cx="720.9" cy="479.5" rx="2.5" ry="1.3"/>'
+      + '<line class="st-line-thin" x1="728.9" y1="484.7" x2="728.9" y2="479.4"/>'
+      + '<line class="st-line-thin" x1="729" y1="479.5" x2="723.3" y2="479.5"/>'
+      + '<text transform="matrix(1 0 0 1 696.2033 528.7982)" class="st-text" style="font-size:7px;">Şarj İstasyonu</text>'
+      + '<text transform="matrix(1 0 0 1 705 537.2)" class="st-text" style="font-size:7px;">22 kW</text>'
+      + '<text transform="matrix(1 0 0 1 649.4125 532.6296)" class="st-text" style="font-size:5px;">4x40A</text>'
+      + '<text transform="matrix(1 0 0 1 649.4125 467.6783)" class="st-text" style="font-size:5px;">4x40A</text>'
+      + '<text transform="matrix(1 0 0 1 735.389 465.7575)" class="st-text" style="font-size:5px;">4x40A</text>'
+      + '<text transform="matrix(1 0 0 1 649.4125 505.7253)" class="st-text" style="font-size:5px;">K.A.K.R</text>'
+      + '<text transform="matrix(1 0 0 1 649.4125 511.7253)" class="st-text" style="font-size:5px;">4x40A 300mA</text>'
+      + '<text transform="matrix(1 0 0 1 735.389 484.7638)" class="st-text" style="font-size:5px;">K.A.K.R</text>'
+      + '<text transform="matrix(1 0 0 1 735.389 490.7638)" class="st-text" style="font-size:5px;">4x40A 300mA</text>'
+      + '<rect x="697.5" y="503.1" class="st-rect-thin" width="41.8" height="13.8"/>'
+      + '<path class="st-fill" d="M698.8,516.9c13.5-4.5,27-9,40.4-13.5v13.1C725.8,516.7,712.3,516.8,698.8,516.9z"/>'
+      + '<text transform="matrix(1 0 0 1 654.5076 442.4886)" class="st-text st-text-9">3x70+35 mm2 15m</text>'
+      + '<path fill="none" stroke="#000" stroke-width="0.5" stroke-dasharray="3,2" d="M675.2,540.7h-48.6c-4.7,0-8.6-3.8-8.6-8.6v-70.9c0-4.7,3.8-8.6,8.6-8.6h48.6c4.7,0,8.6,3.8,8.6,8.6v70.9C683.7,536.8,679.9,540.7,675.2,540.7z"/>'
+      + '<text transform="matrix(0 -1 1 0 613.5 517)" class="st-text st-text-9">Mühürlü Alan</text>'
+      + '<rect x="628.9" y="456.5" class="st-rect-thin" width="14" height="2.2"/>'
+      + '<line class="st-rect-thin" x1="628.9" y1="458.7" x2="642.9" y2="456.5"/>'
+      + '<line class="st-rect-thin" x1="628.9" y1="456.5" x2="642.9" y2="458.7"/>'
+      + '<line class="st-line-thin" x1="635.1" y1="462.4" x2="635.1" y2="458.7"/>'
+      + '<line class="st-line-thin" x1="635.1" y1="470.3" x2="635.1" y2="474.1"/>'
+      + '<line class="st-line-thin" x1="631.8" y1="458.7" x2="631.8" y2="474.1"/>'
+      + '<line class="st-line-thin" x1="640.5" y1="448.9" x2="640.5" y2="456.3"/>'
+      + '<line class="st-line-thin" x1="637.3" y1="445.7" x2="637.3" y2="456.3"/>'
+      + '<line class="st-line-thin" x1="716.7" y1="503.1" x2="716.7" y2="448.9"/>'
+      + '<line class="st-line-thin" x1="640.5" y1="448.9" x2="716.7" y2="448.9"/>'
+      + '<line class="st-line-thin" x1="637.3" y1="445.7" x2="720.5" y2="445.7"/>'
+      + '<ellipse class="st-rect-thin" cx="635.1" cy="463.2" rx="0.8" ry="0.8"/>'
+      + '<ellipse class="st-rect-thin" cx="635.1" cy="469.5" rx="0.8" ry="0.8"/>'
+      + '<line class="st-rect-thin" x1="635.9" y1="463.1" x2="638.3" y2="468.4"/>'
+      + '<line class="st-rect-thin" x1="637.1" y1="466" x2="640.7" y2="464.6"/>'
+      + '<polygon class="st-fill" points="643.1,463.4 641.3,466 640,463.1"/>'
+      + '</g>';
+  }
+
+  function drawSayacGiris(attachX, attachY) {
+    var tx = attachX - 635.1, ty = attachY - 352.2;
+    return '<g transform="translate(' + f2(tx) + ',' + f2(ty) + ')">'
+      + '<ellipse class="st-rect-thin" cx="635.1" cy="385.2" rx="0.8" ry="0.8"/>'
+      + '<ellipse class="st-rect-thin" cx="635.1" cy="391.5" rx="0.8" ry="0.8"/>'
+      + '<line class="st-line-thin" x1="635.9" y1="385.1" x2="638.3" y2="390.4"/>'
+      + '<line class="st-line-thin" x1="637.1" y1="388" x2="640.7" y2="386.6"/>'
+      + '<polygon class="st-fill" points="643.1,385.4 641.3,388 640,385.1"/>'
+      + '<line class="st-line-thin" x1="635.1" y1="373.4" x2="635.1" y2="384.4"/>'
+      + '<ellipse class="st-rect-thin" cx="635.1" cy="366.2" rx="0.8" ry="0.8"/>'
+      + '<ellipse class="st-rect-thin" cx="635.1" cy="372.4" rx="0.8" ry="0.8"/>'
+      + '<line class="st-line-thin" x1="635.9" y1="366" x2="638.3" y2="371.3"/>'
+      + '<line class="st-line-thin" x1="637.1" y1="369" x2="640.6" y2="367.5"/>'
+      + '<polygon class="st-fill" points="643.1,366.3 641.2,368.9 639.9,366"/>'
+      + '<ellipse class="st-rect-thin" cx="635.4" cy="360.9" rx="2.5" ry="1.3"/>'
+      + '<line class="st-line-thin" x1="643.4" y1="366.1" x2="643.4" y2="360.8"/>'
+      + '<line class="st-line-thin" x1="643.6" y1="360.9" x2="637.9" y2="360.9"/>'
+      + '<line class="st-line-thin" x1="635.1" y1="365.3" x2="635.1" y2="352.2"/>'
+      + '<line class="st-line-thin" x1="635.1" y1="392.3" x2="635.1" y2="402.7"/>'
+      + '<text transform="matrix(1 0 0 1 650.8392 390.6574)" class="st-text" style="font-size:5px;">4x40A</text>'
+      + '<text transform="matrix(1 0 0 1 650.8392 365.3359)" class="st-text" style="font-size:5px;">K.A.K.R</text>'
+      + '<text transform="matrix(1 0 0 1 650.8392 371.3359)" class="st-text" style="font-size:5px;">4x40A 300mA</text>'
+      + '<line class="st-line-thin" x1="631.8" y1="402.7" x2="631.8" y2="352.2"/>'
+      + '</g>';
+  }
+
+  function drawSigorta(cx, y1, y2) {
+    var s = '';
+    s += '<ellipse cx="' + cx + '" cy="' + y1 + '" rx="0.8" ry="0.8" class="st-rect-thin"/>';
+    s += '<ellipse cx="' + cx + '" cy="' + y2 + '" rx="0.8" ry="0.8" class="st-rect-thin"/>';
+    s += '<line x1="' + (cx+0.8) + '" y1="' + (y1-0.1) + '" x2="' + (cx+3.2) + '" y2="' + (y2-1.1) + '" class="st-line-thin"/>';
+    var mid = (y1+y2)/2;
+    s += '<line x1="' + (cx+2) + '" y1="' + mid + '" x2="' + (cx+7.5) + '" y2="' + (mid-2.1) + '" class="st-line-thin"/>';
+    var ax = cx+8, ay = y1+0.1;
+    s += '<polygon points="' + (ax+2.4) + ',' + (ay-0.8) + ' ' + (ax+0.6) + ',' + (ay+1.8) + ' ' + (ax-0.7) + ',' + (ay-1.1) + '" class="st-fill"/>';
+    return s;
+  }
+
+  function hesaplaKoordinatlar(floors, istekFloor, istekOrtakMi) {
+    var katSayisi = floors.length;
+    var topY = 30;
+    var istekEkYukseklik = 20;
+    for (var iter = 0; iter < 2; iter++) {
+      var ky = new Array(katSayisi);
+      var y = topY;
+      for (var i = katSayisi - 1; i >= 0; i--) {
+        ky[i] = y;
+        y += (i === istekFloor && !istekOrtakMi) ? KAT_YUKSEKLIGI + istekEkYukseklik : KAT_YUKSEKLIGI;
+      }
+      if (istekFloor !== null && !istekOrtakMi) {
+        var istekH       = KAT_YUKSEKLIGI + istekEkYukseklik;
+        var istekKatUst  = ky[istekFloor];
+        var istekKatAlt  = istekKatUst + istekH;
+        var dtUstY_istek = istekKatUst + ISTEK_DT_UST_OFFSET;
+        var dtAltY_istek = dtUstY_istek + DT.h;
+        var sayacGirisAlt = dtAltY_istek + SAYAC_GIRIS_DERINLIK;
+        var gereken      = sayacGirisAlt + ISTEK_PAY - istekKatAlt;
+        istekEkYukseklik = Math.max(0, gereken);
+      }
+    }
+    var katUstYler = new Array(katSayisi);
+    var y2 = topY;
+    for (var i2 = katSayisi - 1; i2 >= 0; i2--) {
+      katUstYler[i2] = y2;
+      y2 += (i2 === istekFloor && !istekOrtakMi) ? KAT_YUKSEKLIGI + istekEkYukseklik : KAT_YUKSEKLIGI;
+    }
+    return {
+      katUstYler: katUstYler,
+      adpKatUst: y2,
+      istekEkYukseklik: istekEkYukseklik,
+      katH: function (idx) { return (idx === istekFloor && !istekOrtakMi) ? KAT_YUKSEKLIGI + istekEkYukseklik : KAT_YUKSEKLIGI; },
+      katAltY:  function (idx) { return katUstYler[idx] + this.katH(idx); },
+      katOrtaY: function (idx) { return katUstYler[idx] + this.katH(idx) / 2; },
+      dtUstY:   function (idx) {
+        if (idx === istekFloor && !istekOrtakMi) return katUstYler[idx] + ISTEK_DT_UST_OFFSET;
+        return this.katOrtaY(idx) - DT.h / 2;
+      },
+      dtAltY: function (idx) { return this.dtUstY(idx) + DT.h; }
+    };
+  }
+
+  function renderKolon() {
+    if (!state.floors || state.floors.length === 0) return;
+
+    var floors        = state.floors;
+    var katSayisi     = floors.length;
+    var asansor       = state.asansor;
+    var ortakAlan     = state.ortakAlan;
+    var ortakTesisat  = asansor + ortakAlan;
+    var toplamTesisat = state.totalTesisat;
+    var istekFloor    = state.istekFloor;
+    var istekUnit     = state.istekUnit;
+    var adpTipiLabel  = adpTipiValue === 'duvar' ? 'Duvar Tipi' : 'Dikili Tip';
+
+    $('kolonInfo').textContent =
+      'Toplam: ' + toplamTesisat + ' tesisat | ' + state.toplamBagimsiz + ' bağımsız | ' +
+      asansor + ' asansör | ' + ortakAlan + ' ortak alan | ADP Pano: ' + adpKatAdi + ' (' + adpTipiLabel + ')';
+
+    var tesisatlar = [];
+    for (var a = 0; a < asansor; a++) tesisatlar.push({ tip: 'asansor', katIdx: -1, unitIdx: a });
+    for (var o = 0; o < ortakAlan; o++) tesisatlar.push({ tip: 'ortak', katIdx: -1, unitIdx: asansor + o });
+    floors.forEach(function (floor, fIdx) {
+      floor.units.forEach(function (tip, uIdx) { tesisatlar.push({ tip: tip, katIdx: fIdx, unitIdx: uIdx }); });
+    });
+
+    var istekOrtakMi          = (istekFloor === -1);
+    var istekKatTesisatSirasi = -1;
+    var istekOrtakSirasi      = -1;
+    var oS = 0, kS = 0;
+    tesisatlar.forEach(function (t) {
+      if (t.tip === 'asansor' || t.tip === 'ortak') {
+        if (istekOrtakMi && t.unitIdx === istekUnit) istekOrtakSirasi = oS;
+        oS++;
+      } else {
+        if (t.katIdx === istekFloor && t.unitIdx === istekUnit) istekKatTesisatSirasi = kS;
+        kS++;
+      }
+    });
+
+    var sarjBosluk = (istekFloor !== null && istekUnit !== null) ? 110 : 0;
+    var koord = hesaplaKoordinatlar(floors, istekFloor, istekOrtakMi);
+
+    var adpKatYukseklik = 240;
+    var altBosluk       = 180;
+    var adpKatUst       = koord.adpKatUst;
+    var adpKatAlt       = adpKatUst + adpKatYukseklik;
+    var adpBarY         = adpKatAlt - 110;
+    var adpBarAltY      = adpBarY + ADP_BAR_H;
+    var sayacUstY       = adpBarY - 80;
+    var toplamYukseklik = adpKatAlt + altBosluk;
+
+    var tesisatAraligi = 50;
+    var tesisatBasX    = 30;
+    var baraIcerCekme  = 15;
+    var minSayacSayisi = 8;
+
+    var ortakSutunG = ortakTesisat > 0 ? ortakTesisat * tesisatAraligi + 20 : 0;
+    var katIcerikG  = (toplamTesisat - ortakTesisat) * tesisatAraligi + 40;
+    var minBaraG    = minSayacSayisi * tesisatAraligi - baraIcerCekme * 2;
+    var hamBaraG    = ortakSutunG + katIcerikG - baraIcerCekme * 2;
+    if (minBaraG - hamBaraG > 0) katIcerikG += (minBaraG - hamBaraG);
+    if (istekFloor !== null && istekUnit !== null) {
+      if (istekOrtakMi) ortakSutunG += sarjBosluk;
+      else              katIcerikG  += sarjBosluk;
+    }
+    var toplamGenislik = tesisatBasX + ortakSutunG + katIcerikG + KAT_LABEL_W + 40;
+
+    var ortakBasX   = tesisatBasX + 10;
+    var katBasX     = tesisatBasX + ortakSutunG;
+    var tesisatXler = [];
+    var oS2 = 0, kS2 = 0;
+    tesisatlar.forEach(function (t) {
+      if (t.tip === 'asansor' || t.tip === 'ortak') {
+        var bx = ortakBasX + oS2 * tesisatAraligi + tesisatAraligi / 2;
+        if (istekOrtakMi && istekOrtakSirasi >= 0 && oS2 > istekOrtakSirasi) bx += sarjBosluk;
+        tesisatXler.push(bx); oS2++;
+      } else {
+        var bx = katBasX + kS2 * tesisatAraligi + tesisatAraligi / 2 + 20;
+        if (!istekOrtakMi && istekKatTesisatSirasi >= 0 && kS2 > istekKatTesisatSirasi) bx += sarjBosluk;
+        tesisatXler.push(bx); kS2++;
+      }
+    });
+
+    var adpBarX        = tesisatBasX + baraIcerCekme;
+    var adpBarGenislik = ortakSutunG + katIcerikG - baraIcerCekme * 2;
+    var sagKenar       = adpBarX + adpBarGenislik + baraIcerCekme + KAT_LABEL_W + 40;
+    toplamGenislik     = Math.max(toplamGenislik, sagKenar);
+
+    var topraklamaAttachX = adpBarX + adpBarGenislik * 0.40;
+    var topraklamaAttachY = adpBarAltY + 42;
+    var kofreAttachX      = adpBarX + adpBarGenislik * 0.70;
+    var kofreAttachY      = adpBarAltY;
+    toplamGenislik = Math.max(toplamGenislik, kofreAttachX + (859.3 - 709.7) + 20);
+
+    var xSol      = tesisatBasX;
+    var xOrtakSag = tesisatBasX + ortakSutunG;
+    var xKatSag   = xOrtakSag + katIcerikG;
+    var xLabelSag = xKatSag + KAT_LABEL_W;
+    var yEnUst    = koord.katUstYler[katSayisi - 1];
+    var yEnAlt    = adpKatAlt;
+
+    var svg = '';
+    svg += '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + f2(toplamGenislik) + ' ' + f2(toplamYukseklik) + '" style="width:100%;height:auto;">';
+    svg += '<style>';
+    svg += '.st-line-thin{fill:none;stroke:#020203;stroke-width:0.5;stroke-miterlimit:10;}';
+    svg += '.st-fill{fill:#020203;stroke:#020203;stroke-width:0.5;stroke-miterlimit:10;}';
+    svg += '.st-rect{fill:none;stroke:#000;stroke-width:0.75;stroke-miterlimit:10;}';
+    svg += '.st-rect-thin{fill:none;stroke:#000;stroke-width:0.5;stroke-miterlimit:10;}';
+    svg += '.st-text{font-family:ArialMT,Arial,sans-serif;fill:#020203;}';
+    svg += '.st-text-9{font-size:6px;}';
+    svg += '.st-text-5{font-size:5px;}';
+    svg += '.dt-fill{fill:#020203;stroke:#000;stroke-width:0.5;stroke-miterlimit:10;}';
+    svg += '</style>';
+
+    svg += '<line x1="' + f2(xSol) + '" y1="' + f2(yEnUst) + '" x2="' + f2(xSol) + '" y2="' + f2(yEnAlt) + '" class="st-rect"/>';
+    if (ortakTesisat > 0)
+      svg += '<line x1="' + f2(xOrtakSag) + '" y1="' + f2(yEnUst) + '" x2="' + f2(xOrtakSag) + '" y2="' + f2(yEnAlt) + '" class="st-rect"/>';
+    svg += '<line x1="' + f2(xKatSag) + '" y1="' + f2(yEnUst) + '" x2="' + f2(xKatSag) + '" y2="' + f2(yEnAlt) + '" class="st-rect"/>';
+    svg += '<line x1="' + f2(xLabelSag) + '" y1="' + f2(yEnUst) + '" x2="' + f2(xLabelSag) + '" y2="' + f2(yEnAlt) + '" class="st-rect"/>';
+    svg += '<line x1="' + f2(xSol) + '" y1="' + f2(yEnUst) + '" x2="' + f2(xLabelSag) + '" y2="' + f2(yEnUst) + '" class="st-rect"/>';
+
+    for (var fi = 0; fi < katSayisi; fi++) {
+      var yAlt   = koord.katAltY(fi);
+      var yOrtaK = koord.katOrtaY(fi);
+      if (ortakTesisat > 0) {
+        svg += '<line x1="' + f2(xOrtakSag) + '" y1="' + f2(yAlt) + '" x2="' + f2(xLabelSag) + '" y2="' + f2(yAlt) + '" class="st-rect"/>';
+      } else {
+        svg += '<line x1="' + f2(xSol) + '" y1="' + f2(yAlt) + '" x2="' + f2(xLabelSag) + '" y2="' + f2(yAlt) + '" class="st-rect"/>';
+      }
+      svg += '<text x="' + f2(xKatSag + 8) + '" y="' + f2(yOrtaK + 3) + '" class="st-text st-text-9">' + floors[fi].name + '</text>';
+    }
+
+    svg += '<line x1="' + f2(xSol) + '" y1="' + f2(yEnAlt) + '" x2="' + f2(xLabelSag) + '" y2="' + f2(yEnAlt) + '" class="st-rect"/>';
+    svg += '<text x="' + f2(xKatSag + 8) + '" y="' + f2(adpKatUst + adpKatYukseklik / 2 - 3) + '" class="st-text st-text-9">' + adpKatAdi + '</text>';
+    svg += '<text x="' + f2(xKatSag + 8) + '" y="' + f2(adpKatUst + adpKatYukseklik / 2 + 7) + '" class="st-text st-text-9">' + adpTipiLabel + '</text>';
+    svg += '<rect x="' + f2(adpBarX) + '" y="' + f2(adpBarY) + '" width="' + f2(adpBarGenislik) + '" height="' + f2(ADP_BAR_H) + '" class="st-rect-thin"/>';
+
+    tesisatlar.forEach(function (tesisat, tIdx) {
+      var cx      = tesisatXler[tIdx];
+      var isIstek = istekOrtakMi
+                    ? (tesisat.tip === 'asansor' || tesisat.tip === 'ortak') && tesisat.unitIdx === istekUnit
+                    : (tesisat.tip !== 'asansor' && tesisat.tip !== 'ortak') &&
+                      (tesisat.katIdx === istekFloor && tesisat.unitIdx === istekUnit);
+
+      var dtKatIdx = (tesisat.tip === 'asansor' || tesisat.tip === 'ortak') ? 0 : tesisat.katIdx;
+      var dtUstY   = koord.dtUstY(dtKatIdx);
+      var dtAltY   = koord.dtAltY(dtKatIdx);
+
+      var kutuY      = sayacUstY;
+      var solHatAltY = adpBarY;
+      var kolonAltY  = isIstek ? kutuY - 18.5 : kutuY;
+      var kolonUstY  = dtAltY;
+
+      svg += '<g>';
+      var kx = cx + KOLON_SAYAC.kutuDx;
+      svg += '<rect x="' + f2(kx) + '" y="' + f2(kutuY) + '" width="' + f2(KOLON_SAYAC.kutuW) + '" height="' + f2(KOLON_SAYAC.kutuH) + '" class="st-rect-thin"/>';
+      svg += '<line x1="' + f2(kx) + '" y1="' + f2(kutuY+KOLON_SAYAC.line1) + '" x2="' + f2(kx+KOLON_SAYAC.kutuW) + '" y2="' + f2(kutuY+KOLON_SAYAC.line1) + '" class="st-line-thin"/>';
+      svg += '<line x1="' + f2(kx) + '" y1="' + f2(kutuY+KOLON_SAYAC.line2) + '" x2="' + f2(kx+KOLON_SAYAC.kutuW) + '" y2="' + f2(kutuY+KOLON_SAYAC.line2) + '" class="st-line-thin"/>';
+      svg += '<line x1="' + f2(kx) + '" y1="' + f2(kutuY+KOLON_SAYAC.line3) + '" x2="' + f2(kx+KOLON_SAYAC.kutuW) + '" y2="' + f2(kutuY+KOLON_SAYAC.line3) + '" class="st-line-thin"/>';
+      svg += '<text x="' + f2(kx+2) + '" y="' + f2(kutuY+KOLON_SAYAC.kutuH-3) + '" class="st-text st-text-5">kWh</text>';
+
+      var e1Y = kutuY + REL.elipse1Y;
+      svg += '<ellipse cx="' + f2(cx+0.3) + '" cy="' + f2(e1Y) + '" rx="2.5" ry="1.3" class="st-rect-thin"/>';
+      var s1Y = kutuY+REL.sigorta1Y, s1AY = kutuY+REL.sigorta1AltY;
+      svg += drawSigorta(cx, s1Y, s1AY);
+      svg += '<line x1="' + f2(cx+8.6) + '" y1="' + f2(s1Y) + '" x2="' + f2(cx+8.6) + '" y2="' + f2(e1Y) + '" class="st-line-thin"/>';
+      svg += '<line x1="' + f2(cx+8.6) + '" y1="' + f2(e1Y) + '" x2="' + f2(cx+2.8) + '" y2="' + f2(e1Y) + '" class="st-line-thin"/>';
+      svg += '<line x1="' + f2(cx) + '" y1="' + f2(s1AY+0.8) + '" x2="' + f2(cx) + '" y2="' + f2(kutuY+REL.araLine+0.8) + '" class="st-line-thin"/>';
+      var s2Y = kutuY+REL.sigorta2Y, s2AY = kutuY+REL.sigorta2AltY;
+      svg += drawSigorta(cx, s2Y, s2AY);
+      var shX = cx + REL.solHatDx;
+      svg += '<line x1="' + f2(shX) + '" y1="' + f2(kutuY+KOLON_SAYAC.kutuH) + '" x2="' + f2(shX) + '" y2="' + f2(solHatAltY) + '" class="st-line-thin"/>';
+      svg += '<line x1="' + f2(cx) + '" y1="' + f2(s2AY+0.8) + '" x2="' + f2(cx) + '" y2="' + f2(solHatAltY) + '" class="st-line-thin"/>';
+      svg += '<line x1="' + f2(cx) + '" y1="' + f2(s1Y-0.8) + '" x2="' + f2(cx) + '" y2="' + f2(kutuY+KOLON_SAYAC.kutuH) + '" class="st-line-thin"/>';
+
+      var kolonUstY_hat = isIstek ? kolonUstY + 50 : kolonUstY;
+      svg += '<line x1="' + f2(cx+REL.kolonSolDx) + '" y1="' + f2(kolonAltY) + '" x2="' + f2(cx+REL.kolonSolDx) + '" y2="' + f2(kolonUstY_hat) + '" class="st-line-thin"/>';
+      svg += '<line x1="' + f2(cx+REL.kolonSagDx) + '" y1="' + f2(kolonAltY) + '" x2="' + f2(cx+REL.kolonSagDx) + '" y2="' + f2(kolonUstY_hat) + '" class="st-line-thin"/>';
+      if (isIstek) { svg += drawSayacGiris(cx, kolonUstY); }
+
+      var dtX = cx + DT.dx;
+      svg += '<rect x="' + f2(dtX) + '" y="' + f2(dtUstY) + '" width="' + f2(DT.w) + '" height="' + f2(DT.h) + '" class="st-rect-thin"/>';
+      svg += '<polygon points="' + f2(dtX+1.3) + ',' + f2(dtUstY+DT.h) + ' ' + f2(dtX+DT.w-0.1) + ',' + f2(dtUstY) + ' ' + f2(dtX+DT.w-0.1) + ',' + f2(dtUstY+DT.h-0.4) + '" class="dt-fill"/>';
+      var lbl = isIstek ? 'İstek' : tesisat.tip === 'asansor' ? 'Asansör' : tesisat.tip === 'ortak' ? 'Ortak Alan' : 'Mevcut';
+      svg += '<text x="' + f2(dtX) + '" y="' + f2(dtUstY-4) + '" class="st-text st-text-9">' + lbl + '</text>';
+      svg += '</g>';
+    });
+
+    svg += drawTopraklama(topraklamaAttachX, topraklamaAttachY);
+    svg += drawKofre(kofreAttachX, kofreAttachY);
+
+    if (istekFloor !== null && istekUnit !== null) {
+      var iIdx = -1;
+      tesisatlar.forEach(function (t, i) {
+        if (istekOrtakMi) {
+          if ((t.tip === 'asansor' || t.tip === 'ortak') && t.unitIdx === istekUnit) iIdx = i;
+        } else {
+          if (t.katIdx === istekFloor && t.unitIdx === istekUnit) iIdx = i;
+        }
+      });
+      if (iIdx >= 0) { svg += drawSarj(tesisatXler[iIdx] + 86, sayacUstY - 29); }
+    }
+
+    svg += '</svg>';
+    $('svgContainer').innerHTML = svg;
+
+    renderPano();
+  }
+
+  // ══════════════════════════════════════════════════════
+  // SAYAÇ PANOSU — tüm fonksiyonlar orijinaliyle aynı
+  // ══════════════════════════════════════════════════════
+  var PANO_SAYAC = { width:53.2, height:115.9, screenW:47.4, screenH:39.1, ledW:34.8, ledH:13 };
+  var DIKILI = {
+    SAYAC_PER_GOZ:4, GOZ_PER_PANO:3, SAYAC_PER_PANO:12,
+    PANO:{ width:245.3, height:544.7, marginTop:90, innerPadX:15, innerPadY:15, innerWidth:215.3, innerHeight:514.7, terminalH:58, genislikCm:'150 cm' },
+    TMS:{ width:136.5, height:544.7, innerPadX:8.4, innerPadY:15, innerWidth:119.8, innerHeight:514.7, genislikCm:'60 cm' },
+        GOZ:{ height:115.8 },
+    gozRelativeY: [311.6, 191.8, 72.1]
+  };
+  var DUVAR = {
+    BASE_SAYAC_PER_GOZ:4, GOZ_COUNT:4, marginTop:50, pad:9.6,
+    baseGozW:212.9, gozH:115.9, divW:9.6, sayacColW:53.2
+  };
+
+  function panoSvgOpen(w, h) {
+    return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 '+w+' '+h+'" width="'+Math.min(w,1800)+'" style="font-family:ArialMT,Arial,sans-serif;font-size:10px;">'
+      +'<defs><style>'
+      +'.p-outer{fill:none;stroke:#020203;stroke-width:0.75;stroke-miterlimit:10;}'
+      +'.p-inner{fill:none;stroke:#000;stroke-width:0.5;stroke-miterlimit:10;}'
+      +'.p-goz{fill:none;stroke:#000;stroke-width:0.25;stroke-miterlimit:10;}'
+      +'.p-dot{fill:#020203;stroke:#000;stroke-width:0.5;stroke-miterlimit:10;}'
+      +'.p-term{fill:none;stroke:#000;stroke-width:0.5;stroke-miterlimit:10;}'
+      +'.p-fill{fill:#020203;stroke:#020203;stroke-width:0.5;stroke-miterlimit:10;}'
+      +'.p-txt{fill:#020203;font-family:ArialMT,Arial,sans-serif;font-size:10px;}'
+      +'.p-dim{fill:none;stroke:#020203;stroke-width:0.5;stroke-miterlimit:10;}'
+      +'</style></defs>';
+  }
+
+  function drawPanoSayac(x, y, w, h, no) {
+    var s='';
+    s+='<rect x="'+x+'" y="'+y+'" width="'+w+'" height="'+h+'" class="p-inner"/>';
+    s+='<circle cx="'+(x+w/2)+'" cy="'+(y+3)+'" r="0.7" class="p-dot"/>';
+    var scrW=PANO_SAYAC.screenW, scrH=PANO_SAYAC.screenH;
+    var scrX=x+(w-scrW)/2, scrY=y+10;
+    s+='<rect x="'+scrX+'" y="'+scrY+'" width="'+scrW+'" height="'+scrH+'" class="p-inner"/>';
+    s+='<text x="'+(scrX+scrW/2)+'" y="'+(scrY+scrH/2+4)+'" text-anchor="middle" class="p-txt">'+no+'</text>';
+    var ledW=PANO_SAYAC.ledW, ledH=PANO_SAYAC.ledH;
+    var ledX=x+(w-ledW)/2, ledY=y+h-ledH-18;
+    s+='<rect x="'+ledX+'" y="'+ledY+'" width="'+ledW+'" height="'+ledH+'" class="p-inner"/>';
+    s+='<circle cx="'+(x+w/2)+'" cy="'+(y+h-3)+'" r="0.7" class="p-dot"/>';
+    return s;
+  }
+
+  function panoOlcuDikey(x, y, h, label) {
+    var s='';
+    s+='<polygon points="'+x+','+(y+1)+' '+(x-4)+','+(y+11)+' '+(x+4)+','+(y+11)+'" class="p-fill"/>';
+    s+='<polygon points="'+x+','+(y+h-1)+' '+(x-4)+','+(y+h-11)+' '+(x+4)+','+(y+h-11)+'" class="p-fill"/>';
+    s+='<line x1="'+x+'" y1="'+(y+11)+'" x2="'+x+'" y2="'+(y+h-11)+'" class="p-dim"/>';
+    s+='<text x="'+(x+8)+'" y="'+(y+h/2+4)+'" class="p-txt">'+label+'</text>';
+    return s;
+  }
+
+  function panoOlcuYatay(x, y, w, label) {
+    var s='';
+    s+='<polygon points="'+(x+1)+','+y+' '+(x+11)+','+(y-4)+' '+(x+11)+','+(y+4)+'" class="p-fill"/>';
+    s+='<polygon points="'+(x+w-1)+','+y+' '+(x+w-11)+','+(y-4)+' '+(x+w-11)+','+(y+4)+'" class="p-fill"/>';
+    s+='<line x1="'+(x+11)+'" y1="'+y+'" x2="'+(x+w-11)+'" y2="'+y+'" class="p-dim"/>';
+    s+='<text x="'+(x+w/2)+'" y="'+(y-8)+'" text-anchor="middle" class="p-txt">'+label+'</text>';
+    return s;
+  }
+
+  function esitDagit(toplam, gozSayisi) {
+    var dagitim=[];
+    var taban=Math.floor(toplam/gozSayisi);
+    var kalan=toplam%gozSayisi;
+    for(var i=0;i<gozSayisi;i++) dagitim.push(taban+(i<kalan?1:0));
+    return dagitim;
+  }
+
+  function drawDikiliTMS(x, y) {
+    var s='';
+    var D=DIKILI;
+    var w=D.TMS.width, h=D.PANO.height;
+    var ix=x+D.TMS.innerPadX, iy=y+D.TMS.innerPadY;
+    var iw=D.TMS.innerWidth, ih=D.TMS.innerHeight;
+    s+='<rect x="'+x+'" y="'+y+'" width="'+w+'" height="'+h+'" class="p-outer"/>';
+    s+='<rect x="'+ix+'" y="'+iy+'" width="'+iw+'" height="'+ih+'" class="p-inner"/>';
+    var barY1=iy+14, barY2=iy+22;
+    s+='<line x1="'+ix+'" y1="'+barY1+'" x2="'+(ix+iw)+'" y2="'+barY1+'" class="p-inner"/>';
+    s+='<line x1="'+ix+'" y1="'+barY2+'" x2="'+(ix+iw)+'" y2="'+barY2+'" class="p-inner"/>';
+    for(var i=0;i<15;i++) s+='<circle cx="'+(ix+3+i*(iw-6)/14)+'" cy="'+(iy+18)+'" r="0.7" class="p-dot"/>';
+    for(var i=0;i<4;i++) s+='<rect x="'+(ix+30+i*18)+'" y="'+(barY2+15)+'" width="6" height="14" class="p-inner"/>';
+    var k1=iy+200, k2=iy+245;
+    s+='<rect x="'+ix+'" y="'+k1+'" width="'+iw+'" height="40" class="p-inner"/>';
+    s+='<rect x="'+(ix+8)+'" y="'+(k1+13)+'" width="'+(iw-16)+'" height="12" class="p-inner"/>';
+    s+='<rect x="'+ix+'" y="'+k2+'" width="'+iw+'" height="40" class="p-inner"/>';
+    s+='<rect x="'+(ix+8)+'" y="'+(k2+13)+'" width="'+(iw-16)+'" height="12" class="p-inner"/>';
+    s+='<rect x="'+(ix+42)+'" y="'+(iy+330)+'" width="19" height="24" class="p-inner"/>';
+    s+='<rect x="'+(ix+43)+'" y="'+(iy+405)+'" width="18" height="12" class="p-inner"/>';
+    var termY=iy+ih-D.PANO.terminalH;
+    s+='<line x1="'+ix+'" y1="'+termY+'" x2="'+(ix+iw)+'" y2="'+termY+'" class="p-inner"/>';
+    s+='<rect x="'+(ix+1)+'" y="'+(termY+6)+'" width="5" height="'+(D.PANO.terminalH-6)+'" class="p-term"/>';
+    s+='<rect x="'+(ix+iw-6)+'" y="'+(termY+6)+'" width="5" height="'+(D.PANO.terminalH-6)+'" class="p-term"/>';
+    for(var row=0;row<3;row++){
+      var ly=termY+12+row*19;
+      s+='<line x1="'+(ix+6)+'" y1="'+ly+'" x2="'+(ix+iw-6)+'" y2="'+ly+'" class="p-inner"/>';
+      s+='<circle cx="'+(ix+3.5)+'" cy="'+(ly+(row===0?6:row===1?-2:-10))+'" r="0.7" class="p-dot"/>';
+      s+='<circle cx="'+(ix+iw-3.5)+'" cy="'+(ly+(row===0?6:row===1?-2:-10))+'" r="0.7" class="p-dot"/>';
+    }
+    return s;
+  }
+
+  function drawDikiliPano(x, y, startIndex, sayacCount) {
+    var s='';
+    var D=DIKILI;
+    var w=D.PANO.width, h=D.PANO.height;
+    var ix=x+D.PANO.innerPadX, iy=y+D.PANO.innerPadY;
+    var iw=D.PANO.innerWidth, ih=D.PANO.innerHeight;
+    s+='<rect x="'+x+'" y="'+y+'" width="'+w+'" height="'+h+'" class="p-outer"/>';
+    s+='<rect x="'+ix+'" y="'+iy+'" width="'+iw+'" height="'+ih+'" class="p-inner"/>';
+    var barY1=iy+14, barY2=iy+22;
+    s+='<line x1="'+ix+'" y1="'+barY1+'" x2="'+(ix+iw)+'" y2="'+barY1+'" class="p-inner"/>';
+    s+='<line x1="'+ix+'" y1="'+barY2+'" x2="'+(ix+iw)+'" y2="'+barY2+'" class="p-inner"/>';
+    for(var i=0;i<15;i++) s+='<circle cx="'+(ix+3+i*(iw-6)/14)+'" cy="'+(iy+18)+'" r="0.7" class="p-dot"/>';
+    for(var i=0;i<12;i++) s+='<rect x="'+(ix+8+i*(iw-16)/12)+'" y="'+(barY2+15)+'" width="10" height="14" class="p-inner"/>';
+    var gozDagitim=esitDagit(sayacCount, D.GOZ_PER_PANO);
+    for(var g=0;g<D.GOZ_PER_PANO;g++){
+      var gy=iy+D.gozRelativeY[g];
+      var gozH=D.GOZ.height;
+      s+='<rect x="'+ix+'" y="'+gy+'" width="'+iw+'" height="'+gozH+'" class="p-goz"/>';
+      var buGozdeki=gozDagitim[g];
+      if(buGozdeki>0){
+        var sayacW=PANO_SAYAC.width;
+        var sayacH=Math.min(PANO_SAYAC.height, gozH);
+        var sayacY=gy+(gozH-sayacH)/2;
+        var oncekiToplam=0;
+        for(var k=0;k<g;k++) oncekiToplam+=gozDagitim[k];
+        for(var si=0;si<buGozdeki;si++){
+          var sx=ix+si*(iw/D.SAYAC_PER_GOZ)+(iw/D.SAYAC_PER_GOZ-sayacW)/2;
+          s+=drawPanoSayac(sx, sayacY, sayacW, sayacH, startIndex+oncekiToplam+si+1);
+        }
+      }
+    }
+    var termY=iy+ih-D.PANO.terminalH;
+    s+='<line x1="'+ix+'" y1="'+termY+'" x2="'+(ix+iw)+'" y2="'+termY+'" class="p-inner"/>';
+    s+='<rect x="'+(ix+1)+'" y="'+(termY+6)+'" width="9" height="'+(D.PANO.terminalH-6)+'" class="p-term"/>';
+    s+='<rect x="'+(ix+iw-10)+'" y="'+(termY+6)+'" width="9" height="'+(D.PANO.terminalH-6)+'" class="p-term"/>';
+    for(var row=0;row<3;row++){
+      var ly=termY+12+row*19;
+      s+='<line x1="'+(ix+10)+'" y1="'+ly+'" x2="'+(ix+iw-10)+'" y2="'+ly+'" class="p-inner"/>';
+      s+='<circle cx="'+(ix+5.5)+'" cy="'+(ly+(row===0?6:row===1?-2:-10))+'" r="0.7" class="p-dot"/>';
+      s+='<circle cx="'+(ix+iw-5.5)+'" cy="'+(ly+(row===0?6:row===1?-2:-10))+'" r="0.7" class="p-dot"/>';
+    }
+    return s;
+  }
+
+  function drawDuvarSabitSayacUst(x, y, w, h) {
+    var s='';
+    s+='<rect x="'+x+'" y="'+y+'" width="'+w+'" height="'+h+'" class="p-inner"/>';
+    s+='<circle cx="'+(x+w/2)+'" cy="'+(y+2.9)+'" r="0.7" class="p-dot"/>';
+    var scrW=41.6, scrH=8.5, scrX=x+(w-scrW)/2;
+    s+='<rect x="'+scrX+'" y="'+(y+31.4)+'" width="'+scrW+'" height="'+scrH+'" class="p-inner"/>';
+    s+='<rect x="'+scrX+'" y="'+(y+86.0)+'" width="'+scrW+'" height="'+scrH+'" class="p-inner"/>';
+    s+='<circle cx="'+(x+w/2)+'" cy="'+(y+112.5)+'" r="0.7" class="p-dot"/>';
+    return s;
+  }
+
+  function drawDuvarSabitSayacAlt(x, y, w, h) {
+    var s='';
+    s+='<rect x="'+x+'" y="'+y+'" width="'+w+'" height="'+h+'" class="p-inner"/>';
+    s+='<circle cx="'+(x+w/2)+'" cy="'+(y+2.9)+'" r="0.7" class="p-dot"/>';
+    var ledW=34.8, ledH=13, ledX=x+(w-ledW)/2;
+    s+='<rect x="'+ledX+'" y="'+(y+83.9)+'" width="'+ledW+'" height="'+ledH+'" class="p-inner"/>';
+    s+='<circle cx="'+(x+w/2)+'" cy="'+(y+112.5)+'" r="0.7" class="p-dot"/>';
+    return s;
+  }
+
+  function drawDuvarPano(x, y, startIndex, sayacCount, aktifGoz, gozW, tmsVar) {
+    var s='';
+    var D=DUVAR;
+    var innerW=aktifGoz<=2 ? gozW+D.divW+D.sayacColW : gozW+D.divW+D.sayacColW+gozW;
+    var outerW=innerW+D.pad*2;
+    var outerH=D.gozH*2+D.pad*2;
+    var innerH=D.gozH*2;
+    var ix=x+D.pad, iy=y+D.pad;
+    s+='<rect x="'+x+'" y="'+y+'" width="'+outerW+'" height="'+outerH+'" class="p-outer"/>';
+    s+='<rect x="'+ix+'" y="'+iy+'" width="'+innerW+'" height="'+innerH+'" class="p-inner"/>';
+    var divX=ix+gozW;
+    s+='<rect x="'+divX+'" y="'+iy+'" width="'+D.divW+'" height="'+innerH+'" class="p-inner"/>';
+    var scX=divX+D.divW;
+    s+=drawDuvarSabitSayacUst(scX, iy, D.sayacColW, D.gozH);
+    s+=drawDuvarSabitSayacAlt(scX, iy+D.gozH, D.sayacColW, D.gozH);
+    if(tmsVar){
+      var tmsLabelX=divX+(D.divW+D.sayacColW)/2;
+      s+='<text x="'+(tmsLabelX+5)+'" y="'+(iy+innerH/2+60)+'" text-anchor="middle" class="p-txt">TMŞ</text>';
+    }
+    var solX=ix, ustY=iy, altY=iy+D.gozH;
+    s+='<rect x="'+solX+'" y="'+ustY+'" width="'+gozW+'" height="'+D.gozH+'" class="p-goz"/>';
+    s+='<rect x="'+solX+'" y="'+altY+'" width="'+gozW+'" height="'+D.gozH+'" class="p-goz"/>';
+    var sagX;
+    if(aktifGoz>2){
+      sagX=scX+D.sayacColW;
+      s+='<rect x="'+sagX+'" y="'+ustY+'" width="'+gozW+'" height="'+D.gozH+'" class="p-goz"/>';
+      s+='<rect x="'+sagX+'" y="'+altY+'" width="'+gozW+'" height="'+D.gozH+'" class="p-goz"/>';
+    }
+    var gozPositions=[{gx:solX,gy:altY},{gx:solX,gy:ustY}];
+    if(aktifGoz>2){ gozPositions.push({gx:sagX,gy:altY}); gozPositions.push({gx:sagX,gy:ustY}); }
+    var gozDagitim=esitDagit(sayacCount, aktifGoz);
+    var sayacNo=startIndex;
+    for(var g=0;g<aktifGoz;g++){
+      var buGozdeki=gozDagitim[g];
+      if(buGozdeki>0){
+        var gp=gozPositions[g];
+        var sayacW=PANO_SAYAC.width;
+        var sayacH=Math.min(PANO_SAYAC.height, D.gozH);
+        var sayacY=gp.gy+(D.gozH-sayacH)/2;
+        for(var si=0;si<buGozdeki;si++){
+          var sx=gp.gx+si*(gozW/buGozdeki)+(gozW/buGozdeki-sayacW)/2;
+          s+=drawPanoSayac(sx, sayacY, sayacW, sayacH, sayacNo+1);
+          sayacNo++;
+        }
+      }
+    }
+    return s;
+  }
+
+  function renderDikiliPano(tesisatSayisi, tmsVar) {
+    var D=DIKILI;
+    var panoSayisi=Math.ceil(tesisatSayisi/D.SAYAC_PER_PANO);
+    $('panoInfoBar').innerHTML=
+      '<b>Tip:</b> Dikili &nbsp;|&nbsp; <b>Toplam Tesisat:</b> '+tesisatSayisi+
+      ' &nbsp;|&nbsp; <b>Pano Sayısı:</b> '+panoSayisi+
+      ' &nbsp;|&nbsp; <b>TMŞ:</b> '+(tmsVar?'Var':'Yok')+
+      ' &nbsp;|&nbsp; <b>Sayaç/Pano:</b> '+D.SAYAC_PER_PANO;
+    var tmsW=tmsVar?D.TMS.width:0;
+    var totalW=tmsW+panoSayisi*D.PANO.width+140;
+    var totalH=D.PANO.height+D.PANO.marginTop+50;
+    var svg=panoSvgOpen(totalW, totalH);
+    var baseX=20, baseY=D.PANO.marginTop;
+    if(tmsVar) svg+=panoOlcuYatay(baseX, baseY-15, D.TMS.width, D.TMS.genislikCm);
+    for(var p=0;p<panoSayisi;p++) svg+=panoOlcuYatay(baseX+tmsW+p*D.PANO.width, baseY-15, D.PANO.width, D.PANO.genislikCm);
+    if(tmsVar){
+      svg+='<text x="'+(baseX-5+D.TMS.width/2)+'" y="'+(baseY+410)+'" text-anchor="middle" class="p-txt">TMŞ</text>';
+      svg+=drawDikiliTMS(baseX, baseY);
+    }
+    var sayacIndex=0;
+    for(var p=0;p<panoSayisi;p++){
+      var px=baseX+tmsW+p*D.PANO.width;
+      var kalan=tesisatSayisi-sayacIndex;
+      var bu=Math.min(D.SAYAC_PER_PANO, kalan);
+      svg+=drawDikiliPano(px, baseY, sayacIndex, bu);
+      sayacIndex+=bu;
+    }
+    svg+=panoOlcuDikey(baseX+tmsW+panoSayisi*D.PANO.width+30, baseY, D.PANO.height, '210 cm');
+    svg+='</svg>';
+    $('panoSvgContainer').innerHTML=svg;
+  }
+
+  function renderDuvarPano(tesisatSayisi, tmsVar) {
+    var D=DUVAR;
+    var aktifGoz=(tesisatSayisi<=8)?2:4;
+    var perGozMax=Math.ceil(tesisatSayisi/aktifGoz);
+    var gozW=perGozMax*PANO_SAYAC.width;
+    var innerW=aktifGoz<=2 ? gozW+D.divW+D.sayacColW : gozW+D.divW+D.sayacColW+gozW;
+    var outerW=innerW+D.pad*2;
+    var outerH=D.gozH*2+D.pad*2;
+    var genislikCm;
+    if(aktifGoz<=2){
+      var baseHalfOuterW=D.pad*2+D.baseGozW+D.divW+D.sayacColW;
+      genislikCm=Math.round((outerW/baseHalfOuterW)*150);
+    } else {
+      var baseFullOuterW=D.pad*2+D.baseGozW*2+D.divW+D.sayacColW;
+      genislikCm=Math.round((outerW/baseFullOuterW)*210);
+    }
+    $('panoInfoBar').innerHTML=
+      '<b>Tip:</b> Duvar &nbsp;|&nbsp; <b>Toplam Tesisat:</b> '+tesisatSayisi+
+      ' &nbsp;|&nbsp; <b>Aktif Göz:</b> '+aktifGoz+
+      ' &nbsp;|&nbsp; <b>Max Sayaç/Göz:</b> '+perGozMax+
+      ' &nbsp;|&nbsp; <b>TMŞ:</b> '+(tmsVar?'Var':'Yok')+
+      ' &nbsp;|&nbsp; <b>Pano:</b> '+genislikCm+' × 120 cm';
+    var totalW=outerW+100;
+    var totalH=outerH+D.marginTop+80;
+    var svg=panoSvgOpen(totalW, totalH);
+    var baseX=20, baseY=D.marginTop;
+    svg+=drawDuvarPano(baseX, baseY, 0, tesisatSayisi, aktifGoz, gozW, tmsVar);
+    svg+=panoOlcuYatay(baseX, baseY-15, outerW, genislikCm+' cm');
+    svg+=panoOlcuDikey(baseX+outerW+15, baseY, outerH, '120 cm');
+    svg+='</svg>';
+    $('panoSvgContainer').innerHTML=svg;
+  }
+
+    function renderPano() {
+    var tesisatSayisi=state.totalTesisat;
+    var tmsVar=true;
+    if(adpTipiValue==='duvar') renderDuvarPano(tesisatSayisi, tmsVar);
+    else renderDikiliPano(tesisatSayisi, tmsVar);
+    // Pano SVG DOM'a yazıldıktan sonra kaydet — timeout artırıldı
+    setTimeout(scheduleSave, 100);
+  }
+
+  // ══════════════════════════════════════
+  // BAŞLAT
+  // ══════════════════════════════════════
+  var restored=loadFromStorage();
+  if(restored){
+    syncInputsFromState();
+    buildAdpSelect();
+    renderBuilding();
+    showToast('📂 Önceki oturum yüklendi.');
+  } else {
+    distributeUnits();
+    buildAdpSelect();
+    renderBuilding();
+  }
+
+})();
+</script>
+</body>
+</html>
