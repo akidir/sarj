@@ -730,6 +730,36 @@
 var LS_SEMA_KEY = 'proje_sema_v1';
 
 // ═══════════════════════════════════════════════════════
+// SVG → PNG BASE64 (Rapor için)
+// ═══════════════════════════════════════════════════════
+function svgToPngBase64(svgString, pxW, pxH, dpiMul) {
+  return new Promise(function(resolve, reject) {
+    dpiMul = dpiMul || 2;
+    var blob = new Blob([svgString], {type:'image/svg+xml;charset=utf-8'});
+    var url = URL.createObjectURL(blob);
+    var img = new Image();
+    img.onload = function() {
+      var cw = (pxW || img.naturalWidth || 800) * dpiMul;
+      var ch = (pxH || img.naturalHeight || 600) * dpiMul;
+      var canvas = document.createElement('canvas');
+      canvas.width = cw;
+      canvas.height = ch;
+      var ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, cw, ch);
+      ctx.drawImage(img, 0, 0, cw, ch);
+      URL.revokeObjectURL(url);
+      resolve(canvas.toDataURL('image/png'));
+    };
+    img.onerror = function() {
+      URL.revokeObjectURL(url);
+      reject(new Error('SVG PNG dönüşüm hatası'));
+    };
+    img.src = url;
+  });
+}
+
+// ═══════════════════════════════════════════════════════
 // SABİTLER
 // ═══════════════════════════════════════════════════════
 const KABLO_KESIT_LIST = ['1,5','2,5','4','6','10','16','25','35','50','70','120','150','180','240'];
@@ -1731,6 +1761,57 @@ function saveState() {
       gucPanelHtml:   gucPanelHtml,
       linyeler:       _linyeListesiOlustur()
     }));
+    // ── Rapor PNG üretimi (async, UI bloklamaz) ──
+    setTimeout(function() {
+      // Tekhat SVG → PNG
+      var svgEl2 = document.getElementById('katman_1');
+      if (svgEl2) {
+        var hitLayers2 = svgEl2.querySelectorAll('.hit-layer');
+        var yedekler2 = [];
+        hitLayers2.forEach(function(el) {
+          yedekler2.push({ parent: el.parentNode, next: el.nextSibling, el: el });
+          el.parentNode.removeChild(el);
+        });
+        var svgStr2 = '';
+        try { svgStr2 = new XMLSerializer().serializeToString(svgEl2); } catch(e2) {}
+        yedekler2.forEach(function(item) {
+          if (item.next) item.parent.insertBefore(item.el, item.next);
+          else item.parent.appendChild(item.el);
+        });
+        if (svgStr2) {
+          svgToPngBase64(svgStr2, 1800, 560, 2)
+            .then(function(png) { try { localStorage.setItem('rapor_png_tekhat', png); } catch(e3){} })
+            .catch(function(e4) { console.warn('Tekhat PNG hatası:', e4); });
+        }
+      }
+
+      // HTML tabloları → html2canvas → PNG
+      if (typeof html2canvas === 'function') {
+        var htmlGorevler = [
+          { divId: 'cetveli-yuklemeCetveli', key: 'rapor_png_cetveli' },
+          { divId: 'cetveli-tesisatGuc',     key: 'rapor_png_tesisatGuc' },
+          { divId: 'cetveli-kofreOlcum',     key: 'rapor_png_kofreOlcum' },
+          { divId: 'cetveli-yapiGuc',        key: 'rapor_png_yapiGuc' },
+          { divId: 'gd-tablo-enuzun',        key: 'rapor_png_gdEnUzun' },
+          { divId: 'gd-tablo-enguclu',       key: 'rapor_png_gdEnGuclu' }
+        ];
+        htmlGorevler.forEach(function(g) {
+          var el = document.getElementById(g.divId);
+          if (el) {
+            html2canvas(el, {
+              backgroundColor: '#ffffff',
+              scale: 2,
+              useCORS: true,
+              logging: false
+            }).then(function(canvas) {
+              try { localStorage.setItem(g.key, canvas.toDataURL('image/png')); } catch(e5){}
+            }).catch(function(e6) {
+              console.warn(g.key + ' PNG hatası:', e6);
+            });
+          }
+        });
+      }
+    }, 300);
   } catch(e) { console.warn('[saveState] error:', e); }
 }
 
@@ -1914,7 +1995,7 @@ function cetveliGuncelle() {
   var yeniKG  = numVal('guc-yeni-kurulu');
   var yeniTG  = numVal('guc-yeni-talep');
 
-  var html = '<div class="yc-baslik">YÜKLEME CETVELİ</div>'
+  var html = '<div id="cetveli-yuklemeCetveli"><div class="yc-baslik">YÜKLEME CETVELİ</div>'
     + '<table class="yc-tablo"><thead><tr>'
     + '<th>Tablo Adı</th><th>Linye No</th><th>Sig. Amp.</th><th>Kablo</th>'
     + '<th>Işık</th><th>Priz</th><th>Motor</th><th>Güç (W)</th>'
@@ -1939,12 +2020,12 @@ function cetveliGuncelle() {
     + '<td style="text-align:right"><b>' + topR   + '</b></td>'
     + '<td style="text-align:right"><b>' + topS   + '</b></td>'
     + '<td style="text-align:right"><b>' + topT   + '</b></td>'
-    + '<td><b>TOPLAM</b></td></tr></tbody></table>';
+    + '<td><b>TOPLAM</b></td></tr></tbody></table></div>';  // cetveli-yuklemeCetveli kapanış
 
   var tgLabelW1 = 'width:108px;', tgLabelW2 = 'width:84px;', tgLabelW3 = 'width:132px;', tgDegerW = 'width:70px;';
   var tgToplamW = (108 + 70 + 84 + 70 + 132 + 70);
 
-  html += '<div class="yc-baslik" style="margin-top:30px;max-width:' + tgToplamW + 'px">TESİSAT GÜÇ BİLGİLERİ</div>'
+  html += '<div id="cetveli-tesisatGuc"><div class="yc-baslik" style="margin-top:30px;max-width:' + tgToplamW + 'px">TESİSAT GÜÇ BİLGİLERİ</div>'
     + '<table class="yc-tablo yc-tablo-sabit" style="width:' + tgToplamW + 'px"><colgroup>'
     + '<col style="' + tgLabelW1 + '"><col style="' + tgDegerW + '"><col style="' + tgLabelW2 + '">'
     + '<col style="' + tgDegerW  + '"><col style="' + tgLabelW3 + '"><col style="' + tgDegerW + '">'
@@ -1957,7 +2038,7 @@ function cetveliGuncelle() {
     + '<tr><td style="text-align:left">Eski Talep Güç</td><td style="text-align:right">' + (eskiTG||'') + '</td>'
     + '<td style="text-align:left">Talep Güç</td><td style="text-align:right">' + (ilaveTG||'') + '</td>'
     + '<td style="text-align:left">Toplam Talep Güç</td><td style="text-align:right"><b>' + (yeniTG||'') + '</b></td></tr>'
-    + '</tbody></table>';
+    + '</tbody></table></div>';  // cetveli-tesisatGuc kapanış
 
   var imax    = numVal('guc-imax');
   var imaxAlt = imax * 0.8;
@@ -1974,7 +2055,7 @@ function cetveliGuncelle() {
   var saat12 = [rndAkim(), rndAkim(), rndAkim()];
   var kofreOlcumW = 112, kofreRSTW = Math.floor((tgToplamW - kofreOlcumW) / 3);
 
-  html += '<div class="yc-baslik" style="margin-top:30px;max-width:' + tgToplamW + 'px">KOFRE ÖLÇÜM DEĞERLERİ</div>'
+  html += '<div id="cetveli-kofreOlcum"><div class="yc-baslik" style="margin-top:30px;max-width:' + tgToplamW + 'px">KOFRE ÖLÇÜM DEĞERLERİ</div>'
     + '<table class="yc-tablo yc-tablo-sabit" style="width:' + tgToplamW + 'px"><colgroup>'
     + '<col style="width:' + kofreOlcumW + 'px;"><col style="width:' + kofreRSTW + 'px;">'
     + '<col style="width:' + kofreRSTW + 'px;"><col style="width:' + kofreRSTW + 'px;">'
@@ -1982,7 +2063,7 @@ function cetveliGuncelle() {
     + '<tr><td><b>09:00</b></td><td>' + saat09[0] + '</td><td>' + saat09[1] + '</td><td>' + saat09[2] + '</td></tr>'
     + '<tr><td><b>12:00</b></td><td>' + saat12[0] + '</td><td>' + saat12[1] + '</td><td>' + saat12[2] + '</td></tr>'
     + '<tr><td><b>18:00</b></td><td>' + saat18[0] + '</td><td>' + saat18[1] + '</td><td>' + saat18[2] + '</td></tr>'
-    + '</tbody></table>';
+    + '</tbody></table></div>';  // cetveli-kofreOlcum kapanış
 
   var yapiEskiKG = numVal('guc-yapi-eski-kg-puant');
   var yapiEskiTG = numVal('guc-yapi-eski-tg');
@@ -2000,7 +2081,7 @@ function cetveliGuncelle() {
   var ygTd1 = 'text-align:left;border-right:1px solid #000;border-left:none;padding:6px 4px;font-weight:bold;';
   var ygTd2 = 'border-left:1px solid #000;border-right:none;padding:6px 4px;';
 
-  html += '<div class="yc-baslik" style="margin-top:30px">YAPI GÜÇ BİLGİLERİ</div>'
+  html += '<div id="cetveli-yapiGuc"><div class="yc-baslik" style="margin-top:30px">YAPI GÜÇ BİLGİLERİ</div>'
     + '<table class="yc-tablo" style="border:2px solid #000">' + ygCols + '<tbody>'
     + '<tr><td style="' + ygTd1 + '">ÖLÇÜLEN EN YÜKSEK AKIM</td><td style="' + ygTd2 + '">' + fmtImax + ' A</td>'
     + '<td style="' + ygTd + '"></td><td style="' + ygTd + '"></td><td style="' + ygTd + '"></td>'
@@ -2035,7 +2116,7 @@ function cetveliGuncelle() {
     + '<td style="' + ygTd + 'text-align:center">=</td><td style="' + ygTd + 'text-align:center;font-weight:bold">' + fmtYapiYTG + 'W</td>'
     + '<td style="' + ygTd + '"></td><td style="' + ygTd + '"></td><td style="' + ygTd + '"></td>'
     + '<td style="' + ygTd + '"></td><td style="' + ygTd + '"></td></tr>'
-    + '</tbody></table>';
+    + '</tbody></table></div>';  // cetveli-yapiGuc kapanış
 
   alan.innerHTML = html;
 }
@@ -2395,8 +2476,12 @@ function renderGD(tip){
 function gdTabloGuncelle(){
   var alan=qs('gd-canli-alan');if(!alan)return;
   var html='<div style="transform-origin:top left;transform:translate('+GD_OX+'px,'+GD_OY+'px) scale('+GD_SCALE+')">';
+  html+='<div id="gd-tablo-enuzun">';
   html+=renderGD('en_uzun');
+  html+='</div>';
+  html+='<div id="gd-tablo-enguclu">';
   html+=renderGD('en_guclu');
+  html+='</div>';
   html+='</div>';
   alan.innerHTML=html;
 }
@@ -2425,5 +2510,6 @@ window.collectGDData=collectGDData;
 
 })();
 </script>
+<script src="https://unpkg.com/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 </body>
 </html>

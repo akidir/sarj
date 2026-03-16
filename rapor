@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Mühendislik Raporu</title>
   <script src="https://unpkg.com/pdf-lib/dist/pdf-lib.min.js"></script>
-  <script src="https://unpkg.com/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
   <style>
     *{box-sizing:border-box;margin:0;padding:0}
     body{font-family:Arial,sans-serif;background:#f0f2f5;padding:20px}
@@ -47,9 +46,6 @@
     .modal-kapat:hover{color:#e74c3c}
     #pdf-iframe{width:100%;height:80vh;border:2px solid #ddd;border-radius:8px}
     .modal-indir-btn{margin-top:16px}
-
-    /* Sandbox */
-    #html-sandbox{position:fixed;left:-99999px;top:0;background:#fff;z-index:-1;pointer-events:none}
 
     /* İlerleme */
     .progress-bar-wrap{background:#e0e8f0;border-radius:6px;height:10px;margin-bottom:12px;display:none;overflow:hidden}
@@ -99,7 +95,6 @@
 </div>
 
 <!-- HTML→PNG Sandbox (ekran dışı ama DOM'da) -->
-<div id="html-sandbox"></div>
 
 <script>
 (function(){
@@ -121,68 +116,16 @@ const LS_AYAR    = 'rapor_ayarlar_v2';
 // renderW: html2canvas için sandbox genişliği (px)
 // pxW/pxH: SVG için canvas boyutu
 const VARSAYILAN_OGELERI = [
-  // ── Kolon Hesaplama sekmesinden ──
-    {
-    id:'bina', baslik:'🏢 Bina Görseli',
-    kaynak:'yapi', alan:'binaSvg', tip:'svg',
-    pxW:600, pxH:500,
-    x:20,  y:40,   scale:0.55, dpi:3, aktif:true
-  },
-  {
-    id:'kolon', baslik:'🏛️ Kolon Şeması',
-    kaynak:'yapi', alan:'kolonSvg', tip:'svg',
-    pxW:1400, pxH:900,
-    x:20,  y:340,  scale:0.45, dpi:3, aktif:true
-  },
-  {
-    id:'pano', baslik:'🗄️ Pano Görseli',
-    kaynak:'yapi', alan:'panoSvg', tip:'svg',
-    pxW:1100, pxH:700,
-    x:20,  y:700,  scale:0.45, dpi:3, aktif:true
-  },
-  // ── Elektrik Şeması sekmesinden ──
-  {
-    id:'tekhat', baslik:'🔌 Tekhat Şeması',
-    kaynak:'sema', alan:'svgString', tip:'svg',
-    pxW:1800, pxH:560,
-    x:20,  y:900,  scale:0.45, dpi:3, aktif:true
-  },
-  {
-    id:'cetvel', baslik:'📋 Yükleme Cetveli',
-    kaynak:'sema', alan:'cetveliHtml', tip:'html',
-    renderW: 1200,
-    x:20,  y:1050, scale:0.60, dpi:2, aktif:true
-  },
-  {
-    id:'tesisatguc', baslik:'⚡ Tesisat Güç Bilgileri',
-    kaynak:'sema', alan:'tesisatGucHtml', tip:'html',
-    renderW: 900,
-    x:20,  y:1280, scale:0.60, dpi:2, aktif:true
-  },
-  {
-    id:'kofreolem', baslik:'🔧 Kofre Ölçüm Değerleri',
-    kaynak:'sema', alan:'kofreOlcumHtml', tip:'html',
-    renderW: 700,
-    x:20,  y:1420, scale:0.60, dpi:2, aktif:true
-  },
-  {
-    id:'yapiguc', baslik:'🏗️ Yapı Güç Bilgileri',
-    kaynak:'sema', alan:'yapiGucHtml', tip:'html',
-    renderW: 1200,
-    x:20,  y:1580, scale:0.60, dpi:2, aktif:true
-  },
-  {
-    id:'gduzun', baslik:'📉 GD Hesabı (En Uzun)',
-    kaynak:'sema', alan:'gdEnUzunHtml', tip:'html',
-    renderW: 700,
-    x:20,  y:1760, scale:0.65, dpi:2, aktif:true
-  },
-  {
-    id:'gdguclu', baslik:'📉 GD Hesabı (En Güçlü)',
-    kaynak:'sema', alan:'gdEnGucluHtml', tip:'html',
-    renderW: 700,
-    x:380, y:1760, scale:0.65, dpi:2, aktif:true
-  },
+  { id:'bina',       baslik:'🏢 Bina Görseli',              lsKey:'rapor_png_bina',        x:20,  y:40,   scale:0.55, dpi:2, aktif:true },
+  { id:'kolon',      baslik:'🏛️ Kolon Şeması',              lsKey:'rapor_png_kolon',       x:20,  y:340,  scale:0.45, dpi:2, aktif:true },
+  { id:'pano',       baslik:'🗄️ Pano Görseli',              lsKey:'rapor_png_pano',        x:20,  y:700,  scale:0.45, dpi:2, aktif:true },
+  { id:'tekhat',     baslik:'🔌 Tekhat Şeması',             lsKey:'rapor_png_tekhat',      x:20,  y:900,  scale:0.45, dpi:2, aktif:true },
+  { id:'cetvel',     baslik:'📋 Yükleme Cetveli',           lsKey:'rapor_png_cetveli',     x:20,  y:1050, scale:0.60, dpi:2, aktif:true },
+  { id:'tesisatguc', baslik:'⚡ Tesisat Güç Bilgileri',     lsKey:'rapor_png_tesisatGuc',  x:20,  y:1280, scale:0.60, dpi:2, aktif:true },
+  { id:'kofreolem',  baslik:'🔧 Kofre Ölçüm Değerleri',    lsKey:'rapor_png_kofreOlcum',  x:20,  y:1420, scale:0.60, dpi:2, aktif:true },
+  { id:'yapiguc',    baslik:'🏗️ Yapı Güç Bilgileri',        lsKey:'rapor_png_yapiGuc',     x:20,  y:1580, scale:0.60, dpi:2, aktif:true },
+  { id:'gduzun',     baslik:'📉 GD Hesabı (En Uzun)',       lsKey:'rapor_png_gdEnUzun',    x:20,  y:1760, scale:0.65, dpi:2, aktif:true },
+  { id:'gdguclu',    baslik:'📉 GD Hesabı (En Güçlü)',      lsKey:'rapor_png_gdEnGuclu',   x:380, y:1760, scale:0.65, dpi:2, aktif:true },
 ];
 // ── DOM ──────────────────────────────────────────────
 const btnKontrol    = document.getElementById('btn-kontrol');
@@ -195,11 +138,19 @@ const kapatModalEl  = document.getElementById('kapat-modal');
 const btnIndirModal = document.getElementById('btn-indir-modal');
 const progressWrap  = document.getElementById('progress-wrap');
 const progressBar   = document.getElementById('progress-bar');
-const sandbox       = document.getElementById('html-sandbox');
 const ayarGrid      = document.getElementById('ayar-grid');
 
 let kontrolGecti = false;
 let pdfBlob      = null;
+
+function base64ToUint8Array(base64) {
+  var binaryString = atob(base64);
+  var bytes = new Uint8Array(binaryString.length);
+  for (var i = 0; i < binaryString.length; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+  return bytes;
+}
 
 // ═══════════════════════════════════════════════════════
 // AYAR PANELI OLUŞTURMA
@@ -324,130 +275,17 @@ function loadLS(key) {
 }
 
 // ═══════════════════════════════════════════════════════
-// SVG → Yüksek Kalite PNG
-// Vektörel SVG'yi canvas'a çizip dataURL döner.
-// dpiMul: canvas ölçeği (3 = ~300dpi eşdeğeri)
-// ═══════════════════════════════════════════════════════
-function svgToPng(svgString, pxW, pxH, dpiMul) {
-  return new Promise(function(resolve, reject) {
-    dpiMul = dpiMul || 3;
-    const blob = new Blob([svgString], {type:'image/svg+xml;charset=utf-8'});
-    const url  = URL.createObjectURL(blob);
-    const img  = new Image();
-    img.onload = function() {
-      const cw = (pxW || img.naturalWidth  || 800) * dpiMul;
-      const ch = (pxH || img.naturalHeight || 600) * dpiMul;
-      const canvas  = document.createElement('canvas');
-      canvas.width  = cw;
-      canvas.height = ch;
-      const c2d = canvas.getContext('2d');
-      c2d.fillStyle = '#ffffff';
-      c2d.fillRect(0, 0, cw, ch);
-      c2d.drawImage(img, 0, 0, cw, ch);
-      URL.revokeObjectURL(url);
-      resolve({ dataUrl: canvas.toDataURL('image/png'), w: cw, h: ch, dpiMul: dpiMul });
-    };
-    img.onerror = function(e) {
-      URL.revokeObjectURL(url);
-      reject(new Error('SVG yüklenemedi'));
-    };
-    img.src = url;
-  });
-}
-
-// ═══════════════════════════════════════════════════════
-// HTML → Yüksek Kalite PNG (html2canvas)
-// htmlStr : outerHTML string
-// renderW : sandbox genişliği (layout)
-// dpiMul  : html2canvas scale parametresi
-// ═══════════════════════════════════════════════════════
-function htmlToPng(htmlStr, renderW, dpiMul) {
-  return new Promise(function(resolve, reject) {
-    dpiMul  = dpiMul  || 3;
-    renderW = renderW || 1200;
-
-    // Sandbox ayarla
-    sandbox.style.width      = renderW + 'px';
-    sandbox.style.background = '#ffffff';
-
-    // HTML'i sandbox'a yerleştir
-    // Güvenli: outerHTML ya da innerHTML olabilir
-    // Eğer içerik bir element outerHTML'iyse direkt koy
-    sandbox.innerHTML = htmlStr;
-
-    // Render edilecek element
-    const el = sandbox.firstElementChild || sandbox;
-
-    // Stillerin yüklenmesini bekle
-    setTimeout(function() {
-      window.html2canvas(el, {
-        backgroundColor : '#ffffff',
-        scale           : dpiMul,
-        useCORS         : true,
-        allowTaint      : true,
-        logging         : false,
-        windowWidth     : renderW,
-        // Ekran dışı sandbox için scrollX/Y
-        scrollX         : 0,
-        scrollY         : 0,
-        x               : 0,
-        y               : 0,
-      }).then(function(canvas) {
-        sandbox.innerHTML = '';
-        resolve({
-          dataUrl : canvas.toDataURL('image/png'),
-          w       : canvas.width,
-          h       : canvas.height,
-          dpiMul  : dpiMul,
-        });
-      }).catch(function(e) {
-        sandbox.innerHTML = '';
-        reject(e);
-      });
-    }, 80); // kısa bekleme → layout tamamlanması için
-  });
-}
-
-// ═══════════════════════════════════════════════════════
-// PDF'E PNG EMBED
-// pdfH    : sayfa yüksekliği (pt) — pdf-lib sol-alt origin için
-// imgX, imgY_top: sol-üst köşe koordinatı (x soldan, y yukarıdan)
-// imgW, imgH    : PDF üzerindeki boyut (pt)
-// ═══════════════════════════════════════════════════════
-async function embedPng(pdfDoc, page, pdfH, dataUrl, imgX, imgY_top, imgW, imgH) {
-  const resp     = await fetch(dataUrl);
-  const arrBuf   = await resp.arrayBuffer();
-  const pngImage = await pdfDoc.embedPng(arrBuf);
-  // pdf-lib: y = sol-altta origin → dönüştür
-  const pdfY = pdfH - imgY_top - imgH;
-  page.drawImage(pngImage, { x: imgX, y: pdfY, width: imgW, height: imgH });
-}
-
-// ═══════════════════════════════════════════════════════
 // KONTROL ET
 // ═══════════════════════════════════════════════════════
 btnKontrol.addEventListener('click', function() {
   kontrolGecti = false;
   pdfBlob      = null;
-
-  const sema = loadLS(KEY_SEMA);
-  const yapi = loadLS(KEY_YAPI);
   const hatalar  = [];
   const uyarilar = [];
 
-  if (!sema) hatalar.push('proje_sema_v1 bulunamadı — Elektrik Şeması sekmesini açın');
-  if (!yapi) hatalar.push('proje_yapi_v1 bulunamadı — Kolon Hesaplama sekmesini açın');
-
-  if (hatalar.length) {
-    gosterDurum('❌ ' + hatalar.join(' | '), 'hata');
-    btnOnizle.disabled = true; btnIndir.disabled = true;
-    return;
-  }
-
-  // Hangi alanlar var, hangileri eksik?
   VARSAYILAN_OGELERI.forEach(function(og) {
-    const kaynak = og.kaynak === 'sema' ? sema : yapi;
-    if (!kaynak || !kaynak[og.alan]) {
+    const pngData = localStorage.getItem(og.lsKey);
+    if (!pngData) {
       uyarilar.push(og.baslik);
     }
   });
@@ -458,8 +296,16 @@ btnKontrol.addEventListener('click', function() {
   btnOnizle.disabled = false;
   btnIndir.disabled  = false;
 
+  if (uyarilar.length === VARSAYILAN_OGELERI.length) {
+    kontrolGecti = false;
+    btnOnizle.disabled = true;
+    btnIndir.disabled  = true;
+    gosterDurum('❌ Hiçbir PNG verisi bulunamadı. Önce Kolon Hesaplama ve Elektrik Şeması sayfalarını açıp veri girin.', 'hata');
+    return;
+  }
+
   if (uyarilar.length) {
-    gosterDurum('⚠️ Şu öğeler eksik/boş (PDF\'de atlanacak): ' + uyarilar.join(', '), 'info');
+    gosterDurum('⚠️ Şu öğeler eksik (PDF\'de atlanacak): ' + uyarilar.join(', '), 'info');
   } else {
     gosterDurum('✅ Tüm veriler mevcut. PDF oluşturulabilir.', 'tamam');
   }
@@ -472,9 +318,6 @@ async function pdfOlustur() {
   gosterDurum('📥 Veriler okunuyor...', 'info');
   setProgress(5);
 
-  const sema = loadLS(KEY_SEMA) || {};
-  const yapi = loadLS(KEY_YAPI) || {};
-
   gosterDurum('📄 PDF şablonu indiriliyor...', 'info');
   setProgress(10);
 
@@ -486,14 +329,12 @@ async function pdfOlustur() {
   const pdfDoc = await PDFDocument.load(templateBytes);
   const page   = pdfDoc.getPage(0);
   const { width: PW, height: PH } = page.getSize();
-  console.log('PDF sayfa boyutu:', PW.toFixed(1), '×', PH.toFixed(1), 'pt');
 
-  // Aktif görevler
   const aktifOgeler = VARSAYILAN_OGELERI.filter(function(og) {
     const ayar  = _ayarlar[og.id] || {};
     const aktif = ayar.aktif != null ? ayar.aktif : og.aktif;
-    const kaynak= og.kaynak === 'sema' ? sema : yapi;
-    return aktif && kaynak && kaynak[og.alan];
+    const pngData = localStorage.getItem(og.lsKey);
+    return aktif && pngData;
   });
 
   const toplam = aktifOgeler.length;
@@ -506,39 +347,28 @@ async function pdfOlustur() {
     const ayar  = _ayarlar[og.id] || {};
     const scale = ayar.scale != null ? ayar.scale : og.scale;
     const posX  = ayar.x     != null ? ayar.x     : og.x;
-    const posY  = ayar.y     != null ? ayar.y     : og.y; // üstten aşağı (pt)
+    const posY  = ayar.y     != null ? ayar.y     : og.y;
     const dpi   = ayar.dpi   != null ? ayar.dpi   : og.dpi;
 
-    const kaynak = og.kaynak === 'sema' ? sema : yapi;
-    const veri   = kaynak[og.alan];
+    const pngBase64 = localStorage.getItem(og.lsKey);
+    if (!pngBase64) continue;
 
-    gosterDurum('🖼️ [' + (i+1) + '/' + toplam + '] ' + og.baslik + ' işleniyor...', 'info');
+    gosterDurum('🖼️ [' + (i+1) + '/' + toplam + '] ' + og.baslik + ' yerleştiriliyor...', 'info');
 
     try {
-      let result;
+      const pureBase64 = pngBase64.startsWith('data:') ? pngBase64.split(',')[1] : pngBase64;
+      const pngBytes   = base64ToUint8Array(pureBase64);
+      const pngImage   = await pdfDoc.embedPng(pngBytes);
 
-      if (og.tip === 'svg') {
-        // SVG → PNG (dpiMul canvas kalite çarpanı)
-        result = await svgToPng(veri, og.pxW, og.pxH, dpi);
-      } else {
-        // HTML → PNG (html2canvas dpi = scale parametresi)
-        result = await htmlToPng(veri, og.renderW, dpi);
-      }
-
-      // Canvas boyutu dpiMul ile büyütülmüş olduğundan
-      // asıl boyutu geri hesapla, sonra scale uygula
-      const naturalW = result.w / result.dpiMul;
-      const naturalH = result.h / result.dpiMul;
+      const naturalW = pngImage.width  / dpi;
+      const naturalH = pngImage.height / dpi;
       const finalW   = naturalW * scale;
       const finalH   = naturalH * scale;
+      const pdfY     = PH - posY - finalH;
 
-      await embedPng(pdfDoc, page, PH, result.dataUrl, posX, posY, finalW, finalH);
+      page.drawImage(pngImage, { x: posX, y: pdfY, width: finalW, height: finalH });
 
-      console.log('✅', og.id,
-        '→ x:', posX.toFixed(0), 'y:', posY.toFixed(0),
-        'w:', finalW.toFixed(0), 'h:', finalH.toFixed(0),
-        'dpi×:', dpi
-      );
+      console.log('✅', og.id, '→ x:', posX, 'y:', posY, 'w:', finalW.toFixed(0), 'h:', finalH.toFixed(0));
     } catch(e) {
       console.warn('⚠️', og.id, 'yerleştirilemedi:', e.message);
     }
