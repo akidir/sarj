@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mühendislik Raporu</title>
+  <script src="https://unpkg.com/pdf-lib/dist/pdf-lib.min.js"></script>
+  <script src="https://unpkg.com/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:Arial,sans-serif;background:#f0f2f5;padding:20px}
+    .rapor-wrap{max-width:1200px;margin:0 auto}
+    .rapor-baslik{background:#005088;color:#fff;padding:18px 28px;border-radius:10px 10px 0 0;font-size:20px;font-weight:700;display:flex;align-items:center;gap:10px}
+    .rapor-kart{background:#fff;border:1px solid #dde3ea;border-radius:0 0 10px 10px;padding:28px;box-shadow:0 2px 12px rgba(0,0,0,.08)}
+    .btn-row{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:24px}
+    .btn{padding:13px 28px;border:none;border-radius:7px;font-size:15px;font-weight:700;cursor:pointer;transition:all .25s;box-shadow:0 2px 6px rgba(0,0,0,.12)}
+    .btn:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 4px 12px rgba(0,0,0,.18)}
+    .btn:disabled{opacity:.45;cursor:not-allowed;transform:none!important}
+    .btn-kontrol{background:#e67e22;color:#fff}
+    .btn-kontrol.ok{background:#27ae60}
+    .btn-onizle{background:#005088;color:#fff}
+    .btn-indir{background:#27ae60;color:#fff}
+    .durum-bar{padding:12px 18px;border-radius:7px;margin-bottom:20px;font-size:13px;font-weight:600;display:none}
+    .durum-bar.info{background:#e8f4fd;color:#1565c0;border-left:4px solid #1565c0}
+    .durum-bar.hata{background:#fdecea;color:#c62828;border-left:4px solid #c62828}
+    .durum-bar.tamam{background:#e8f5e9;color:#2e7d32;border-left:4px solid #2e7d32}
+
+    /* Ayar Grid */
+    .ayar-baslik{font-size:15px;font-weight:700;color:#005088;border-bottom:2px solid #e0e8f0;padding-bottom:8px;margin:22px 0 14px;display:flex;align-items:center;gap:8px}
+    .ayar-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px;margin-bottom:6px}
+    .ayar-kart{background:#f8fafc;border:1px solid #dde3ea;border-radius:8px;padding:12px 14px}
+    .ayar-kart-baslik{font-size:12px;font-weight:700;color:#333;margin-bottom:10px}
+    .ayar-satirlar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+    .ayar-grup{display:flex;align-items:center;gap:5px}
+    .ayar-grup label{font-size:11px;color:#666;font-weight:600;min-width:30px}
+    .ayar-input{width:70px;padding:5px 7px;border:1px solid #bbb;border-radius:5px;font-size:12px;text-align:center}
+    .ayar-input:focus{outline:none;border-color:#005088}
+    .ayar-sifirla{background:#e0e8f0;border:1px solid #b0c0d0;padding:4px 10px;border-radius:5px;font-size:11px;cursor:pointer;font-weight:600}
+    .ayar-sifirla:hover{background:#c8d8e8}
+    .ayar-aktif-toggle{display:flex;align-items:center;gap:5px;margin-top:6px;font-size:11px;color:#555}
+    .ayar-aktif-toggle input{cursor:pointer;width:14px;height:14px}
+
+    /* Modal */
+    .modal{display:none;position:fixed;z-index:9999;inset:0;background:rgba(0,0,0,.88);overflow:auto}
+    .modal-icerik{background:#fff;margin:24px auto;padding:24px;border-radius:12px;max-width:96%;width:1200px;display:flex;flex-direction:column;align-items:center}
+    .modal-kapat{align-self:flex-end;font-size:34px;line-height:1;cursor:pointer;color:#999;font-weight:700;margin-bottom:8px}
+    .modal-kapat:hover{color:#e74c3c}
+    #pdf-iframe{width:100%;height:80vh;border:2px solid #ddd;border-radius:8px}
+    .modal-indir-btn{margin-top:16px}
+
+    /* Sandbox */
+    #html-sandbox{position:fixed;left:-99999px;top:0;background:#fff;z-index:-1;pointer-events:none}
+
+    /* İlerleme */
+    .progress-bar-wrap{background:#e0e8f0;border-radius:6px;height:10px;margin-bottom:12px;display:none;overflow:hidden}
+    .progress-bar-inner{height:10px;background:#005088;width:0%;transition:width 0.3s;border-radius:6px}
+  </style>
+</head>
+<body>
+
+<div class="rapor-wrap">
+  <div class="rapor-baslik">📄 Mühendislik Raporu</div>
+  <div class="rapor-kart">
+
+    <div class="durum-bar" id="durum-bar"></div>
+    <div class="progress-bar-wrap" id="progress-wrap">
+      <div class="progress-bar-inner" id="progress-bar"></div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-kontrol" id="btn-kontrol">✅ Kontrol Et</button>
+      <button class="btn btn-onizle"  id="btn-onizle" disabled>🔍 PDF Önizle</button>
+      <button class="btn btn-indir"   id="btn-indir"  disabled>⬇️ PDF İndir</button>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════
+         GÖRSEL YERLEŞİM AYARLARI
+         x, y  → PDF sayfası üzerinde noktayı (pt cinsinden)
+                  x: soldan, y: yukarıdan
+         scale → PNG boyutunun kaça bölüneceği / ölçek
+         DPI   → PNG oluşturma kalitesi (html2canvas scale)
+    ════════════════════════════════════════════════ -->
+    <div class="ayar-baslik">⚙️ Görsel & Tablo Yerleşim Ayarları
+      <small style="font-size:11px;font-weight:400;color:#666">(x/y: PDF sayfasında nokta · scale: ölçek · DPI çarpanı: 1-4)</small>
+    </div>
+    <div class="ayar-grid" id="ayar-grid"></div>
+
+  </div>
+</div>
+
+<!-- MODAL -->
+<div class="modal" id="pdfModal">
+  <div class="modal-icerik">
+    <span class="modal-kapat" id="kapat-modal">&times;</span>
+    <h4 style="margin-bottom:16px;font-size:18px;color:#333">📄 PDF Önizleme</h4>
+    <iframe id="pdf-iframe"></iframe>
+    <button class="btn btn-indir modal-indir-btn" id="btn-indir-modal">⬇️ PDF İndir</button>
+  </div>
+</div>
+
+<!-- HTML→PNG Sandbox (ekran dışı ama DOM'da) -->
+<div id="html-sandbox"></div>
+
+<script>
+(function(){
+'use strict';
+
+// ═══════════════════════════════════════════════════════
+// SABITLER
+// ═══════════════════════════════════════════════════════
+const PDF_URL    = 'https://voltevas.com/wp-content/uploads/2026/03/sarj_proje_taslak.pdf';
+const DOSYA_ADI  = 'Elektrik_Proje_Raporu.pdf';
+const KEY_SEMA   = 'proje_sema_v1';
+const KEY_YAPI   = 'proje_yapi_v1';
+const LS_AYAR    = 'rapor_ayarlar_v2';
+
+// ── Her öğenin varsayılan ayarları ──────────────────────
+// kaynak: 'sema' veya 'yapi' (hangi localStorage key)
+// alan  : o key içindeki hangi alan (SVG string ya da HTML string)
+// tip   : 'svg' → SVG string | 'html' → HTML string
+// renderW: html2canvas için sandbox genişliği (px)
+// pxW/pxH: SVG için canvas boyutu
+const VARSAYILAN_OGELERI = [
+  // ── Kolon Hesaplama sekmesinden ──
+    {
+    id:'bina', baslik:'🏢 Bina Görseli',
+    kaynak:'yapi', alan:'binaSvg', tip:'svg',
+    pxW:600, pxH:500,
+    x:20,  y:40,   scale:0.55, dpi:3, aktif:true
+  },
+  {
+    id:'kolon', baslik:'🏛️ Kolon Şeması',
+    kaynak:'yapi', alan:'kolonSvg', tip:'svg',
+    pxW:1400, pxH:900,
+    x:20,  y:340,  scale:0.45, dpi:3, aktif:true
+  },
+  {
+    id:'pano', baslik:'🗄️ Pano Görseli',
+    kaynak:'yapi', alan:'panoSvg', tip:'svg',
+    pxW:1100, pxH:700,
+    x:20,  y:700,  scale:0.45, dpi:3, aktif:true
+  },
+  // ── Elektrik Şeması sekmesinden ──
+  {
+    id:'tekhat', baslik:'🔌 Tekhat Şeması',
+    kaynak:'sema', alan:'svgString', tip:'svg',
+    pxW:1800, pxH:560,
+    x:20,  y:900,  scale:0.45, dpi:3, aktif:true
+  },
+  {
+    id:'cetvel', baslik:'📋 Yükleme Cetveli',
+    kaynak:'sema', alan:'cetveliHtml', tip:'html',
+    renderW: 1200,
+    x:20,  y:1050, scale:0.60, dpi:2, aktif:true
+  },
+  {
+    id:'tesisatguc', baslik:'⚡ Tesisat Güç Bilgileri',
+    kaynak:'sema', alan:'tesisatGucHtml', tip:'html',
+    renderW: 900,
+    x:20,  y:1280, scale:0.60, dpi:2, aktif:true
+  },
+  {
+    id:'kofreolem', baslik:'🔧 Kofre Ölçüm Değerleri',
+    kaynak:'sema', alan:'kofreOlcumHtml', tip:'html',
+    renderW: 700,
+    x:20,  y:1420, scale:0.60, dpi:2, aktif:true
+  },
+  {
+    id:'yapiguc', baslik:'🏗️ Yapı Güç Bilgileri',
+    kaynak:'sema', alan:'yapiGucHtml', tip:'html',
+    renderW: 1200,
+    x:20,  y:1580, scale:0.60, dpi:2, aktif:true
+  },
+  {
+    id:'gduzun', baslik:'📉 GD Hesabı (En Uzun)',
+    kaynak:'sema', alan:'gdEnUzunHtml', tip:'html',
+    renderW: 700,
+    x:20,  y:1760, scale:0.65, dpi:2, aktif:true
+  },
+  {
+    id:'gdguclu', baslik:'📉 GD Hesabı (En Güçlü)',
+    kaynak:'sema', alan:'gdEnGucluHtml', tip:'html',
+    renderW: 700,
+    x:380, y:1760, scale:0.65, dpi:2, aktif:true
+  },
+];
+// ── DOM ──────────────────────────────────────────────
+const btnKontrol    = document.getElementById('btn-kontrol');
+const btnOnizle     = document.getElementById('btn-onizle');
+const btnIndir      = document.getElementById('btn-indir');
+const durumBar      = document.getElementById('durum-bar');
+const pdfModal      = document.getElementById('pdfModal');
+const pdfIframe     = document.getElementById('pdf-iframe');
+const kapatModalEl  = document.getElementById('kapat-modal');
+const btnIndirModal = document.getElementById('btn-indir-modal');
+const progressWrap  = document.getElementById('progress-wrap');
+const progressBar   = document.getElementById('progress-bar');
+const sandbox       = document.getElementById('html-sandbox');
+const ayarGrid      = document.getElementById('ayar-grid');
+
+let kontrolGecti = false;
+let pdfBlob      = null;
+
+// ═══════════════════════════════════════════════════════
+// AYAR PANELI OLUŞTURMA
+// ═══════════════════════════════════════════════════════
+let _ayarlar = {}; // { id: {x,y,scale,dpi,aktif} }
+
+function yukleAyarlar() {
+  try {
+    const raw = localStorage.getItem(LS_AYAR);
+    if (raw) return JSON.parse(raw);
+  } catch(e){}
+  return {};
+}
+
+function kaydetAyarlar() {
+  try { localStorage.setItem(LS_AYAR, JSON.stringify(_ayarlar)); } catch(e){}
+}
+
+function getAyar(id) {
+  return _ayarlar[id] || {};
+}
+
+function buildAyarPaneli() {
+  const kayitli = yukleAyarlar();
+  ayarGrid.innerHTML = '';
+
+  VARSAYILAN_OGELERI.forEach(function(og) {
+    const saved  = kayitli[og.id] || {};
+    const cur = {
+      x     : saved.x      != null ? saved.x      : og.x,
+      y     : saved.y      != null ? saved.y      : og.y,
+      scale : saved.scale  != null ? saved.scale  : og.scale,
+      dpi   : saved.dpi    != null ? saved.dpi    : og.dpi,
+      aktif : saved.aktif  != null ? saved.aktif  : og.aktif,
+    };
+    _ayarlar[og.id] = cur;
+
+    const kart = document.createElement('div');
+    kart.className = 'ayar-kart';
+    kart.innerHTML = `
+      <div class="ayar-kart-baslik">${og.baslik}</div>
+      <div class="ayar-satirlar">
+        <div class="ayar-grup">
+          <label>Scale</label>
+          <input class="ayar-input" id="ay-${og.id}-s" type="number" step="0.01" min="0.05" max="5" value="${cur.scale}">
+        </div>
+        <div class="ayar-grup">
+          <label>X (pt)</label>
+          <input class="ayar-input" id="ay-${og.id}-x" type="number" value="${cur.x}">
+        </div>
+        <div class="ayar-grup">
+          <label>Y (pt)</label>
+          <input class="ayar-input" id="ay-${og.id}-y" type="number" value="${cur.y}">
+        </div>
+        <div class="ayar-grup">
+          <label>DPI×</label>
+          <input class="ayar-input" id="ay-${og.id}-d" type="number" step="0.5" min="1" max="4" value="${cur.dpi}">
+        </div>
+        <button class="ayar-sifirla" onclick="sifirlaAyar('${og.id}',${og.scale},${og.x},${og.y},${og.dpi})">↺ Sıfırla</button>
+      </div>
+      <label class="ayar-aktif-toggle">
+        <input type="checkbox" id="ay-${og.id}-aktif" ${cur.aktif ? 'checked' : ''}>
+        PDF'e ekle
+      </label>
+    `;
+    ayarGrid.appendChild(kart);
+
+    // Her değişimde kaydet
+    ['s','x','y','d'].forEach(function(alan) {
+      document.getElementById(`ay-${og.id}-${alan}`).addEventListener('input', function() {
+        okAyar(og.id);
+      });
+    });
+    document.getElementById(`ay-${og.id}-aktif`).addEventListener('change', function() {
+      okAyar(og.id);
+    });
+  });
+}
+
+function okAyar(id) {
+  const s = parseFloat(document.getElementById(`ay-${id}-s`).value) || 0.5;
+  const x = parseFloat(document.getElementById(`ay-${id}-x`).value) || 0;
+  const y = parseFloat(document.getElementById(`ay-${id}-y`).value) || 0;
+  const d = parseFloat(document.getElementById(`ay-${id}-d`).value) || 2;
+  const a = document.getElementById(`ay-${id}-aktif`).checked;
+  _ayarlar[id] = { scale:s, x:x, y:y, dpi:d, aktif:a };
+  kaydetAyarlar();
+}
+
+window.sifirlaAyar = function(id, defS, defX, defY, defD) {
+  document.getElementById(`ay-${id}-s`).value = defS;
+  document.getElementById(`ay-${id}-x`).value = defX;
+  document.getElementById(`ay-${id}-y`).value = defY;
+  document.getElementById(`ay-${id}-d`).value = defD;
+  document.getElementById(`ay-${id}-aktif`).checked = true;
+  okAyar(id);
+};
+
+// ═════════════════════════════════════════���═════════════
+// DURUM / İLERLEME
+// ═══════════════════════════════════════════════════════
+function gosterDurum(msg, tip) {
+  durumBar.textContent   = msg;
+  durumBar.className     = 'durum-bar ' + tip;
+  durumBar.style.display = 'block';
+}
+
+function setProgress(pct_val) {
+  progressWrap.style.display = 'block';
+  progressBar.style.width    = Math.min(100, pct_val) + '%';
+  if (pct_val >= 100) {
+    setTimeout(function() { progressWrap.style.display='none'; progressBar.style.width='0%'; }, 800);
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// localStorage
+// ═══════════════════════════════════════════════════════
+function loadLS(key) {
+  try { const d = localStorage.getItem(key); return d ? JSON.parse(d) : null; }
+  catch(e) { return null; }
+}
+
+// ═══════════════════════════════════════════════════════
+// SVG → Yüksek Kalite PNG
+// Vektörel SVG'yi canvas'a çizip dataURL döner.
+// dpiMul: canvas ölçeği (3 = ~300dpi eşdeğeri)
+// ═══════════════════════════════════════════════════════
+function svgToPng(svgString, pxW, pxH, dpiMul) {
+  return new Promise(function(resolve, reject) {
+    dpiMul = dpiMul || 3;
+    const blob = new Blob([svgString], {type:'image/svg+xml;charset=utf-8'});
+    const url  = URL.createObjectURL(blob);
+    const img  = new Image();
+    img.onload = function() {
+      const cw = (pxW || img.naturalWidth  || 800) * dpiMul;
+      const ch = (pxH || img.naturalHeight || 600) * dpiMul;
+      const canvas  = document.createElement('canvas');
+      canvas.width  = cw;
+      canvas.height = ch;
+      const c2d = canvas.getContext('2d');
+      c2d.fillStyle = '#ffffff';
+      c2d.fillRect(0, 0, cw, ch);
+      c2d.drawImage(img, 0, 0, cw, ch);
+      URL.revokeObjectURL(url);
+      resolve({ dataUrl: canvas.toDataURL('image/png'), w: cw, h: ch, dpiMul: dpiMul });
+    };
+    img.onerror = function(e) {
+      URL.revokeObjectURL(url);
+      reject(new Error('SVG yüklenemedi'));
+    };
+    img.src = url;
+  });
+}
+
+// ═══════════════════════════════════════════════════════
+// HTML → Yüksek Kalite PNG (html2canvas)
+// htmlStr : outerHTML string
+// renderW : sandbox genişliği (layout)
+// dpiMul  : html2canvas scale parametresi
+// ═══════════════════════════════════════════════════════
+function htmlToPng(htmlStr, renderW, dpiMul) {
+  return new Promise(function(resolve, reject) {
+    dpiMul  = dpiMul  || 3;
+    renderW = renderW || 1200;
+
+    // Sandbox ayarla
+    sandbox.style.width      = renderW + 'px';
+    sandbox.style.background = '#ffffff';
+
+    // HTML'i sandbox'a yerleştir
+    // Güvenli: outerHTML ya da innerHTML olabilir
+    // Eğer içerik bir element outerHTML'iyse direkt koy
+    sandbox.innerHTML = htmlStr;
+
+    // Render edilecek element
+    const el = sandbox.firstElementChild || sandbox;
+
+    // Stillerin yüklenmesini bekle
+    setTimeout(function() {
+      window.html2canvas(el, {
+        backgroundColor : '#ffffff',
+        scale           : dpiMul,
+        useCORS         : true,
+        allowTaint      : true,
+        logging         : false,
+        windowWidth     : renderW,
+        // Ekran dışı sandbox için scrollX/Y
+        scrollX         : 0,
+        scrollY         : 0,
+        x               : 0,
+        y               : 0,
+      }).then(function(canvas) {
+        sandbox.innerHTML = '';
+        resolve({
+          dataUrl : canvas.toDataURL('image/png'),
+          w       : canvas.width,
+          h       : canvas.height,
+          dpiMul  : dpiMul,
+        });
+      }).catch(function(e) {
+        sandbox.innerHTML = '';
+        reject(e);
+      });
+    }, 80); // kısa bekleme → layout tamamlanması için
+  });
+}
+
+// ═══════════════════════════════════════════════════════
+// PDF'E PNG EMBED
+// pdfH    : sayfa yüksekliği (pt) — pdf-lib sol-alt origin için
+// imgX, imgY_top: sol-üst köşe koordinatı (x soldan, y yukarıdan)
+// imgW, imgH    : PDF üzerindeki boyut (pt)
+// ═══════════════════════════════════════════════════════
+async function embedPng(pdfDoc, page, pdfH, dataUrl, imgX, imgY_top, imgW, imgH) {
+  const resp     = await fetch(dataUrl);
+  const arrBuf   = await resp.arrayBuffer();
+  const pngImage = await pdfDoc.embedPng(arrBuf);
+  // pdf-lib: y = sol-altta origin → dönüştür
+  const pdfY = pdfH - imgY_top - imgH;
+  page.drawImage(pngImage, { x: imgX, y: pdfY, width: imgW, height: imgH });
+}
+
+// ═══════════════════════════════════════════════════════
+// KONTROL ET
+// ═══════════════════════════════════════════════════════
+btnKontrol.addEventListener('click', function() {
+  kontrolGecti = false;
+  pdfBlob      = null;
+
+  const sema = loadLS(KEY_SEMA);
+  const yapi = loadLS(KEY_YAPI);
+  const hatalar  = [];
+  const uyarilar = [];
+
+  if (!sema) hatalar.push('proje_sema_v1 bulunamadı — Elektrik Şeması sekmesini açın');
+  if (!yapi) hatalar.push('proje_yapi_v1 bulunamadı — Kolon Hesaplama sekmesini açın');
+
+  if (hatalar.length) {
+    gosterDurum('❌ ' + hatalar.join(' | '), 'hata');
+    btnOnizle.disabled = true; btnIndir.disabled = true;
+    return;
+  }
+
+  // Hangi alanlar var, hangileri eksik?
+  VARSAYILAN_OGELERI.forEach(function(og) {
+    const kaynak = og.kaynak === 'sema' ? sema : yapi;
+    if (!kaynak || !kaynak[og.alan]) {
+      uyarilar.push(og.baslik);
+    }
+  });
+
+  kontrolGecti = true;
+  btnKontrol.classList.add('ok');
+  btnKontrol.textContent = '✅ Kontrol Tamam';
+  btnOnizle.disabled = false;
+  btnIndir.disabled  = false;
+
+  if (uyarilar.length) {
+    gosterDurum('⚠️ Şu öğeler eksik/boş (PDF\'de atlanacak): ' + uyarilar.join(', '), 'info');
+  } else {
+    gosterDurum('✅ Tüm veriler mevcut. PDF oluşturulabilir.', 'tamam');
+  }
+});
+
+// ═══════════════════════════════════════════════════════
+// ANA PDF OLUŞTURMA
+// ═══════════════════════════════════════════════════════
+async function pdfOlustur() {
+  gosterDurum('📥 Veriler okunuyor...', 'info');
+  setProgress(5);
+
+  const sema = loadLS(KEY_SEMA) || {};
+  const yapi = loadLS(KEY_YAPI) || {};
+
+  gosterDurum('📄 PDF şablonu indiriliyor...', 'info');
+  setProgress(10);
+
+  const resp = await fetch(PDF_URL, { cache: 'no-cache' });
+  if (!resp.ok) throw new Error('Şablon indirilemedi: HTTP ' + resp.status);
+  const templateBytes = await resp.arrayBuffer();
+
+  const { PDFDocument } = window.PDFLib;
+  const pdfDoc = await PDFDocument.load(templateBytes);
+  const page   = pdfDoc.getPage(0);
+  const { width: PW, height: PH } = page.getSize();
+  console.log('PDF sayfa boyutu:', PW.toFixed(1), '×', PH.toFixed(1), 'pt');
+
+  // Aktif görevler
+  const aktifOgeler = VARSAYILAN_OGELERI.filter(function(og) {
+    const ayar  = _ayarlar[og.id] || {};
+    const aktif = ayar.aktif != null ? ayar.aktif : og.aktif;
+    const kaynak= og.kaynak === 'sema' ? sema : yapi;
+    return aktif && kaynak && kaynak[og.alan];
+  });
+
+  const toplam = aktifOgeler.length;
+  let tamamlanan = 0;
+
+  gosterDurum('🖼️ ' + toplam + ' öğe işlenecek...', 'info');
+
+  for (let i = 0; i < aktifOgeler.length; i++) {
+    const og    = aktifOgeler[i];
+    const ayar  = _ayarlar[og.id] || {};
+    const scale = ayar.scale != null ? ayar.scale : og.scale;
+    const posX  = ayar.x     != null ? ayar.x     : og.x;
+    const posY  = ayar.y     != null ? ayar.y     : og.y; // üstten aşağı (pt)
+    const dpi   = ayar.dpi   != null ? ayar.dpi   : og.dpi;
+
+    const kaynak = og.kaynak === 'sema' ? sema : yapi;
+    const veri   = kaynak[og.alan];
+
+    gosterDurum('🖼️ [' + (i+1) + '/' + toplam + '] ' + og.baslik + ' işleniyor...', 'info');
+
+    try {
+      let result;
+
+      if (og.tip === 'svg') {
+        // SVG → PNG (dpiMul canvas kalite çarpanı)
+        result = await svgToPng(veri, og.pxW, og.pxH, dpi);
+      } else {
+        // HTML → PNG (html2canvas dpi = scale parametresi)
+        result = await htmlToPng(veri, og.renderW, dpi);
+      }
+
+      // Canvas boyutu dpiMul ile büyütülmüş olduğundan
+      // asıl boyutu geri hesapla, sonra scale uygula
+      const naturalW = result.w / result.dpiMul;
+      const naturalH = result.h / result.dpiMul;
+      const finalW   = naturalW * scale;
+      const finalH   = naturalH * scale;
+
+      await embedPng(pdfDoc, page, PH, result.dataUrl, posX, posY, finalW, finalH);
+
+      console.log('✅', og.id,
+        '→ x:', posX.toFixed(0), 'y:', posY.toFixed(0),
+        'w:', finalW.toFixed(0), 'h:', finalH.toFixed(0),
+        'dpi×:', dpi
+      );
+    } catch(e) {
+      console.warn('⚠️', og.id, 'yerleştirilemedi:', e.message);
+    }
+
+    tamamlanan++;
+    setProgress(10 + (tamamlanan / toplam) * 85);
+  }
+
+  const finalBytes = await pdfDoc.save();
+  pdfBlob = new Blob([finalBytes], { type: 'application/pdf' });
+  setProgress(100);
+  gosterDurum('✅ PDF hazır! (' + toplam + ' öğe yerleştirildi)', 'tamam');
+  return pdfBlob;
+}
+
+// ═══════════════════════════════════════════════════════
+// BUTON OLAYLARI
+// ═══════════════════════════════════════════════════════
+btnOnizle.addEventListener('click', async function() {
+  if (!kontrolGecti) return;
+  btnOnizle.disabled    = true;
+  btnOnizle.textContent = '⏳ Oluşturuluyor...';
+  try {
+    const blob = await pdfOlustur();
+    const url  = URL.createObjectURL(blob);
+    pdfIframe.src          = url;
+    pdfModal.style.display = 'block';
+  } catch(e) {
+    gosterDurum('❌ Hata: ' + e.message, 'hata');
+    console.error(e);
+  } finally {
+    btnOnizle.disabled    = false;
+    btnOnizle.textContent = '🔍 PDF Önizle';
+  }
+});
+
+btnIndir.addEventListener('click', async function() {
+  if (!kontrolGecti) return;
+  btnIndir.disabled    = true;
+  btnIndir.textContent = '⏳...';
+  try {
+    const blob = pdfBlob || await pdfOlustur();
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url; a.download = DOSYA_ADI; a.click();
+    URL.revokeObjectURL(url);
+  } catch(e) {
+    gosterDurum('❌ İndirme hatası: ' + e.message, 'hata');
+    console.error(e);
+  } finally {
+    btnIndir.disabled    = false;
+    btnIndir.textContent = '⬇️ PDF İndir';
+  }
+});
+
+btnIndirModal.addEventListener('click', async function() {
+  try {
+    const blob = pdfBlob || await pdfOlustur();
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url; a.download = DOSYA_ADI; a.click();
+    URL.revokeObjectURL(url);
+  } catch(e) { alert('Hata: ' + e.message); }
+});
+
+kapatModalEl.addEventListener('click', function() {
+  pdfModal.style.display = 'none'; pdfIframe.src = '';
+});
+window.addEventListener('click', function(e) {
+  if (e.target === pdfModal) { pdfModal.style.display = 'none'; pdfIframe.src = ''; }
+});
+
+// ═══════════════════════════════════════════════════════
+// BAŞLAT
+// ═══════════════════════════════════════════════════════
+buildAyarPaneli();
+
+})();
+</script>
+</body>
+</html>
