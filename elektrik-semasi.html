@@ -750,8 +750,10 @@ function saveState() {
       var hitLayers = svgEl.querySelectorAll('.hit-layer');
       var yedekler = [];
       hitLayers.forEach(function(el) {
-        yedekler.push({ parent: el.parentNode, next: el.nextSibling, el: el });
-        el.parentNode.removeChild(el);
+        if (el.parentNode) {
+          yedekler.push({ parent: el.parentNode, next: el.nextSibling, el: el });
+          el.parentNode.removeChild(el);
+        }
       });
       var svgStr = new XMLSerializer().serializeToString(svgEl);
       yedekler.forEach(function(item) {

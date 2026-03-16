@@ -339,7 +339,12 @@ async function pdfOlustur() {
         // base64 → Uint8Array
         var pureBase64 = pngBase64;
         if (pureBase64.startsWith('data:')) {
-          pureBase64 = pureBase64.split(',')[1];
+          var parts = pureBase64.split(',');
+          if (parts.length < 2 || !parts[1]) {
+            console.warn(oge.id + ': Geçersiz base64 formatı, atlanıyor.');
+            continue;
+          }
+          pureBase64 = parts[1];
         }
         var pngBytes = base64ToUint8Array(pureBase64);
 
