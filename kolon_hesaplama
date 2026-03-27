@@ -151,6 +151,15 @@
   // localStorage ANAHTAR — proje_yapi_v1 (rapor sayfasıyla eşleştirildi)
   // ══════════════════════════════════════
   var LS_KEY = 'proje_yapi_v1';
+  var LS_SEMA_KEY = 'proje_sema_v1';
+
+  function loadSemaVerileri() {
+    try {
+      var raw = localStorage.getItem(LS_SEMA_KEY);
+      if (!raw) return {};
+      return JSON.parse(raw);
+    } catch(e) { console.warn('[loadSemaVerileri] error:', e); return {}; }
+  }
 
   // ══════════════════════════════════════
   // STATE
@@ -793,27 +802,53 @@ function _binaSvgOlustur() {
       + '</g>';
   }
 
-  function drawKofre(attachX, attachY) {
+  function drawKofre(attachX, attachY, sema) {
+    var tmsKolonAktif = sema && sema.visibility && (sema.visibility.tmsKolonVisible || sema.visibility.sigKolonVisible);
+    var kolBaslangicY = tmsKolonAktif ? 556 + 32.7 : 556;
     var tx = attachX - 739.7, ty = attachY - 555.9;
     return '<g transform="translate(' + f2(tx) + ',' + f2(ty) + ')">'
-      + '<text transform="matrix(1 0 0 1 745.6688 596)" class="st-text st-text-9">3x70+35 mm2 15m</text>'
-    + '<text transform="matrix(1 0 0 1 826.275 587.799)" class="st-text st-text-9">Y.S.Y.A </text>'
-    + '<text transform="matrix(1 0 0 1 829.608 614.3505)" class="st-text st-text-9">3x40A</text>'
-
-    + '<rect x="826.2" y="593.9" class="st-rect-thin" width="22.5" height="11.5"/>'
-    + '<line class="st-line-thin" x1="848.7" y1="593.9" x2="826.3" y2="605.4"/>'
-    + '<line class="st-line-thin" x1="848.8" y1="605.6" x2="826.3" y2="594.1"/>'
-    
-    + '<polygon class="st-fill" points="859.3,599.6 850.1,594.3 850.1,605"/>'
-    
-    + '<line class="st-line-thin" x1="826.3" y1="602" x2="709.7" y2="602"/>'
-    + '<line class="st-line-thin" x1="826.3" y1="599" x2="712.7" y2="599"/>'
-    + '<line class="st-line-thin" x1="709.7" y1="556" x2="709.7" y2="602"/>'
-    + '<line class="st-line-thin" x1="712.7" y1="556" x2="712.7" y2="599"/>'
+      + '<text transform="matrix(1 0 0 1 745.6688 596)" class="st-text st-text-9">' + (sema && sema.kolonKablo ? sema.kolonKablo : '3x70+35 mm2 15m') + '</text>'
+      + '<text transform="matrix(1 0 0 1 826.275 587.799)" class="st-text st-text-9">Y.S.Y.A </text>'
+      + '<text transform="matrix(1 0 0 1 829.608 614.3505)" class="st-text st-text-9">' + (sema && sema.kofre ? sema.kofre : '3x40A') + '</text>'
+      + '<rect x="826.2" y="593.9" class="st-rect-thin" width="22.5" height="11.5"/>'
+      + '<line class="st-line-thin" x1="848.7" y1="593.9" x2="826.3" y2="605.4"/>'
+      + '<line class="st-line-thin" x1="848.8" y1="605.6" x2="826.3" y2="594.1"/>'
+      + '<polygon class="st-fill" points="859.3,599.6 850.1,594.3 850.1,605"/>'
+      + '<line class="st-line-thin" x1="826.3" y1="602" x2="709.7" y2="602"/>'
+      + '<line class="st-line-thin" x1="826.3" y1="599" x2="712.7" y2="599"/>'
+      + '<line class="st-line-thin" x1="709.7" y1="' + f2(kolBaslangicY) + '" x2="709.7" y2="602"/>'
+      + '<line class="st-line-thin" x1="712.7" y1="' + f2(kolBaslangicY) + '" x2="712.7" y2="599"/>'
       + '</g>';
   }
 
-  function drawSarj(attachX, attachY) {
+  function drawGirisSig(attachX, attachY, tip, txt) {
+    var s = '<g transform="translate(' + f2(attachX) + ',' + f2(attachY) + ')">';
+    s += '<ellipse cx="5.1" cy="15.2" rx="0.8" ry="0.8" class="st-rect-thin"/>';
+    s += '<ellipse cx="5.1" cy="21.5" rx="0.8" ry="0.8" class="st-rect-thin"/>';
+    s += '<line class="st-line-thin" x1="5.1" y1="3.4" x2="5.1" y2="14.4"/>';
+    s += '<line class="st-line-thin" x1="5.1" y1="22.3" x2="5.1" y2="32.7"/>';
+    s += '<line class="st-line-thin" x1="2.1" y1="3.4" x2="2.1" y2="32.7"/>';
+    if (tip === 'K.Otomat') {
+      s += '<line class="st-line-thin" x1="5.1" y1="15.3" x2="7.5" y2="20.6"/>';
+      s += '<line class="st-line-thin" x1="6.3" y1="18.2" x2="9.9" y2="16.8"/>';
+      s += '<polygon class="st-fill" points="12.3,15.6 10.5,18.2 9.2,15.3"/>';
+      s += '<text transform="matrix(1 0 0 1 15.8328 18.8882)" class="st-text" style="font-size:5px;">' + (txt || '') + '</text>';
+    } else {
+      s += '<g transform="translate(45, 175) rotate(90,650,230) scale(1)">';
+      s += '<line class="st-line-thin" x1="260.2" y1="919.9" x2="265.7" y2="917.4"/>';
+      s += '<line class="st-line-thin" x1="262.2" y1="919.1" x2="261.2" y2="916.7"/>';
+      s += '<polygon class="st-fill" points="260.4,915 262.1,916.3 260.2,917.1"/>';
+      s += '<line class="st-line-thin" x1="264" y1="918.2" x2="263.4" y2="916.8"/>';
+      s += '<line class="st-line-thin" x1="262.7" y1="915.3" x2="262.1" y2="914"/>';
+      s += '<polyline class="st-line-thin" points="263.4,916.8 264.8,916.2 264.2,914.7 262.7,915.3"/>';
+      s += '</g>';
+      s += '<text transform="matrix(1 0 0 1 13.7982 19.79)" class="st-text" style="font-size:5px;">' + (txt || '') + '</text>';
+    }
+    s += '</g>';
+    return s;
+  }
+
+  function drawSarj(attachX, attachY, sema) {
     var tx = attachX - 720.5, ty = attachY - 445.7;
     return '<g transform="translate(' + f2(tx) + ',' + f2(ty) + ')">'
       + '<ellipse class="st-rect-thin" cx="720.5" cy="461.4" rx="0.8" ry="0.8"/>'
@@ -833,17 +868,17 @@ function _binaSvgOlustur() {
       + '<line class="st-line-thin" x1="728.9" y1="484.7" x2="728.9" y2="479.4"/>'
       + '<line class="st-line-thin" x1="729" y1="479.5" x2="723.3" y2="479.5"/>'
       + '<text transform="matrix(1 0 0 1 696.2033 528.7982)" class="st-text" style="font-size:7px;">Şarj İstasyonu</text>'
-      + '<text transform="matrix(1 0 0 1 705 537.2)" class="st-text" style="font-size:7px;">22 kW</text>'
+      + '<text transform="matrix(1 0 0 1 705 537.2)" class="st-text" style="font-size:7px;">' + (sema && sema.yukIstek ? sema.yukIstek : '22 kW') + '</text>'
       + '<text transform="matrix(1 0 0 1 649.4125 532.6296)" class="st-text" style="font-size:5px;">4x40A</text>'
       + '<text transform="matrix(1 0 0 1 649.4125 467.6783)" class="st-text" style="font-size:5px;">4x40A</text>'
-      + '<text transform="matrix(1 0 0 1 735.389 465.7575)" class="st-text" style="font-size:5px;">4x40A</text>'
+      + '<text transform="matrix(1 0 0 1 735.389 465.7575)" class="st-text" style="font-size:5px;">' + (sema && sema.sigIstek ? sema.sigIstek : '4x40A') + '</text>'
       + '<text transform="matrix(1 0 0 1 649.4125 505.7253)" class="st-text" style="font-size:5px;">K.A.K.R</text>'
       + '<text transform="matrix(1 0 0 1 649.4125 511.7253)" class="st-text" style="font-size:5px;">4x40A 300mA</text>'
       + '<text transform="matrix(1 0 0 1 735.389 484.7638)" class="st-text" style="font-size:5px;">K.A.K.R</text>'
-      + '<text transform="matrix(1 0 0 1 735.389 490.7638)" class="st-text" style="font-size:5px;">4x40A 300mA</text>'
+      + '<text transform="matrix(1 0 0 1 735.389 490.7638)" class="st-text" style="font-size:5px;">' + (sema && sema.roleIstekA ? sema.roleIstekA + (sema.roleIstekB ? ' ' + sema.roleIstekB : '') : '4x40A 300mA') + '</text>'
       + '<rect x="697.5" y="503.1" class="st-rect-thin" width="41.8" height="13.8"/>'
       + '<path class="st-fill" d="M698.8,516.9c13.5-4.5,27-9,40.4-13.5v13.1C725.8,516.7,712.3,516.8,698.8,516.9z"/>'
-      + '<text transform="matrix(1 0 0 1 654.5076 442.4886)" class="st-text st-text-9">3x70+35 mm2 15m</text>'
+      + '<text transform="matrix(1 0 0 1 654.5076 442.4886)" class="st-text st-text-9">' + (sema && sema.linyeDtIstek ? sema.linyeDtIstek : '3x70+35 mm2 15m') + '</text>'
       + '<path fill="none" stroke="#000" stroke-width="0.5" stroke-dasharray="3,2" d="M675.2,540.7h-48.6c-4.7,0-8.6-3.8-8.6-8.6v-70.9c0-4.7,3.8-8.6,8.6-8.6h48.6c4.7,0,8.6,3.8,8.6,8.6v70.9C683.7,536.8,679.9,540.7,675.2,540.7z"/>'
       + '<text transform="matrix(0 -1 1 0 613.5 517)" class="st-text st-text-9">Mühürlü Alan</text>'
       + '<rect x="628.9" y="456.5" class="st-rect-thin" width="14" height="2.2"/>'
@@ -865,7 +900,7 @@ function _binaSvgOlustur() {
       + '</g>';
   }
 
-  function drawSayacGiris(attachX, attachY) {
+  function drawSayacGiris(attachX, attachY, sema) {
     var tx = attachX - 635.1, ty = attachY - 352.2;
     return '<g transform="translate(' + f2(tx) + ',' + f2(ty) + ')">'
       + '<ellipse class="st-rect-thin" cx="635.1" cy="385.2" rx="0.8" ry="0.8"/>'
@@ -884,9 +919,9 @@ function _binaSvgOlustur() {
       + '<line class="st-line-thin" x1="643.6" y1="360.9" x2="637.9" y2="360.9"/>'
       + '<line class="st-line-thin" x1="635.1" y1="365.3" x2="635.1" y2="352.2"/>'
       + '<line class="st-line-thin" x1="635.1" y1="392.3" x2="635.1" y2="402.7"/>'
-      + '<text transform="matrix(1 0 0 1 650.8392 390.6574)" class="st-text" style="font-size:5px;">4x40A</text>'
-      + '<text transform="matrix(1 0 0 1 650.8392 365.3359)" class="st-text" style="font-size:5px;">K.A.K.R</text>'
-      + '<text transform="matrix(1 0 0 1 650.8392 371.3359)" class="st-text" style="font-size:5px;">4x40A 300mA</text>'
+      + '<text transform="matrix(1 0 0 1 650.8392 390.6574)" class="st-text" style="font-size:5px;">' + (sema && sema.sigMevcut ? sema.sigMevcut : '4x40A') + '</text>'
+      + '<text transform="matrix(1 0 0 1 650.8392 365.3359)" class="st-text" style="font-size:5px;">' + (sema && sema.sigSayacGiris ? sema.sigSayacGiris : 'K.A.K.R') + '</text>'
+      + '<text transform="matrix(1 0 0 1 650.8392 371.3359)" class="st-text" style="font-size:5px;">' + (sema && sema.roleSayacGirisA ? sema.roleSayacGirisA + (sema.roleSayacGirisB ? ' ' + sema.roleSayacGirisB : '') : '4x40A 300mA') + '</text>'
       + '<line class="st-line-thin" x1="631.8" y1="402.7" x2="631.8" y2="352.2"/>'
       + '</g>';
   }
@@ -951,6 +986,7 @@ function _binaSvgOlustur() {
 
     var floors        = state.floors;
     var katSayisi     = floors.length;
+    var sema          = loadSemaVerileri();
     var asansor       = state.asansor;
     var ortakAlan     = state.ortakAlan;
     var ortakTesisat  = asansor + ortakAlan;
@@ -1114,6 +1150,9 @@ function _binaSvgOlustur() {
       svg += '<line x1="' + f2(cx) + '" y1="' + f2(s1AY+0.8) + '" x2="' + f2(cx) + '" y2="' + f2(kutuY+REL.araLine+0.8) + '" class="st-line-thin"/>';
       var s2Y = kutuY+REL.sigorta2Y, s2AY = kutuY+REL.sigorta2AltY;
       svg += drawSigorta(cx, s2Y, s2AY);
+      if (sema.sigSayacCikis && sema.visibility && sema.visibility.sigSayacCikisVisible) {
+        svg += '<text x="' + f2(cx + 12) + '" y="' + f2(s2Y + 4) + '" class="st-text" style="font-size:5px;">' + sema.sigSayacCikis + '</text>';
+      }
       var shX = cx + REL.solHatDx;
       svg += '<line x1="' + f2(shX) + '" y1="' + f2(kutuY+KOLON_SAYAC.kutuH) + '" x2="' + f2(shX) + '" y2="' + f2(solHatAltY) + '" class="st-line-thin"/>';
       svg += '<line x1="' + f2(cx) + '" y1="' + f2(s2AY+0.8) + '" x2="' + f2(cx) + '" y2="' + f2(solHatAltY) + '" class="st-line-thin"/>';
@@ -1122,7 +1161,7 @@ function _binaSvgOlustur() {
       var kolonUstY_hat = isIstek ? kolonUstY + 50 : kolonUstY;
       svg += '<line x1="' + f2(cx+REL.kolonSolDx) + '" y1="' + f2(kolonAltY) + '" x2="' + f2(cx+REL.kolonSolDx) + '" y2="' + f2(kolonUstY_hat) + '" class="st-line-thin"/>';
       svg += '<line x1="' + f2(cx+REL.kolonSagDx) + '" y1="' + f2(kolonAltY) + '" x2="' + f2(cx+REL.kolonSagDx) + '" y2="' + f2(kolonUstY_hat) + '" class="st-line-thin"/>';
-      if (isIstek) { svg += drawSayacGiris(cx, kolonUstY); }
+      if (isIstek) { svg += drawSayacGiris(cx, kolonUstY, sema); }
 
       var dtX = cx + DT.dx;
       svg += '<rect x="' + f2(dtX) + '" y="' + f2(dtUstY) + '" width="' + f2(DT.w) + '" height="' + f2(DT.h) + '" class="st-rect-thin"/>';
@@ -1133,7 +1172,18 @@ function _binaSvgOlustur() {
     });
 
     svg += drawTopraklama(topraklamaAttachX, topraklamaAttachY);
-    svg += drawKofre(kofreAttachX, kofreAttachY);
+    svg += drawKofre(kofreAttachX, kofreAttachY, sema);
+
+    var tmsKolonAktif = sema.visibility && sema.visibility.tmsKolonVisible;
+    var sigKolonAktif = sema.visibility && sema.visibility.sigKolonVisible;
+    if (tmsKolonAktif || sigKolonAktif) {
+      var girisSigH = 32.7;
+      var girisSigAttachY = adpBarAltY - 3.4;
+      var girisSigAttachX = kofreAttachX - 30 - 2.1;
+      var tmsKolonTip = tmsKolonAktif ? 'TMŞ' : 'K.Otomat';
+      var tmsKolonTxt = tmsKolonAktif ? (sema.tmsKolonText || '') : (sema.sigKolonText || '');
+      svg += drawGirisSig(girisSigAttachX, girisSigAttachY, tmsKolonTip, tmsKolonTxt);
+    }
 
     if (istekFloor !== null && istekUnit !== null) {
       var iIdx = -1;
@@ -1144,7 +1194,7 @@ function _binaSvgOlustur() {
           if (t.katIdx === istekFloor && t.unitIdx === istekUnit) iIdx = i;
         }
       });
-      if (iIdx >= 0) { svg += drawSarj(tesisatXler[iIdx] + 86, sayacUstY - 29); }
+      if (iIdx >= 0) { svg += drawSarj(tesisatXler[iIdx] + 86, sayacUstY - 29, sema); }
     }
 
     svg += '</svg>';
@@ -1438,7 +1488,8 @@ function _binaSvgOlustur() {
 
     function renderPano() {
     var tesisatSayisi=state.totalTesisat;
-    var tmsVar=true;
+    var sema = loadSemaVerileri();
+    var tmsVar = !!(sema.visibility && sema.visibility.tmsKolonVisible);
     if(adpTipiValue==='duvar') renderDuvarPano(tesisatSayisi, tmsVar);
     else renderDikiliPano(tesisatSayisi, tmsVar);
     // Pano SVG DOM'a yazıldıktan sonra kaydet — timeout artırıldı
