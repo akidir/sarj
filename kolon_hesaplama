@@ -96,6 +96,10 @@
       <label>Yapı Kat Sayısı</label>
       <input type="number" id="katSayisi" value="3" min="1" max="30">
     </div>
+    <div class="info-row" id="istekBagimsizRow">
+      <label>İstek Bağımsız</label>
+      <select id="istekBagimsizSelect"></select>
+    </div>
     <hr class="info-divider">
     <div class="info-table-subtitle">Ana Dağıtım Panosu Bilgileri</div>
     <div class="info-row">
@@ -166,20 +170,6 @@
   // ══════════════════════════════════════
    function saveToStorage() {
   try {
-    var kolonSvgEl = document.querySelector('#svgContainer svg');
-    var kolonSvg = '';
-    if (kolonSvgEl) { try { kolonSvg = new XMLSerializer().serializeToString(kolonSvgEl); } catch(e) {} }
-
-    var panoSvgEl = document.querySelector('#panoSvgContainer svg');
-    var panoSvg = '';
-    if (panoSvgEl) { try { panoSvg = new XMLSerializer().serializeToString(panoSvgEl); } catch(e) {} }
-
-    // ── Bina görseli: writing-mode sorunu için özel snapshot ──
-    var binaHtml = buildBinaSnapshot();
-
-        // ── Bina görseli SVG olarak da kaydet (PDF için daha temiz render) ──
-    var binaSvg = _binaSvgOlustur();
-
     var data = {
       totalTesisat  : state.totalTesisat,
       asansor       : state.asansor,
@@ -191,11 +181,7 @@
       istekUnit     : state.istekUnit,
       adpKatAdi     : adpKatAdi,
       adpKatValue   : adpKatValue,
-      adpTipiValue  : adpTipiValue,
-      kolonSvg      : kolonSvg,
-      panoSvg       : panoSvg,
-      binaHtml      : binaHtml,
-      binaSvg       : binaSvg
+      adpTipiValue  : adpTipiValue
     };
     localStorage.setItem(LS_KEY, JSON.stringify(data));
     showSaveIndicator();
@@ -462,47 +448,44 @@ function _binaSvgOlustur() {
     strips.className = 'side-strips';
     strips.style.borderRight = '3px double #2c3e50';
 
-    for (var a = 0; a < state.asansor; a++) {
-      (function(aIdx) {
-        var stripEl = document.createElement('div');
-        stripEl.className = 'strip';
-        var isSelected = (state.istekFloor === -1 && state.istekUnit === aIdx);
-        stripEl.textContent = 'Asansör x' + state.asansor;
-        if (isSelected) { stripEl.style.background = '#fef9e7'; stripEl.style.color = '#e67e22'; }
-        var menu = document.createElement('div'); menu.className = 'strip-menu';
-        var istekItem = document.createElement('div');
-        istekItem.className = 'strip-menu-item' + (isSelected ? ' selected' : '');
-        istekItem.innerHTML = isSelected ? '🔶 İstek Seçili ✓' : '🔶 İstek Seç';
-        if (!isSelected) {
-          istekItem.addEventListener('click', function(e) { e.stopPropagation(); setIstekOrtak(-1, aIdx); });
-        }
-        menu.appendChild(istekItem);
-        stripEl.appendChild(menu);
-        stripEl.addEventListener('click', function(e) { e.stopPropagation(); closeAllMenus(); menu.classList.toggle('show'); });
-        strips.appendChild(stripEl);
-      })(a);
+    if (state.asansor > 0) {
+      var aIdx = 0;
+      var stripEl = document.createElement('div');
+      stripEl.className = 'strip';
+      var isSelected = (state.istekFloor === -1 && state.istekUnit === aIdx);
+      stripEl.textContent = 'Asansör x' + state.asansor;
+      if (isSelected) { stripEl.style.background = '#fef9e7'; stripEl.style.color = '#e67e22'; }
+      var menu = document.createElement('div'); menu.className = 'strip-menu';
+      var istekItem = document.createElement('div');
+      istekItem.className = 'strip-menu-item' + (isSelected ? ' selected' : '');
+      istekItem.innerHTML = isSelected ? '🔶 İstek Seçili ✓' : '🔶 İstek Seç';
+      if (!isSelected) {
+        istekItem.addEventListener('click', function(e) { e.stopPropagation(); setIstekOrtak(-1, aIdx); });
+      }
+      menu.appendChild(istekItem);
+      stripEl.appendChild(menu);
+      stripEl.addEventListener('click', function(e) { e.stopPropagation(); closeAllMenus(); menu.classList.toggle('show'); });
+      strips.appendChild(stripEl);
     }
 
-    for (var o = 0; o < state.ortakAlan; o++) {
-      (function(oIdx) {
-        var unitIdx = state.asansor + oIdx;
-        var stripEl = document.createElement('div');
-        stripEl.className = 'strip';
-        var isSelected = (state.istekFloor === -1 && state.istekUnit === unitIdx);
-        stripEl.textContent = 'Ortak Alan x' + state.ortakAlan;
-        if (isSelected) { stripEl.style.background = '#fef9e7'; stripEl.style.color = '#e67e22'; }
-        var menu = document.createElement('div'); menu.className = 'strip-menu';
-        var istekItem = document.createElement('div');
-        istekItem.className = 'strip-menu-item' + (isSelected ? ' selected' : '');
-        istekItem.innerHTML = isSelected ? '🔶 İstek Seçili ✓' : '🔶 İstek Seç';
-        if (!isSelected) {
-          istekItem.addEventListener('click', function(e) { e.stopPropagation(); setIstekOrtak(-1, unitIdx); });
-        }
-        menu.appendChild(istekItem);
-        stripEl.appendChild(menu);
-        stripEl.addEventListener('click', function(e) { e.stopPropagation(); closeAllMenus(); menu.classList.toggle('show'); });
-        strips.appendChild(stripEl);
-      })(o);
+    if (state.ortakAlan > 0) {
+      var unitIdx = state.asansor;
+      var stripEl2 = document.createElement('div');
+      stripEl2.className = 'strip';
+      var isSelected2 = (state.istekFloor === -1 && state.istekUnit === unitIdx);
+      stripEl2.textContent = 'Ortak Alan x' + state.ortakAlan;
+      if (isSelected2) { stripEl2.style.background = '#fef9e7'; stripEl2.style.color = '#e67e22'; }
+      var menu2 = document.createElement('div'); menu2.className = 'strip-menu';
+      var istekItem2 = document.createElement('div');
+      istekItem2.className = 'strip-menu-item' + (isSelected2 ? ' selected' : '');
+      istekItem2.innerHTML = isSelected2 ? '🔶 İstek Seçili ✓' : '🔶 İstek Seç';
+      if (!isSelected2) {
+        istekItem2.addEventListener('click', function(e) { e.stopPropagation(); setIstekOrtak(-1, unitIdx); });
+      }
+      menu2.appendChild(istekItem2);
+      stripEl2.appendChild(menu2);
+      stripEl2.addEventListener('click', function(e) { e.stopPropagation(); closeAllMenus(); menu2.classList.toggle('show'); });
+      strips.appendChild(stripEl2);
     }
 
     container.appendChild(strips);
@@ -563,6 +546,7 @@ function _binaSvgOlustur() {
     renderSummary();
     hideValidationError();
     renderKolon();
+    buildIstekBagimsizSelect();
     scheduleSave();
   }
 
@@ -668,6 +652,42 @@ function _binaSvgOlustur() {
     }
   }
 
+  function buildIstekBagimsizSelect() {
+    var sel = $('istekBagimsizSelect');
+    sel.innerHTML = '';
+    if (state.asansor > 0) {
+      var optA = document.createElement('option');
+      optA.value = 'asansor'; optA.textContent = 'Asansör';
+      sel.appendChild(optA);
+    }
+    if (state.ortakAlan > 0) {
+      var optO = document.createElement('option');
+      optO.value = 'ortak'; optO.textContent = 'Ortak Alan';
+      sel.appendChild(optO);
+    }
+    for (var i = 1; i <= state.toplamBagimsiz; i++) {
+      var optB = document.createElement('option');
+      optB.value = 'bagimsiz_' + i;
+      optB.textContent = i + ' Nolu Bağımsız';
+      sel.appendChild(optB);
+    }
+    if (state.istekFloor === -1 && state.istekUnit !== null) {
+      sel.value = state.istekUnit < state.asansor ? 'asansor' : 'ortak';
+    } else if (state.istekFloor !== null && state.istekFloor >= 0 && state.istekUnit !== null) {
+      var globalN = 0;
+      var found = false;
+      for (var fi = 0; fi < state.floors.length && !found; fi++) {
+        for (var ui = 0; ui < state.floors[fi].units.length && !found; ui++) {
+          globalN++;
+          if (fi === state.istekFloor && ui === state.istekUnit) {
+            sel.value = 'bagimsiz_' + globalN;
+            found = true;
+          }
+        }
+      }
+    }
+  }
+
   function syncFromTotal() {
     state.totalTesisat = parseInt($('totalTesisat').value) || 3;
     state.asansor = parseInt($('asansor').value) || 0;
@@ -695,6 +715,37 @@ function _binaSvgOlustur() {
   $('ortakAlan').addEventListener('input', syncFromTotal);
   $('toplamBagimsiz').addEventListener('input', syncFromBagimsiz);
   $('katSayisi').addEventListener('input', syncFromTotal);
+  $('istekBagimsizSelect').addEventListener('change', function () {
+    var val = $('istekBagimsizSelect').value;
+    if (val === 'asansor') {
+      setIstekOrtak(-1, 0);
+    } else if (val === 'ortak') {
+      setIstekOrtak(-1, state.asansor);
+    } else if (val.indexOf('bagimsiz_') === 0) {
+      var n = parseInt(val.replace('bagimsiz_', ''));
+      var count = 0;
+      var done = false;
+      for (var fi = 0; fi < state.floors.length && !done; fi++) {
+        for (var ui = 0; ui < state.floors[fi].units.length && !done; ui++) {
+          count++;
+          if (count === n) {
+            if (state.istekFloor !== null && state.istekFloor >= 0 &&
+                state.istekUnit !== null &&
+                state.istekFloor < state.floors.length &&
+                state.istekUnit < state.floors[state.istekFloor].units.length) {
+              state.floors[state.istekFloor].units[state.istekUnit] = 'mevcut';
+            }
+            state.floors[fi].units[ui] = 'istek';
+            state.istekFloor = fi;
+            state.istekUnit = ui;
+            renderBuilding();
+            showToast('🔶 ' + n + ' Nolu Bağımsız İSTEK olarak işaretlendi.');
+            done = true;
+          }
+        }
+      }
+    }
+  });
   $('adpTipi').addEventListener('change', function () {
     adpTipiValue = $('adpTipi').value; scheduleSave(); renderKolon();
   });
@@ -745,15 +796,20 @@ function _binaSvgOlustur() {
   function drawKofre(attachX, attachY) {
     var tx = attachX - 739.7, ty = attachY - 555.9;
     return '<g transform="translate(' + f2(tx) + ',' + f2(ty) + ')">'
-      + '<text transform="matrix(1 0 0 1 745.6688 596.2412)" class="st-text st-text-9">3x70+35 mm2 15m</text>'
-      + '<text transform="matrix(1 0 0 1 826.275 587.799)" class="st-text st-text-9">Y.S.Y.A </text>'
-      + '<text transform="matrix(1 0 0 1 829.608 614.3505)" class="st-text st-text-9">3x40A</text>'
-      + '<rect x="826.2" y="593.9" class="st-rect-thin" width="22.5" height="11.5"/>'
-      + '<line class="st-line-thin" x1="848.7" y1="593.9" x2="826.3" y2="605.4"/>'
-      + '<line class="st-line-thin" x1="848.8" y1="605.6" x2="826.3" y2="594.1"/>'
-      + '<polygon class="st-line-thin" points="859.3,599.6 850.1,594.3 850.1,605"/>'
-      + '<line class="st-line-thin" x1="826.3" y1="599.7" x2="709.7" y2="599.7"/>'
-      + '<line class="st-line-thin" x1="709.7" y1="555.9" x2="709.7" y2="599.8"/>'
+      + '<text transform="matrix(1 0 0 1 745.6688 596)" class="st-text st-text-9">3x70+35 mm2 15m</text>'
+    + '<text transform="matrix(1 0 0 1 826.275 587.799)" class="st-text st-text-9">Y.S.Y.A </text>'
+    + '<text transform="matrix(1 0 0 1 829.608 614.3505)" class="st-text st-text-9">3x40A</text>'
+
+    + '<rect x="826.2" y="593.9" class="st-rect-thin" width="22.5" height="11.5"/>'
+    + '<line class="st-line-thin" x1="848.7" y1="593.9" x2="826.3" y2="605.4"/>'
+    + '<line class="st-line-thin" x1="848.8" y1="605.6" x2="826.3" y2="594.1"/>'
+    
+    + '<polygon class="st-fill" points="859.3,599.6 850.1,594.3 850.1,605"/>'
+    
+    + '<line class="st-line-thin" x1="826.3" y1="602" x2="709.7" y2="602"/>'
+    + '<line class="st-line-thin" x1="826.3" y1="599" x2="712.7" y2="599"/>'
+    + '<line class="st-line-thin" x1="709.7" y1="556" x2="709.7" y2="602"/>'
+    + '<line class="st-line-thin" x1="712.7" y1="556" x2="712.7" y2="599"/>'
       + '</g>';
   }
 
@@ -1022,8 +1078,7 @@ function _binaSvgOlustur() {
     }
 
     svg += '<line x1="' + f2(xSol) + '" y1="' + f2(yEnAlt) + '" x2="' + f2(xLabelSag) + '" y2="' + f2(yEnAlt) + '" class="st-rect"/>';
-    svg += '<text x="' + f2(xKatSag + 8) + '" y="' + f2(adpKatUst + adpKatYukseklik / 2 - 3) + '" class="st-text st-text-9">' + adpKatAdi + '</text>';
-    svg += '<text x="' + f2(xKatSag + 8) + '" y="' + f2(adpKatUst + adpKatYukseklik / 2 + 7) + '" class="st-text st-text-9">' + adpTipiLabel + '</text>';
+    svg += '<text x="' + f2(xKatSag + 8) + '" y="' + f2(adpKatUst + adpKatYukseklik / 2) + '" class="st-text st-text-9">' + adpKatAdi + '</text>';
     svg += '<rect x="' + f2(adpBarX) + '" y="' + f2(adpBarY) + '" width="' + f2(adpBarGenislik) + '" height="' + f2(ADP_BAR_H) + '" class="st-rect-thin"/>';
 
     tesisatlar.forEach(function (tesisat, tIdx) {
