@@ -177,6 +177,7 @@
   var adpKatValue    = 'bodrum_1';
   var adpTipiValue   = 'dikili';
   var adpSelectBuilt = false;
+  var _binaIstekTetikleme = false;
   var $ = function (id) { return document.getElementById(id); };
 
   // ══════════════════════════════════════
@@ -598,7 +599,10 @@ function _binaSvgOlustur() {
       state.floors[state.istekFloor].units[state.istekUnit] = 'mevcut';
     }
     state.istekFloor = floorIdx; state.istekUnit = unitIdx;
-    closeAllMenus(); renderBuilding();
+    closeAllMenus();
+    _binaIstekTetikleme = true;
+    renderBuilding();
+    _binaIstekTetikleme = false;
     var label = unitIdx < state.asansor ? 'Asansör' : 'Ortak Alan';
     showToast('     ' + label + ' İSTEK olarak işaretlendi.');
   }
@@ -613,7 +617,10 @@ function _binaSvgOlustur() {
     var floor = state.floors[floorIdx], sel = 0;
     for (var u = 0; u < floor.units.length; u++) { if (floor.units[u] === 'mevcut') { sel = u; break; } }
     floor.units[sel] = 'istek'; state.istekFloor = floorIdx; state.istekUnit = sel;
-    closeAllMenus(); renderBuilding();
+    closeAllMenus();
+    _binaIstekTetikleme = true;
+    renderBuilding();
+    _binaIstekTetikleme = false;
     showToast('🔶 ' + floor.name + ' - Bağımsız ' + (sel + 1) + ' İSTEK olarak işaretlendi.');
   }
 
@@ -685,17 +692,19 @@ function _binaSvgOlustur() {
       optB.textContent = i + ' Nolu Bağımsız';
       sel.appendChild(optB);
     }
-    if (state.istekFloor === -1 && state.istekUnit !== null) {
-      sel.value = state.istekUnit < state.asansor ? 'asansor' : 'ortak';
-    } else if (state.istekFloor !== null && state.istekFloor >= 0 && state.istekUnit !== null) {
-      var globalN = 0;
-      var found = false;
-      for (var fi = 0; fi < state.floors.length && !found; fi++) {
-        for (var ui = 0; ui < state.floors[fi].units.length && !found; ui++) {
-          globalN++;
-          if (fi === state.istekFloor && ui === state.istekUnit) {
-            sel.value = 'bagimsiz_' + globalN;
-            found = true;
+    if (!_binaIstekTetikleme) {
+      if (state.istekFloor === -1 && state.istekUnit !== null) {
+        sel.value = state.istekUnit < state.asansor ? 'asansor' : 'ortak';
+      } else if (state.istekFloor !== null && state.istekFloor >= 0 && state.istekUnit !== null) {
+        var globalN = 0;
+        var found = false;
+        for (var fi = 0; fi < state.floors.length && !found; fi++) {
+          for (var ui = 0; ui < state.floors[fi].units.length && !found; ui++) {
+            globalN++;
+            if (fi === state.istekFloor && ui === state.istekUnit) {
+              sel.value = 'bagimsiz_' + globalN;
+              found = true;
+            }
           }
         }
       }
@@ -848,7 +857,7 @@ function _binaSvgOlustur() {
       + '<line class="st-line-thin" x1="728.9" y1="484.7" x2="728.9" y2="479.4"/>'
       + '<line class="st-line-thin" x1="729" y1="479.5" x2="723.3" y2="479.5"/>'
       + '<text transform="matrix(1 0 0 1 698 526)" class="st-text" style="font-size:6px;">Şarj İstasyonu</text>'
-      + '<text id="s1" transform="matrix(1 0 0 1 705 537.2)" class="st-text" style="font-size:5px;">' + ((sema && sema.yukIstek) || '22 kW') + '</text>'
+      + '<text id="s1" transform="matrix(1 0 0 1 705 537.2)" class="st-text" style="font-size:5px;">' + ((sema && sema.guc && sema.guc.ilaveKurulu) ? sema.guc.ilaveKurulu + ' W' : '22 kW') + '</text>'
       + '<text id="s2" transform="matrix(1 0 0 1 649.4125 532.6296)" class="st-text" style="font-size:5px;">' + ((sema && sema.sigSayacGiris) || '4x40A') + '</text>'
       + '<text id="s3" transform="matrix(1 0 0 1 649.4125 467.6783)" class="st-text" style="font-size:5px;">' + ((sema && sema.sigSayacCikis) || '4x40A') + '</text>'
       + '<text id="s4" transform="matrix(1 0 0 1 735.389 465.7575)" class="st-text" style="font-size:5px;">' + ((sema && sema.sigIstek) || '4x40A') + '</text>'
@@ -1111,7 +1120,7 @@ function _binaSvgOlustur() {
                     : (tesisat.tip !== 'asansor' && tesisat.tip !== 'ortak') &&
                       (tesisat.katIdx === istekFloor && tesisat.unitIdx === istekUnit);
 
-      var dtKatIdx = (tesisat.tip === 'asansor' || tesisat.tip === 'ortak') ? 0 : tesisat.katIdx;
+      var dtKatIdx = (tesisat.tip === 'asansor' || tesisat.tip === 'ortak') ? (katSayisi >= 2 ? 1 : 0) : tesisat.katIdx;
       var dtUstY   = koord.dtUstY(dtKatIdx);
       var dtAltY   = koord.dtAltY(dtKatIdx);
 
@@ -1150,7 +1159,16 @@ function _binaSvgOlustur() {
       var dtX = cx + DT.dx;
       svg += '<rect x="' + f2(dtX) + '" y="' + f2(dtUstY) + '" width="' + f2(DT.w) + '" height="' + f2(DT.h) + '" class="st-rect-thin"/>';
       svg += '<polygon points="' + f2(dtX+1.3) + ',' + f2(dtUstY+DT.h) + ' ' + f2(dtX+DT.w-0.1) + ',' + f2(dtUstY) + ' ' + f2(dtX+DT.w-0.1) + ',' + f2(dtUstY+DT.h-0.4) + '" class="dt-fill"/>';
-      var lbl = isIstek ? 'İstek' : tesisat.tip === 'asansor' ? 'Asansör' : tesisat.tip === 'ortak' ? 'Ortak Alan' : 'Mevcut';
+      var lbl;
+      if (isIstek) {
+        if (tesisat.tip === 'asansor') lbl = 'Asansör İstek';
+        else if (tesisat.tip === 'ortak') lbl = 'Ortak Alan İstek';
+        else lbl = 'İstek';
+      } else {
+        if (tesisat.tip === 'asansor') lbl = 'Asansör';
+        else if (tesisat.tip === 'ortak') lbl = 'Ortak Alan';
+        else lbl = 'Mevcut';
+      }
       svg += '<text x="' + f2(dtX) + '" y="' + f2(dtUstY-4) + '" class="st-text st-text-9">' + lbl + '</text>';
       svg += '</g>';
     });
