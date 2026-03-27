@@ -1654,6 +1654,8 @@ function saveState() {
       dtMevcutTG:       getText('txt_dt_mevcut_tg'),
       sigKolonText:     getText('txt_sig_kolon'),
       tmsKolonText:     getText('txt_tms_kolon'),
+      kolonSigortaTip:   isDomVisible('tms_kolon') ? 'TMŞ' : isDomVisible('sig_kolon') ? 'K.Otomat' : 'Yok',
+      kolonSigortaMetin: getText('txt_tms_kolon') || getText('txt_sig_kolon'),
       visibility: {
         sigKolonVisible:        isDomVisible('sig_kolon'),
         tmsKolonVisible:        isDomVisible('tms_kolon'),
