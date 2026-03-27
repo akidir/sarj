@@ -177,6 +177,7 @@
   var adpKatValue    = 'bodrum_1';
   var adpTipiValue   = 'dikili';
   var adpSelectBuilt = false;
+  var _binaIstekTetikleme = false;
   var $ = function (id) { return document.getElementById(id); };
 
   // ══════════════════════════════════════
@@ -598,7 +599,7 @@ function _binaSvgOlustur() {
       state.floors[state.istekFloor].units[state.istekUnit] = 'mevcut';
     }
     state.istekFloor = floorIdx; state.istekUnit = unitIdx;
-    closeAllMenus(); renderBuilding();
+    closeAllMenus(); _binaIstekTetikleme = true; renderBuilding(); _binaIstekTetikleme = false;
     var label = unitIdx < state.asansor ? 'Asansör' : 'Ortak Alan';
     showToast('     ' + label + ' İSTEK olarak işaretlendi.');
   }
@@ -613,7 +614,7 @@ function _binaSvgOlustur() {
     var floor = state.floors[floorIdx], sel = 0;
     for (var u = 0; u < floor.units.length; u++) { if (floor.units[u] === 'mevcut') { sel = u; break; } }
     floor.units[sel] = 'istek'; state.istekFloor = floorIdx; state.istekUnit = sel;
-    closeAllMenus(); renderBuilding();
+    closeAllMenus(); _binaIstekTetikleme = true; renderBuilding(); _binaIstekTetikleme = false;
     showToast('🔶 ' + floor.name + ' - Bağımsız ' + (sel + 1) + ' İSTEK olarak işaretlendi.');
   }
 
@@ -667,6 +668,7 @@ function _binaSvgOlustur() {
   }
 
   function buildIstekBagimsizSelect() {
+    if (_binaIstekTetikleme) return;
     var sel = $('istekBagimsizSelect');
     sel.innerHTML = '';
     if (state.asansor > 0) {
