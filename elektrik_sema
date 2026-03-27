@@ -1003,11 +1003,13 @@ function guncelleKolonSigortaGorsel(kesiciTipi) {
 function kolonSigortaKaldir() {
   setVisible('sig_kolon', false); setVisible('tms_kolon', false); setVisible('cizgi_kolon', true);
   closePopup();
+  saveState();
 }
 
 function kolonSigortaEkle() {
   setVisible('cizgi_kolon', false); setVisible('tms_kolon', true); setVisible('sig_kolon', false);
   closePopup();
+  saveState();
 }
 
 // ═══════════════════════════════════════════════════════
@@ -1015,6 +1017,7 @@ function kolonSigortaEkle() {
 // ═══════════════════════════════════════════════════════
 function sayacCikisSigortaKaldir() {
   setVisible('sig_sayac_cikis', false); setVisible('cizgi_sayaccikis', true); closePopup();
+  saveState();
 }
 
 function sayacCikisSigortaEkle() {
@@ -1022,6 +1025,7 @@ function sayacCikisSigortaEkle() {
   const txt = qs('txt_sig_sayac_cikis');
   if (txt && !txt.textContent.trim()) txt.textContent = '1x16 A';
   closePopup();
+  saveState();
 }
 
 // ═══════════════════════════════════════════════════════
