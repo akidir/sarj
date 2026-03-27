@@ -1,12 +1,27 @@
-// Your existing code...
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kolon Hesaplama</title>
+    <script>
+        // JS kodlarınız burada
+        // Your JS code goes here
 
-// ══════════════════════════════════════
-// ELEKTRİK ŞEMASI DEĞİŞİKLİKLERİNİ DİNLE (farklı sekme)
-// ══════════════════════════════════════
-window.addEventListener('storage', function(e) {
-  if (e.key === 'proje_sema_v1') {
-    renderKolon();
-  }
-});
-
-// Your existing code...
+        // ══════════════════════════════════════
+        // ELEKTRİK ŞEMASI DEĞİŞİKLİKLERİNİ DİNLE
+        // (storage event — farklı sekme/pencereden gelen değişiklikleri yakalar)
+        // ══════════════════════════════════════
+        window.addEventListener('storage', function (e) {
+            if (e.key === 'proje_sema_v1') {
+                renderKolon();
+            }
+        });
+    </script>
+</head>
+<body>
+    <h1>Kolon Hesaplama</h1>
+    <p>Bu alanda kolon hesaplama işlemleri yapılır.</p>
+</body>
+</html>
