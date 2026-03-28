@@ -971,6 +971,7 @@ function _binaSvgOlustur() {
     var sema = loadSemaVerileri();
     var tmsKolonAktif = !!(sema.visibility && sema.visibility.tmsKolonVisible);
     var tmsKolonText  = sema.tmsKolonText || '';
+    var sigKolonText  = sema.sigKolonText || '';
     var kolonSigortaTip = sema.kolonSigortaTip || '';
     var asansor       = state.asansor;
     var ortakAlan     = state.ortakAlan;
@@ -1179,7 +1180,7 @@ function _binaSvgOlustur() {
           + '<line class="st0" x1="5.1" y1="15.3" x2="7.5" y2="20.6"/>'
           + '<line class="st0" x1="6.3" y1="18.2" x2="9.9" y2="16.8"/>'
           + '<polygon points="12.3,15.6 10.5,18.2 9.2,15.3"/>'
-          + '<text id="gs1" transform="matrix(1 0 0 1 15.8328 18.8882)" class="st1 st2">' + tmsKolonText + '</text>'
+          + '<text id="gs1" transform="matrix(1 0 0 1 15.8328 18.8882)" class="st1 st2">' + sigKolonText + '</text>'
           + '</g>';
       }
       svg += '<g id="giris_sig" transform="translate(' + f2(girisX - 2.1) + ',' + f2(girisY) + ')">'
