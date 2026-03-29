@@ -850,7 +850,7 @@ function _binaSvgOlustur() {
       + '<line class="st-line-thin" x1="728.9" y1="484.7" x2="728.9" y2="479.4"/>'
       + '<line class="st-line-thin" x1="729" y1="479.5" x2="723.3" y2="479.5"/>'
       + '<text transform="matrix(1 0 0 1 698 526)" class="st-text" style="font-size:6px;">Şarj İstasyonu</text>'
-      + '<text id="s1" transform="matrix(1 0 0 1 705 537.2)" class="st-text" style="font-size:5px;">' + ((sema && sema.guc && sema.guc.ilaveKurulu) ? sema.guc.ilaveKurulu + ' W' : '0') + '</text>'
+      + '<text id="s1" transform="matrix(1 0 0 1 700 535)" class="st-text" style="font-size:5px;">' + ((sema && sema.guc && sema.guc.ilaveKurulu) ? sema.guc.ilaveKurulu + ' W' : '0') + '</text>'
       + '<text id="s2" transform="matrix(1 0 0 1 649.4125 532.6296)" class="st-text" style="font-size:5px;">' + ((sema && sema.sigSayacGiris) || '4x40A') + '</text>'
       
       + '<text id="s4" transform="matrix(1 0 0 1 735.389 465.7575)" class="st-text" style="font-size:5px;">' + ((sema && sema.sigIstek) || '4x40A') + '</text>'
@@ -1158,8 +1158,8 @@ function _binaSvgOlustur() {
         var txtX = kx + KOLON_SAYAC.kutuW + 1;
         var sayacTipTxt   = (sema && sema.sayacTip)   || '';
         var sayacTrafoTxt = (sema && sema.sayacTrafo) || '';
-        if (sayacTipTxt)   svg += '<text x="' + f2(txtX) + '" y="' + f2(kutuY + KOLON_SAYAC.kutuH / 2 - 1) + '" class="st-text st-text-5">' + sayacTipTxt + '</text>';
-        if (sayacTrafoTxt) svg += '<text x="' + f2(txtX) + '" y="' + f2(kutuY + KOLON_SAYAC.kutuH / 2 + 4) + '" class="st-text st-text-5">' + sayacTrafoTxt + '</text>';
+        if (sayacTipTxt)   svg += '<text x="' + f2(txtX+4) + '" y="' + f2(kutuY + KOLON_SAYAC.kutuH / 2 - 1) + '" class="st-text st-text-5">' + sayacTipTxt + '</text>';
+        if (sayacTrafoTxt) svg += '<text x="' + f2(txtX+2) + '" y="' + f2(kutuY + KOLON_SAYAC.kutuH / 2 + 4) + '" class="st-text st-text-5">' + sayacTrafoTxt + '</text>';
       }
 
       var e1Y = kutuY + REL.elipse1Y;
