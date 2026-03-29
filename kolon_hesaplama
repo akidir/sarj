@@ -969,9 +969,9 @@ function _binaSvgOlustur() {
     var floors        = state.floors;
     var katSayisi     = floors.length;
     var sema = loadSemaVerileri();
-    var tmsKolonAktif = !!(sema.visibility && sema.visibility.tmsKolonVisible);
-    var tmsKolonText  = sema.tmsKolonText || '';
     var kolonSigortaTip = sema.kolonSigortaTip || '';
+    var tmsKolonAktif = !!(sema.visibility && sema.visibility.tmsKolonVisible) || kolonSigortaTip === 'K.Otomat';
+    var tmsKolonText  = sema.tmsKolonText || '';
     var asansor       = state.asansor;
     var ortakAlan     = state.ortakAlan;
     var ortakTesisat  = asansor + ortakAlan;
