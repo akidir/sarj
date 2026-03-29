@@ -970,8 +970,10 @@ function _binaSvgOlustur() {
     var katSayisi     = floors.length;
     var sema = loadSemaVerileri();
     var tmsKolonAktif = !!(sema.visibility && sema.visibility.tmsKolonVisible);
-    var tmsKolonText  = sema.tmsKolonText || '';
+    var tmsKolonText  = sema.tmsKolonText  || '';
+    var sigKolonText  = sema.sigKolonText  || '';
     var kolonSigortaTip = sema.kolonSigortaTip || '';
+    var girisKesiciAktif = !!(sema.visibility && (sema.visibility.tmsKolonVisible || sema.visibility.sigKolonVisible));
     var asansor       = state.asansor;
     var ortakAlan     = state.ortakAlan;
     var ortakTesisat  = asansor + ortakAlan;
@@ -1160,9 +1162,9 @@ function _binaSvgOlustur() {
     });
 
     svg += drawTopraklama(topraklamaAttachX, topraklamaAttachY);
-    svg += drawKofre(kofreAttachX, kofreAttachY, sema, tmsKolonAktif);
+    svg += drawKofre(kofreAttachX, kofreAttachY, sema, girisKesiciAktif);
 
-    if (tmsKolonAktif) {
+    if (girisKesiciAktif) {
       var girisX = kofreAttachX - 739.7 + 709.7;
       var girisY = adpBarAltY;
       var sigortaGrubu = '';
