@@ -969,7 +969,7 @@ function _binaSvgOlustur() {
     var floors        = state.floors;
     var katSayisi     = floors.length;
     var sema = loadSemaVerileri();
-    var tmsKolonAktif = !!(sema.visibility && sema.visibility.tmsKolonVisible);
+    var tmsKolonAktif = !!(sema.visibility && (sema.visibility.tmsKolonVisible || sema.visibility.sigKolonVisible));
     var tmsKolonText  = sema.tmsKolonText || '';
     var kolonSigortaTip = sema.kolonSigortaTip || '';
     var asansor       = state.asansor;
