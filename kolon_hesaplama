@@ -1078,6 +1078,8 @@ function _binaSvgOlustur() {
     svg += '.st-text-9{font-size:6px;}';
     svg += '.st-text-5{font-size:5px;}';
     svg += '.dt-fill{fill:#020203;stroke:#000;stroke-width:0.5;stroke-miterlimit:10;}';
+    
+    svg += '.st-line-thin {vector-effect: non-scaling-stroke;}';
     svg += '.st0{fill:none;stroke:#020203;stroke-width:0.5;stroke-miterlimit:10;}';
     svg += '.st1{font-family:\'Segoe UI\',Tahoma,sans-serif;}';
     svg += '.st2{font-size:5px;}';
@@ -1165,30 +1167,34 @@ function _binaSvgOlustur() {
       var girisY = adpBarAltY;
       var sigortaGrubu = '';
       if (kolonSigortaTip === 'TMŞ') {
-        sigortaGrubu = '<g id="tms_sig" transform="translate(45, 175) rotate(90,650,230) scale(1)">'
-          + '<line class="st0" x1="260.2" y1="919.9" x2="265.7" y2="917.4"/>'
-          + '<line class="st0" x1="262.2" y1="919.1" x2="261.2" y2="916.7"/>'
-          + '<polygon class="st3" points="260.4,915 262.1,916.3 260.2,917.1"/>'
-          + '<line class="st0" x1="264" y1="918.2" x2="263.4" y2="916.8"/>'
-          + '<line class="st0" x1="262.7" y1="915.3" x2="262.1" y2="914"/>'
-          + '<polyline class="st0" points="263.4,916.8 264.8,916.2 264.2,914.7 262.7,915.3"/>'
-          + '<text id="gs1" transform="matrix(1 0 0 1 13.7982 19.79)" class="st1 st2">' + tmsKolonText + '</text>'
-          + '</g>';
+        sigortaGrubu = '<g id="tms_sig" transform="translate(46.7, 175) rotate(90, 650, 230)">' +
+    
+    '<g transform="translate(262, 917) scale(1.4) translate(-262, -917)">' +
+        '<line class="st-line-thin" x1="260.2" y1="919.9" x2="265.7" y2="917.4"/>' +
+        '<line class="st-line-thin" x1="262.2" y1="919.1" x2="261.2" y2="916.7"/>' +
+        '<polygon class="dt-fill" points="260.4,915 262.1,916.3 260.2,917.1"/>' +
+        '<line class="st-line-thin" x1="264" y1="918.2" x2="263.4" y2="916.8"/>' +
+        '<line class="st-line-thin" x1="262.7" y1="915.3" x2="262.1" y2="914"/>' +
+        '<polyline class="st-line-thin" points="263.4,916.8 264.8,916.2 264.2,914.7 262.7,915.3"/>' +
+    '</g>' +
+'</g>'
+          ;
       } else {
-        sigortaGrubu = '<g id="sig">'
-          + '<line class="st0" x1="5.1" y1="15.3" x2="7.5" y2="20.6"/>'
-          + '<line class="st0" x1="6.3" y1="18.2" x2="9.9" y2="16.8"/>'
+        sigortaGrubu = '<g id="sig" transform="translate(1, 0)">'
+          + '<line class="st-line-thin" x1="5.1" y1="15.3" x2="7.5" y2="20.6"/>'
+          + '<line class="st-line-thin" x1="6.3" y1="18.2" x2="9.9" y2="16.8"/>'
           + '<polygon points="12.3,15.6 10.5,18.2 9.2,15.3"/>'
-          + '<text id="gs1" transform="matrix(1 0 0 1 15.8328 18.8882)" class="st1 st2">' + tmsKolonText + '</text>'
           + '</g>';
       }
+      var kolonSigortaText = (kolonSigortaTip === 'TMŞ') ? tmsKolonText : sigKolonText;
       svg += '<g id="giris_sig" transform="translate(' + f2(girisX - 2.1) + ',' + f2(girisY) + ')">'
-        + '<ellipse cx="5.1" cy="15.2" rx="0.8" ry="0.8"/>'
-        + '<ellipse cx="5.1" cy="21.5" rx="0.8" ry="0.8"/>'
-        + '<line class="st-line-thin" x1="5.1" y1="3.4" x2="5.1" y2="14.4"/>'
+        + '<ellipse class="st-rect-thin" cx="5.1" cy="15.2" rx="0.8" ry="0.8"/>'
+        + '<ellipse class="st-rect-thin" cx="5.1" cy="21.5" rx="0.8" ry="0.8"/>'
+        + '<line class="st-line-thin" x1="5.1" y1="0" x2="5.1" y2="14.4"/>'
         + '<line class="st-line-thin" x1="5.1" y1="22.3" x2="5.1" y2="32.7"/>'
-        + '<line class="st-line-thin" x1="2.1" y1="3.4" x2="2.1" y2="32.7"/>'
+        + '<line class="st-line-thin" x1="2.1" y1="0" x2="2.1" y2="32.7"/>'
         + sigortaGrubu
+        + '<text id="gs1" transform="matrix(1 0 0 1 15.8328 18.8882)" class="st-text st-text-9">' + kolonSigortaText + '</text>'
         + '</g>';
     }
 
