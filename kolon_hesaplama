@@ -1156,7 +1156,12 @@ function _binaSvgOlustur() {
       var dtX = cx + DT.dx;
       svg += '<rect x="' + f2(dtX) + '" y="' + f2(dtUstY) + '" width="' + f2(DT.w) + '" height="' + f2(DT.h) + '" class="st-rect-thin"/>';
       svg += '<polygon points="' + f2(dtX+1.3) + ',' + f2(dtUstY+DT.h) + ' ' + f2(dtX+DT.w-0.1) + ',' + f2(dtUstY) + ' ' + f2(dtX+DT.w-0.1) + ',' + f2(dtUstY+DT.h-0.4) + '" class="dt-fill"/>';
-      var lbl = isIstek ? 'İstek' : tesisat.tip === 'asansor' ? 'Asansör' : tesisat.tip === 'ortak' ? 'Ortak Alan' : 'Mevcut';
+      var lbl;
+      if (isIstek) {
+        lbl = tesisat.tip === 'asansor' ? 'Asansör İstek' : tesisat.tip === 'ortak' ? 'Ortak Alan İstek' : 'İstek';
+      } else {
+        lbl = tesisat.tip === 'asansor' ? 'Asansör' : tesisat.tip === 'ortak' ? 'Ortak Alan' : 'Mevcut';
+      }
       svg += '<text x="' + f2(dtX) + '" y="' + f2(dtUstY-4) + '" class="st-text st-text-9">' + lbl + '</text>';
       svg += '</g>';
     });
