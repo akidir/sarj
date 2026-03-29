@@ -850,7 +850,7 @@ function _binaSvgOlustur() {
       + '<line class="st-line-thin" x1="728.9" y1="484.7" x2="728.9" y2="479.4"/>'
       + '<line class="st-line-thin" x1="729" y1="479.5" x2="723.3" y2="479.5"/>'
       + '<text transform="matrix(1 0 0 1 698 526)" class="st-text" style="font-size:6px;">Şarj İstasyonu</text>'
-      + '<text id="s1" transform="matrix(1 0 0 1 705 537.2)" class="st-text" style="font-size:5px;">' + ((sema && sema.yukIstek) || '22 kW') + '</text>'
+      + '<text id="s1" transform="matrix(1 0 0 1 705 537.2)" class="st-text" style="font-size:5px;">' + ((sema && sema.guc && sema.guc.ilaveKurulu) ? sema.guc.ilaveKurulu + ' W' : '0') + '</text>'
       + '<text id="s2" transform="matrix(1 0 0 1 649.4125 532.6296)" class="st-text" style="font-size:5px;">' + ((sema && sema.sigSayacGiris) || '4x40A') + '</text>'
       + '<text id="s3" transform="matrix(1 0 0 1 649.4125 467.6783)" class="st-text" style="font-size:5px;">' + ((sema && sema.sigSayacCikis) || '4x40A') + '</text>'
       + '<text id="s4" transform="matrix(1 0 0 1 735.389 465.7575)" class="st-text" style="font-size:5px;">' + ((sema && sema.sigIstek) || '4x40A') + '</text>'
@@ -1113,7 +1113,7 @@ function _binaSvgOlustur() {
                     : (tesisat.tip !== 'asansor' && tesisat.tip !== 'ortak') &&
                       (tesisat.katIdx === istekFloor && tesisat.unitIdx === istekUnit);
 
-      var dtKatIdx = (tesisat.tip === 'asansor' || tesisat.tip === 'ortak') ? 0 : tesisat.katIdx;
+      var dtKatIdx = (tesisat.tip === 'asansor' || tesisat.tip === 'ortak') ? (katSayisi >= 2 ? 1 : 0) : tesisat.katIdx;
       var dtUstY   = koord.dtUstY(dtKatIdx);
       var dtAltY   = koord.dtAltY(dtKatIdx);
 
@@ -1382,6 +1382,9 @@ function _binaSvgOlustur() {
   function drawDuvarPano(x, y, startIndex, sayacCount, aktifGoz, gozW, tmsVar) {
     var s='';
     var D=DUVAR;
+    var sema = loadSemaVerileri();
+    var kolonSigortaTip = (sema && sema.kolonSigortaTip) || '';
+    var sigortaLabel = (kolonSigortaTip === 'K.Otomat') ? 'K.Otomat' : 'TMŞ';
     var innerW=aktifGoz<=2 ? gozW+D.divW+D.sayacColW : gozW+D.divW+D.sayacColW+gozW;
     var outerW=innerW+D.pad*2;
     var outerH=D.gozH*2+D.pad*2;
@@ -1396,7 +1399,7 @@ function _binaSvgOlustur() {
     s+=drawDuvarSabitSayacAlt(scX, iy+D.gozH, D.sayacColW, D.gozH);
     if(tmsVar){
       var tmsLabelX=divX+(D.divW+D.sayacColW)/2;
-      s+='<text x="'+(tmsLabelX+5)+'" y="'+(iy+innerH/2+60)+'" text-anchor="middle" class="p-txt">TMŞ</text>';
+      s+='<text x="'+(tmsLabelX+5)+'" y="'+(iy+innerH/2+60)+'" text-anchor="middle" class="p-txt">'+sigortaLabel+'</text>';
     }
     var solX=ix, ustY=iy, altY=iy+D.gozH;
     s+='<rect x="'+solX+'" y="'+ustY+'" width="'+gozW+'" height="'+D.gozH+'" class="p-goz"/>';
@@ -1428,23 +1431,26 @@ function _binaSvgOlustur() {
     return s;
   }
 
-  function renderDikiliPano(tesisatSayisi, tmsVar) {
+  function renderDikiliPano(tesisatSayisi, sigortaVar) {
     var D=DIKILI;
+    var sema = loadSemaVerileri();
+    var kolonSigortaTip = (sema && sema.kolonSigortaTip) || '';
+    var sigortaLabel = (kolonSigortaTip === 'K.Otomat') ? 'K.Otomat' : 'TMŞ';
     var panoSayisi=Math.ceil(tesisatSayisi/D.SAYAC_PER_PANO);
     $('panoInfoBar').innerHTML=
       '<b>Tip:</b> Dikili &nbsp;|&nbsp; <b>Toplam Tesisat:</b> '+tesisatSayisi+
       ' &nbsp;|&nbsp; <b>Pano Sayısı:</b> '+panoSayisi+
-      ' &nbsp;|&nbsp; <b>TMŞ:</b> '+(tmsVar?'Var':'Yok')+
+      ' &nbsp;|&nbsp; <b>'+sigortaLabel+':</b> '+(sigortaVar?'Var':'Yok')+
       ' &nbsp;|&nbsp; <b>Sayaç/Pano:</b> '+D.SAYAC_PER_PANO;
-    var tmsW=tmsVar?D.TMS.width:0;
+    var tmsW=sigortaVar?D.TMS.width:0;
     var totalW=tmsW+panoSayisi*D.PANO.width+140;
     var totalH=D.PANO.height+D.PANO.marginTop+50;
     var svg=panoSvgOpen(totalW, totalH);
     var baseX=20, baseY=D.PANO.marginTop;
-    if(tmsVar) svg+=panoOlcuYatay(baseX, baseY-15, D.TMS.width, D.TMS.genislikCm);
+    if(sigortaVar) svg+=panoOlcuYatay(baseX, baseY-15, D.TMS.width, D.TMS.genislikCm);
     for(var p=0;p<panoSayisi;p++) svg+=panoOlcuYatay(baseX+tmsW+p*D.PANO.width, baseY-15, D.PANO.width, D.PANO.genislikCm);
-    if(tmsVar){
-      svg+='<text x="'+(baseX-5+D.TMS.width/2)+'" y="'+(baseY+410)+'" text-anchor="middle" class="p-txt">TMŞ</text>';
+    if(sigortaVar){
+      svg+='<text x="'+(baseX-5+D.TMS.width/2)+'" y="'+(baseY+410)+'" text-anchor="middle" class="p-txt">'+sigortaLabel+'</text>';
       svg+=drawDikiliTMS(baseX, baseY);
     }
     var sayacIndex=0;
@@ -1460,8 +1466,11 @@ function _binaSvgOlustur() {
     $('panoSvgContainer').innerHTML=svg;
   }
 
-  function renderDuvarPano(tesisatSayisi, tmsVar) {
+  function renderDuvarPano(tesisatSayisi, sigortaVar) {
     var D=DUVAR;
+    var sema = loadSemaVerileri();
+    var kolonSigortaTip = (sema && sema.kolonSigortaTip) || '';
+    var sigortaLabel = (kolonSigortaTip === 'K.Otomat') ? 'K.Otomat' : 'TMŞ';
     var aktifGoz=(tesisatSayisi<=8)?2:4;
     var perGozMax=Math.ceil(tesisatSayisi/aktifGoz);
     var gozW=perGozMax*PANO_SAYAC.width;
@@ -1480,13 +1489,13 @@ function _binaSvgOlustur() {
       '<b>Tip:</b> Duvar &nbsp;|&nbsp; <b>Toplam Tesisat:</b> '+tesisatSayisi+
       ' &nbsp;|&nbsp; <b>Aktif Göz:</b> '+aktifGoz+
       ' &nbsp;|&nbsp; <b>Max Sayaç/Göz:</b> '+perGozMax+
-      ' &nbsp;|&nbsp; <b>TMŞ:</b> '+(tmsVar?'Var':'Yok')+
+      ' &nbsp;|&nbsp; <b>'+sigortaLabel+':</b> '+(sigortaVar?'Var':'Yok')+
       ' &nbsp;|&nbsp; <b>Pano:</b> '+genislikCm+' × 120 cm';
     var totalW=outerW+100;
     var totalH=outerH+D.marginTop+80;
     var svg=panoSvgOpen(totalW, totalH);
     var baseX=20, baseY=D.marginTop;
-    svg+=drawDuvarPano(baseX, baseY, 0, tesisatSayisi, aktifGoz, gozW, tmsVar);
+    svg+=drawDuvarPano(baseX, baseY, 0, tesisatSayisi, aktifGoz, gozW, sigortaVar);
     svg+=panoOlcuYatay(baseX, baseY-15, outerW, genislikCm+' cm');
     svg+=panoOlcuDikey(baseX+outerW+15, baseY, outerH, '120 cm');
     svg+='</svg>';
@@ -1496,9 +1505,10 @@ function _binaSvgOlustur() {
     function renderPano() {
     var tesisatSayisi=state.totalTesisat;
     var sema = loadSemaVerileri();
-    var tmsVar = !!(sema.visibility && sema.visibility.tmsKolonVisible);
-    if(adpTipiValue==='duvar') renderDuvarPano(tesisatSayisi, tmsVar);
-    else renderDikiliPano(tesisatSayisi, tmsVar);
+    var kolonSigortaTip = sema.kolonSigortaTip || '';
+    var sigortaVar = (kolonSigortaTip === 'TMŞ' || kolonSigortaTip === 'K.Otomat');
+    if(adpTipiValue==='duvar') renderDuvarPano(tesisatSayisi, sigortaVar);
+    else renderDikiliPano(tesisatSayisi, sigortaVar);
     // Pano SVG DOM'a yazıldıktan sonra kaydet — timeout artırıldı
     setTimeout(scheduleSave, 100);
   }
