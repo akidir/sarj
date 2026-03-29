@@ -1162,7 +1162,7 @@ function _binaSvgOlustur() {
     });
 
     svg += drawTopraklama(topraklamaAttachX, topraklamaAttachY);
-    svg += drawKofre(kofreAttachX, kofreAttachY, sema, tmsKolonAktif);
+    svg += drawKofre(kofreAttachX, kofreAttachY, sema, girisKesiciAktif);
 
     if (girisKesiciAktif) {
       var girisX = kofreAttachX - 739.7 + 709.7;
