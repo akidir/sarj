@@ -1113,7 +1113,7 @@ function setupYukPanelTipi() {
   yukTipGroup.querySelectorAll('button[data-gecici="1"]').forEach(btn => btn.remove());
   const mevcutButtons = yukTipGroup.querySelectorAll('button');
   if (modalConfig?.yukTipiSabit) {
-    mevcutButtons.forEach(btn => { btn.style.display = 'none'; });
+    mevcutButtons.forEach(btn => { btn.style.display = 'none'; btn.classList.remove('active'); });
     const sarjBtn = document.createElement('button');
     sarjBtn.type = 'button';
     sarjBtn.setAttribute('data-value', 'Şarj İst.');
