@@ -655,6 +655,8 @@
         </div>
         <div class="form-title">Yük Gücü (W)</div>
         <input id="yuk-w" class="popup-select" type="number" placeholder="Toplam yük gücü (W)" />
+        <div class="form-title">CosQ Değeri</div>
+        <input id="yuk-cosq" class="popup-select" type="number" min="0" max="1" step="0.01" value="0.8" placeholder="CosQ (0-1)" />
       </div>
 
       <!-- SİGORTA PANELİ -->
@@ -1781,6 +1783,7 @@ function restoreState() {
         if (typeof gdTabloGuncelle === 'function') gdTabloGuncelle();
       }, 100);
     }
+    if (data.yukIstekCosq) { var ce = qs('yuk-cosq'); if (ce) ce.value = data.yukIstekCosq; }
     return true;
   } catch(e) { console.warn('[restoreState] error:', e); return false; }
 }
@@ -1813,6 +1816,7 @@ window.getSemaVerileri = function() {
     roleIstekA:        getText('txt_role_istek_a'),
     roleIstekB:        getText('txt_role_istek_b'),
     yukIstek:          getText('txt_yuk_istek'),
+    yukIstekCosq:      qs('yuk-cosq') ? qs('yuk-cosq').value : '0.8',
     dtIstekKG:         getText('txt_dt_istek_kg'),
     dtIstekTG:         getText('txt_dt_istek_tg'),
     dtMevcutKG:        getText('txt_dt_mevcut_kg'),
@@ -2170,7 +2174,13 @@ function collectGDData(tip){
     dtR=_pK(getText('txt_linye_dt_istek'));yR=_pK(getText('txt_linye_yuk_istek'));
     yRaw=_pY(getText('txt_yuk_istek'));dG=numVal('guc-ilave-talep');
   }
-  return{kolonK:kolK,dtK:kabloP(dtR,0.8),yukK:kabloP(yR,0.99),yukPar:yukP(yRaw),
+  var yukCosq=0.99;
+  if(tip==='en_guclu'){
+    var cosqEl=qs('yuk-cosq');
+    var cosqVal=cosqEl?parseFloat(cosqEl.value):NaN;
+    yukCosq=(!isNaN(cosqVal)&&cosqVal>=0&&cosqVal<=1)?cosqVal:0.8;
+  }
+  return{kolonK:kolK,dtK:kabloP(dtR,0.8),yukK:kabloP(yR,yukCosq),yukPar:yukP(yRaw),
     toplamGuc:numVal('guc-yapi-yeni-tg'),dtGuc:dG,tip:tip};
 }
 
