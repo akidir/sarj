@@ -655,6 +655,10 @@
         </div>
         <div class="form-title">Yük Gücü (W)</div>
         <input id="yuk-w" class="popup-select" type="number" placeholder="Toplam yük gücü (W)" />
+        <div id="yuk-cosq-wrapper" style="display:none;">
+          <div class="form-title">CosQ Değeri</div>
+          <input id="yuk-cosq" class="popup-select" type="number" step="0.01" min="0.1" max="1" placeholder="CosQ (örn: 0.8)" value="0.8" />
+        </div>
       </div>
 
       <!-- SİGORTA PANELİ -->
@@ -1160,6 +1164,14 @@ function acModal(evt, options, cfg) {
     temizleGeciciYukButonlari();
     setupYukPanelTipi();
     const targetId = cfg?.targetId;
+    const cosqWrapper = qs('yuk-cosq-wrapper');
+    if (cfg?.yukTipiSabit) {
+      if (cosqWrapper) cosqWrapper.style.display = 'block';
+      const cosqInput = qs('yuk-cosq');
+      if (cosqInput) cosqInput.value = (window._istekCosQ != null) ? window._istekCosQ : 0.8;
+    } else {
+      if (cosqWrapper) cosqWrapper.style.display = 'none';
+    }
     if (targetId) {
       const yukData = parseYuk(getText(targetId));
       if (yukData) {
@@ -1233,6 +1245,10 @@ function kapatModal() {
     const w    = Number(qs('yuk-w')?.value || 0);
     syncText(targetId, `${tip} - ${faz} - ${w}W`);
     temizleGeciciYukButonlari();
+    if (modalConfig?.yukTipiSabit) {
+      const cosqInput = qs('yuk-cosq');
+      if (cosqInput) window._istekCosQ = Number(cosqInput.value) || 0.8;
+    }
     if (targetId === 'txt_yuk_istek') {
       const ilaveInput = qs('guc-ilave-kurulu');
       if (ilaveInput) { ilaveInput.value = w; gucHesapla(); }
@@ -1676,7 +1692,8 @@ function saveState() {
         eskiTalepManuel:  qs('guc-eski-talep')  && qs('guc-eski-talep').dataset.manuelDegistirildi  ? '1' : '',
         ilaveTalepManuel: qs('guc-ilave-talep') && qs('guc-ilave-talep').dataset.manuelDegistirildi ? '1' : ''
       },
-      linyeler:       _linyeListesiOlustur()
+      linyeler:       _linyeListesiOlustur(),
+      istekCosQ:      window._istekCosQ
     }));
   } catch(e) { console.warn('[saveState] error:', e); }
   window.dispatchEvent(new CustomEvent('semaGuncellendi'));
@@ -1781,6 +1798,7 @@ function restoreState() {
         if (typeof gdTabloGuncelle === 'function') gdTabloGuncelle();
       }, 100);
     }
+    if (data.istekCosQ != null) window._istekCosQ = data.istekCosQ;
     return true;
   } catch(e) { console.warn('[restoreState] error:', e); return false; }
 }
@@ -2162,15 +2180,17 @@ function _pY(txt){
 
 function collectGDData(tip){
   var kolK=kabloP(_pK(getText('txt_kolon')),0.8);
-  var dtR,yR,yRaw,dG;
+  var dtR,yR,yRaw,dG,yukCosQ;
   if(tip==='en_uzun'){
     dtR=_pK(getText('txt_linye_dt_mevcut'));yR=_pK(getText('txt_linye_yuk_mevcut'));
     yRaw=_pY(getText('txt_yuk_mevcut'));dG=numVal('guc-eski-talep');
+    yukCosQ=0.8;
   }else{
     dtR=_pK(getText('txt_linye_dt_istek'));yR=_pK(getText('txt_linye_yuk_istek'));
     yRaw=_pY(getText('txt_yuk_istek'));dG=numVal('guc-ilave-talep');
+    yukCosQ=window._istekCosQ||0.8;
   }
-  return{kolonK:kolK,dtK:kabloP(dtR,0.8),yukK:kabloP(yR,0.99),yukPar:yukP(yRaw),
+  return{kolonK:kolK,dtK:kabloP(dtR,0.8),yukK:kabloP(yR,yukCosQ),yukPar:yukP(yRaw),
     toplamGuc:numVal('guc-yapi-yeni-tg'),dtGuc:dG,tip:tip};
 }
 
