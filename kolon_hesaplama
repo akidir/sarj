@@ -1160,6 +1160,9 @@ function _binaSvgOlustur() {
         var sayacTrafoTxt = (sema && sema.sayacTrafo) || '';
         if (sayacTipTxt)   svg += '<text x="' + f2(txtX+4) + '" y="' + f2(kutuY + KOLON_SAYAC.kutuH / 2 - 1) + '" class="st-text st-text-5">' + sayacTipTxt + '</text>';
         if (sayacTrafoTxt) svg += '<text x="' + f2(txtX+2) + '" y="' + f2(kutuY + KOLON_SAYAC.kutuH / 2 + 4) + '" class="st-text st-text-5">' + sayacTrafoTxt + '</text>';
+      } else if (isIstek && sema && sema.sayacOlcumOzellik === 'Kombi Sayaç') {
+        var txtX = kx + KOLON_SAYAC.kutuW + 1;
+        svg += '<text x="' + f2(txtX+2) + '" y="' + f2(kutuY + KOLON_SAYAC.kutuH / 2 + 2) + '" class="st-text st-text-5">Kombi</text>';
       }
 
       var e1Y = kutuY + REL.elipse1Y;
