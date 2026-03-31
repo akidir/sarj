@@ -979,9 +979,6 @@ function fillKabloSelects(mevcutTip, mevcutDamar, mevcutKesit) {
     const yokOpt = document.createElement('option');
     yokOpt.value = 'yok'; yokOpt.textContent = 'Yok';
     topraklamaSel.appendChild(yokOpt);
-    const kabloIciOpt = document.createElement('option');
-    kabloIciOpt.value = 'kablo-ici'; kabloIciOpt.textContent = 'Kablo içinde';
-    topraklamaSel.appendChild(kabloIciOpt);
     KABLO_KESIT_LIST.forEach(k => {
       const opt = document.createElement('option');
       opt.value = k; opt.textContent = k + ' mm²';
@@ -999,10 +996,9 @@ function hesaplaOtomatikTopraklamaKesit(kesitStr) {
   if (S <= 16) return kesitStr;
   if (S <= 35) return '16';
   const yari = S / 2;
-  let sonuc = floatList[0];
+  let sonuc = floatList[floatList.length - 1];
   for (const f of floatList) {
-    if (f <= yari) sonuc = f;
-    else break;
+    if (f >= yari) { sonuc = f; break; }
   }
   return String(sonuc).replace('.', ',');
 }
@@ -1021,7 +1017,8 @@ function guncelleTopraklamaKesitDurumu(autoCalc) {
     if (Array.from(sel.options).find(o => o.value === kesitVal)) sel.value = kesitVal;
   } else if (damar === '5x') {
     sel.disabled = true;
-    sel.value = 'kablo-ici';
+    const otomatik = hesaplaOtomatikTopraklamaKesit(kesitVal);
+    if (Array.from(sel.options).find(o => o.value === otomatik)) sel.value = otomatik;
   } else if (damar === '2x' || damar === '4x') {
     sel.disabled = false;
     if (autoCalc && !sel.dataset.userOverride) {
@@ -1030,7 +1027,7 @@ function guncelleTopraklamaKesitDurumu(autoCalc) {
     }
   } else {
     sel.disabled = false;
-    if (!sel.value || sel.value === '') sel.value = 'yok';
+    sel.value = 'yok';
   }
 }
 
@@ -1297,7 +1294,7 @@ function kapatModal() {
     const wrapper = qs('topraklama-kesit-wrapper');
     const topSel  = qs('kablo-topraklama-kesit');
     let toprak = '';
-    if (wrapper && wrapper.style.display !== 'none' && topSel?.value && topSel.value !== 'yok' && topSel.value !== 'kablo-ici') toprak = topSel.value;
+    if (wrapper && wrapper.style.display !== 'none' && damar !== '5x' && topSel?.value && topSel.value !== 'yok') toprak = topSel.value;
     const kesitText = toprak ? `${kesit}+${toprak}` : kesit;
     syncText(targetId, `${damar}${kesitText} mm2 ${tip} ${metraj}m`);
   } else if (panel === 'yuk' && targetId) {
