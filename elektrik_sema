@@ -521,6 +521,7 @@
         <text transform="matrix(1 0 0 1 832.6088 245.6172)" class="st2 st3 st11">kWh</text>
         <text id="txt_sayac_tip" transform="matrix(1 0 0 1 838.6675 267.7288)" class="st2 st3 st9">3x10</text>
         <text id="txt_sayac_trafo" transform="matrix(1 0 0 1 838.6675 277.7288)" class="st2 st3 st9"></text>
+        <text id="txt_sayac_olcum" transform="matrix(1 0 0 1 830.6675 287.7288)" class="st2 st3 st9"></text>
         <text transform="matrix(1 0 0 1 825.4962 185.4792)" class="st2 st3 st4">DAİRE 13</text>
       </g>
 
@@ -655,6 +656,10 @@
         </div>
         <div class="form-title">Yük Gücü (W)</div>
         <input id="yuk-w" class="popup-select" type="number" placeholder="Toplam yük gücü (W)" />
+        <div id="yuk-cosq-wrapper" style="display:none;">
+          <div class="form-title">CosQ Değeri</div>
+          <input id="yuk-cosq" class="popup-select" type="number" step="0.01" min="0.1" max="1" placeholder="CosQ (örn: 0.8)" value="0.8" />
+        </div>
       </div>
 
       <!-- SİGORTA PANELİ -->
@@ -685,6 +690,11 @@
           <button type="button" data-value="Monofaze">Monofaze</button>
           <button type="button" data-value="Trifaze">Trifaze</button>
           <button type="button" data-value="X5">X5</button>
+        </div>
+        <div class="form-title">Ölçüm Özelliği</div>
+        <div class="btn-group" id="sayac-olcum-ozellik">
+          <button type="button" data-value="Aktif Sayaç">Aktif Sayaç</button>
+          <button type="button" data-value="Kombi Sayaç">Kombi Sayaç</button>
         </div>
         <div class="form-title">Akım Trafo Oranı</div>
         <div class="trafo-input-group">
@@ -979,14 +989,46 @@ function fillKabloSelects(mevcutTip, mevcutDamar, mevcutKesit) {
   guncelleKabloKesitListesi(mevcutKesit);
 }
 
-function guncelleTopraklamaKesitDurumu() {
-  const wrapper = qs('topraklama-kesit-wrapper');
-  const sel     = qs('kablo-topraklama-kesit');
+function hesaplaOtomatikTopraklamaKesit(kesitStr) {
+  const floatList = KABLO_KESIT_LIST.map(k => parseFloat(k.replace(',', '.')));
+  const S = parseFloat(String(kesitStr).replace(',', '.'));
+  if (isNaN(S)) return kesitStr;
+  if (S <= 16) return kesitStr;
+  if (S <= 35) return '16';
+  const yari = S / 2;
+  let sonuc = floatList[0];
+  for (const f of floatList) {
+    if (f <= yari) sonuc = f;
+    else break;
+  }
+  return String(sonuc).replace('.', ',');
+}
+
+function guncelleTopraklamaKesitDurumu(autoCalc) {
+  const wrapper    = qs('topraklama-kesit-wrapper');
+  const sel        = qs('kablo-topraklama-kesit');
   if (!wrapper || !sel) return;
   const aktifDamar = document.querySelector('#kablo-damar button.active');
-  const pasif = aktifDamar?.getAttribute('data-value') === '5x';
-  wrapper.style.display = pasif ? 'none' : '';
-  if (!pasif && (!sel.value || sel.value === '')) sel.value = qs('kablo-kesit')?.value || '2,5';
+  const damar      = aktifDamar?.getAttribute('data-value') || '3x';
+  const kesitVal   = qs('kablo-kesit')?.value || '2,5';
+
+  wrapper.style.display = '';
+  if (damar === '1x') {
+    sel.disabled = true;
+    if (Array.from(sel.options).find(o => o.value === kesitVal)) sel.value = kesitVal;
+  } else if (damar === '5x') {
+    wrapper.style.display = 'none';
+  } else if (damar === '2x' || damar === '4x') {
+    sel.disabled = false;
+    if (autoCalc && !sel.dataset.userOverride) {
+      const otomatik = hesaplaOtomatikTopraklamaKesit(kesitVal);
+      if (Array.from(sel.options).find(o => o.value === otomatik)) sel.value = otomatik;
+    }
+  } else {
+    // 3x damar: topraklama kesiti 'yok' (none) olarak resetlenir
+    sel.disabled = false;
+    if (autoCalc) sel.value = 'yok';
+  }
 }
 
 // ═══════════════════════════════════════════════════════
@@ -1042,6 +1084,20 @@ function guncelleSayacTrafoAlani() {
   } else {
     if (trafoInput) { trafoInput.disabled = true; trafoInput.value = ''; }
     if (trafoSabit) trafoSabit.classList.add('disabled');
+  }
+  const olcumBtnler = document.querySelectorAll('#sayac-olcum-ozellik button');
+  const olcumGrup   = document.getElementById('sayac-olcum-ozellik');
+  if (seciliTip === 'Monofaze') {
+    const aktifOlcum = document.querySelector('#sayac-olcum-ozellik button.active');
+    if (aktifOlcum && olcumGrup) olcumGrup.dataset.savedOlcum = aktifOlcum.getAttribute('data-value');
+    olcumBtnler.forEach(b => { b.disabled = true; b.classList.remove('active'); });
+  } else {
+    olcumBtnler.forEach(b => { b.disabled = false; });
+    const aktifOlcum = document.querySelector('#sayac-olcum-ozellik button.active');
+    if (!aktifOlcum) {
+      const geriYukle = olcumGrup?.dataset.savedOlcum || 'Aktif Sayaç';
+      setActiveButton('#sayac-olcum-ozellik', geriYukle);
+    }
   }
 }
 
@@ -1113,7 +1169,7 @@ function setupYukPanelTipi() {
   yukTipGroup.querySelectorAll('button[data-gecici="1"]').forEach(btn => btn.remove());
   const mevcutButtons = yukTipGroup.querySelectorAll('button');
   if (modalConfig?.yukTipiSabit) {
-    mevcutButtons.forEach(btn => { btn.style.display = 'none'; });
+    mevcutButtons.forEach(btn => { btn.style.display = 'none'; btn.classList.remove('active'); });
     const sarjBtn = document.createElement('button');
     sarjBtn.type = 'button';
     sarjBtn.setAttribute('data-value', 'Şarj İst.');
@@ -1153,13 +1209,25 @@ function acModal(evt, options, cfg) {
     fillKabloSelects(kabloData.tip, kabloData.damar, kabloData.kesit);
     qs('kablo-m').value = kabloData.metraj;
     const topraklamaSel = qs('kablo-topraklama-kesit');
-    if (topraklamaSel) topraklamaSel.value = kabloData.toprak_kesit || 'yok';
-    guncelleTopraklamaKesitDurumu();
+    if (topraklamaSel) {
+      topraklamaSel.dataset.userOverride = '';
+      topraklamaSel.value = kabloData.toprak_kesit || 'yok';
+    }
+    const needsAutoCalc = (kabloData.damar === '2x' || kabloData.damar === '4x') && !kabloData.toprak_kesit;
+    guncelleTopraklamaKesitDurumu(needsAutoCalc);
     setupKolonSigortaEkleButton();
   } else if (panel === 'yuk') {
     temizleGeciciYukButonlari();
     setupYukPanelTipi();
     const targetId = cfg?.targetId;
+    const cosqWrapper = qs('yuk-cosq-wrapper');
+    if (cfg?.yukTipiSabit) {
+      if (cosqWrapper) cosqWrapper.style.display = 'block';
+      const cosqInput = qs('yuk-cosq');
+      if (cosqInput) cosqInput.value = (window._istekCosQ != null) ? window._istekCosQ : 0.8;
+    } else {
+      if (cosqWrapper) cosqWrapper.style.display = 'none';
+    }
     if (targetId) {
       const yukData = parseYuk(getText(targetId));
       if (yukData) {
@@ -1190,6 +1258,8 @@ function acModal(evt, options, cfg) {
       if (trafoInput) trafoInput.value = sayacData.trafo_orani || '';
     }
     guncelleSayacTrafoAlani();
+    const olcumText = getText('txt_sayac_olcum');
+    if (olcumText === 'Kombi' || olcumText === 'Kombi Sayaç') setActiveButton('#sayac-olcum-ozellik', 'Kombi Sayaç');
   } else if (panel === 'role') {
     const targets  = cfg?.targets || {};
     const roleData = parseRole(getText(targets.roleA), getText(targets.roleB));
@@ -1233,6 +1303,10 @@ function kapatModal() {
     const w    = Number(qs('yuk-w')?.value || 0);
     syncText(targetId, `${tip} - ${faz} - ${w}W`);
     temizleGeciciYukButonlari();
+    if (modalConfig?.yukTipiSabit) {
+      const cosqInput = qs('yuk-cosq');
+      if (cosqInput) window._istekCosQ = Number(cosqInput.value) || 0.8;
+    }
     if (targetId === 'txt_yuk_istek') {
       const ilaveInput = qs('guc-ilave-kurulu');
       if (ilaveInput) { ilaveInput.value = w; gucHesapla(); }
@@ -1262,6 +1336,9 @@ function kapatModal() {
     else if (seciliTip === 'X5')  tipText = 'X5';
     syncText('txt_sayac_tip', tipText);
     syncText('txt_sayac_trafo', seciliTip === 'X5' && trafoVal ? trafoVal + '/5' : '');
+    const olcumBtn = document.querySelector('#sayac-olcum-ozellik button.active');
+    const olcumVal = olcumBtn ? olcumBtn.getAttribute('data-value') : '';
+    syncText('txt_sayac_olcum', (seciliTip !== 'Monofaze' && olcumVal === 'Kombi Sayaç') ? 'Kombi' : '');
   } else if (panel === 'role' && modalConfig?.targets) {
     const roleAId = modalConfig.targets.roleA;
     const roleBId = modalConfig.targets.roleB;
@@ -1306,12 +1383,26 @@ document.addEventListener('DOMContentLoaded', () => {
       if (btn.disabled) return;
       document.querySelectorAll('#kablo-damar button').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
+      const topraklamaSel = qs('kablo-topraklama-kesit');
+      if (topraklamaSel) topraklamaSel.dataset.userOverride = '';
       setTimeout(() => {
         const mevcutKesit = qs('kablo-kesit')?.value;
         guncelleKabloKesitListesi(mevcutKesit);
-        guncelleTopraklamaKesitDurumu();
+        guncelleTopraklamaKesitDurumu(true);
       }, 10);
     });
+  });
+
+  qs('kablo-kesit')?.addEventListener('change', () => {
+    const aktifDamar = document.querySelector('#kablo-damar button.active');
+    const damar = aktifDamar?.getAttribute('data-value') || '3x';
+    if (damar === '2x' || damar === '4x') guncelleTopraklamaKesitDurumu(true);
+    else if (damar === '1x') guncelleTopraklamaKesitDurumu(false);
+  });
+
+  qs('kablo-topraklama-kesit')?.addEventListener('change', () => {
+    const sel = qs('kablo-topraklama-kesit');
+    if (sel && !sel.disabled) sel.dataset.userOverride = '1';
   });
 
   qs('kablo-tip')?.addEventListener('change', () => {
@@ -1319,6 +1410,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const aktifDamar  = document.querySelector('#kablo-damar button.active');
     const mevcutDamar = aktifDamar?.getAttribute('data-value') || '3x';
     const mevcutKesit = qs('kablo-kesit')?.value;
+    const topraklamaSel = qs('kablo-topraklama-kesit');
+    if (topraklamaSel) topraklamaSel.dataset.userOverride = '';
     guncelleDamarButonlari(seciliTip, mevcutDamar);
     guncelleKabloKesitListesi(mevcutKesit);
   });
@@ -1328,6 +1421,14 @@ document.addEventListener('DOMContentLoaded', () => {
       btn.parentElement.querySelectorAll('button').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       setTimeout(guncelleSayacTrafoAlani, 10);
+    });
+  });
+
+  document.querySelectorAll('#sayac-olcum-ozellik button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (btn.disabled) return;
+      btn.parentElement.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
     });
   });
 
@@ -1635,6 +1736,7 @@ function saveState() {
       kolonKablo:       getText('txt_kolon'),
       sayacTip:         getText('txt_sayac_tip'),
       sayacTrafo:       getText('txt_sayac_trafo'),
+      sayacOlcumOzellik: getText('txt_sayac_olcum'),
       sigSayacGiris:    getText('txt_sig_sayac_giris'),
       roleSayacGirisA:  getText('txt_role_sayac_giris_a'),
       roleSayacGirisB:  getText('txt_role_sayac_giris_b'),
@@ -1676,7 +1778,8 @@ function saveState() {
         eskiTalepManuel:  qs('guc-eski-talep')  && qs('guc-eski-talep').dataset.manuelDegistirildi  ? '1' : '',
         ilaveTalepManuel: qs('guc-ilave-talep') && qs('guc-ilave-talep').dataset.manuelDegistirildi ? '1' : ''
       },
-      linyeler:       _linyeListesiOlustur()
+      linyeler:       _linyeListesiOlustur(),
+      istekCosQ:      window._istekCosQ
     }));
   } catch(e) { console.warn('[saveState] error:', e); }
   window.dispatchEvent(new CustomEvent('semaGuncellendi'));
@@ -1725,6 +1828,7 @@ function restoreState() {
       'txt_kolon':              data.kolonKablo,
       'txt_sayac_tip':          data.sayacTip,
       'txt_sayac_trafo':        data.sayacTrafo,
+      'txt_sayac_olcum':        data.sayacOlcumOzellik,
       'txt_sig_sayac_giris':    data.sigSayacGiris,
       'txt_role_sayac_giris_a': data.roleSayacGirisA,
       'txt_role_sayac_giris_b': data.roleSayacGirisB,
@@ -1781,6 +1885,7 @@ function restoreState() {
         if (typeof gdTabloGuncelle === 'function') gdTabloGuncelle();
       }, 100);
     }
+    if (data.istekCosQ != null) window._istekCosQ = data.istekCosQ;
     return true;
   } catch(e) { console.warn('[restoreState] error:', e); return false; }
 }
@@ -1794,6 +1899,7 @@ window.getSemaVerileri = function() {
     kolonKablo:        getText('txt_kolon'),
     sayacTip:          getText('txt_sayac_tip'),
     sayacTrafo:        getText('txt_sayac_trafo'),
+    sayacOlcumOzellik: getText('txt_sayac_olcum'),
     kolonSigortaTip:   isDomVisible('tms_kolon') ? 'TMŞ' : isDomVisible('sig_kolon') ? 'K.Otomat' : 'Yok',
     kolonSigortaMetin: getText('txt_tms_kolon') || getText('txt_sig_kolon'),
     sigSayacGiris:     getText('txt_sig_sayac_giris'),
@@ -2162,15 +2268,17 @@ function _pY(txt){
 
 function collectGDData(tip){
   var kolK=kabloP(_pK(getText('txt_kolon')),0.8);
-  var dtR,yR,yRaw,dG;
+  var dtR,yR,yRaw,dG,yukCosQ;
   if(tip==='en_uzun'){
     dtR=_pK(getText('txt_linye_dt_mevcut'));yR=_pK(getText('txt_linye_yuk_mevcut'));
     yRaw=_pY(getText('txt_yuk_mevcut'));dG=numVal('guc-eski-talep');
+    yukCosQ=0.8;
   }else{
     dtR=_pK(getText('txt_linye_dt_istek'));yR=_pK(getText('txt_linye_yuk_istek'));
     yRaw=_pY(getText('txt_yuk_istek'));dG=numVal('guc-ilave-talep');
+    yukCosQ=window._istekCosQ||0.8;
   }
-  return{kolonK:kolK,dtK:kabloP(dtR,0.8),yukK:kabloP(yR,0.99),yukPar:yukP(yRaw),
+  return{kolonK:kolK,dtK:kabloP(dtR,0.8),yukK:kabloP(yR,yukCosQ),yukPar:yukP(yRaw),
     toplamGuc:numVal('guc-yapi-yeni-tg'),dtGuc:dG,tip:tip};
 }
 
