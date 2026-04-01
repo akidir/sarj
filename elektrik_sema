@@ -519,8 +519,8 @@
         <line class="st0" x1="826.9" y1="211.9" x2="870.3" y2="211.9"/>
         <line class="st0" x1="826.6" y1="216.9" x2="870" y2="216.9"/>
         <text transform="matrix(1 0 0 1 832.6088 245.6172)" class="st2 st3 st11">kWh</text>
-        <text id="txt_sayac_tip" transform="matrix(1 0 0 1 838.6675 267.7288)" class="st2 st3 st9">3x10</text>
-        <text id="txt_sayac_trafo" transform="matrix(1 0 0 1 838.6675 277.7288)" class="st2 st3 st9"></text>
+        <text id="txt_sayac_tip" transform="matrix(1 0 0 1 828.6675 267.7288)" class="st2 st3 st9">3x10</text>
+        <text id="txt_sayac_trafo" transform="matrix(1 0 0 1 836.6675 277.7288)" class="st2 st3 st9"></text>
         <text id="txt_sayac_olcum" transform="matrix(1 0 0 1 830.6675 287.7288)" class="st2 st3 st9"></text>
         <text transform="matrix(1 0 0 1 825.4962 185.4792)" class="st2 st3 st4">DAİRE 13</text>
       </g>
@@ -914,10 +914,11 @@ function parseKofre(txt) {
 function parseSayac(tipTxt, trafoTxt) {
   const rawTip   = String(tipTxt  || '').trim();
   const rawTrafo = String(trafoTxt || '').trim();
+  const ilkKelime = rawTip.split(' ')[0];
   let sayacTipi = 'Trifaze';
-  if (rawTip === '1x10')      sayacTipi = 'Monofaze';
-  else if (rawTip === '3x10') sayacTipi = 'Trifaze';
-  else if (rawTip === 'X5')   sayacTipi = 'X5';
+  if (ilkKelime === '1x10')      sayacTipi = 'Monofaze';
+  else if (ilkKelime === '3x10') sayacTipi = 'Trifaze';
+  else if (ilkKelime === 'X5')   sayacTipi = 'X5';
   const trafoOrani = rawTrafo && rawTrafo.includes('/5') ? rawTrafo.replace('/5', '').trim() : '';
   return { sayac_tipi: sayacTipi, trafo_orani: trafoOrani, trafo_tam: trafoOrani ? trafoOrani + '/5' : '' };
 }
@@ -1258,8 +1259,10 @@ function acModal(evt, options, cfg) {
       if (trafoInput) trafoInput.value = sayacData.trafo_orani || '';
     }
     guncelleSayacTrafoAlani();
-    const olcumText = getText('txt_sayac_olcum');
-    if (olcumText === 'Kombi') setActiveButton('#sayac-olcum-ozellik', 'Kombi Sayaç');
+    const tipTamMetin  = getText('txt_sayac_tip').trim();
+    const olcumKelime  = tipTamMetin.split(' ')[1] || '';
+    if (olcumKelime === 'Kombi')  setActiveButton('#sayac-olcum-ozellik', 'Kombi Sayaç');
+    else if (olcumKelime === 'Aktif') setActiveButton('#sayac-olcum-ozellik', 'Aktif Sayaç');
   } else if (panel === 'role') {
     const targets  = cfg?.targets || {};
     const roleData = parseRole(getText(targets.roleA), getText(targets.roleB));
@@ -1334,15 +1337,17 @@ function kapatModal() {
     let tipText = '3x10';
     if (seciliTip === 'Monofaze') tipText = '1x10';
     else if (seciliTip === 'X5')  tipText = 'X5';
-    syncText('txt_sayac_tip', tipText);
-    syncText('txt_sayac_trafo', seciliTip === 'X5' && trafoVal ? trafoVal + '/5' : '');
-    const olcumBtn = document.querySelector('#sayac-olcum-ozellik button.active');
+    const olcumBtn   = document.querySelector('#sayac-olcum-ozellik button.active');
     const olcumDeger = olcumBtn ? olcumBtn.getAttribute('data-value') : '';
-    if (seciliTip !== 'Monofaze' && olcumDeger === 'Kombi Sayaç') {
-      syncText('txt_sayac_olcum', 'Kombi');
-    } else {
-      syncText('txt_sayac_olcum', '');
+    let olcumKisalt  = '';
+    if (seciliTip !== 'Monofaze') {
+      if (olcumDeger === 'Kombi Sayaç') olcumKisalt = 'Kombi';
+      else if (olcumDeger === 'Aktif Sayaç') olcumKisalt = 'Aktif';
     }
+    const tipSatir = olcumKisalt ? tipText + ' ' + olcumKisalt : tipText;
+    syncText('txt_sayac_tip',   tipSatir);
+    syncText('txt_sayac_trafo', seciliTip === 'X5' && trafoVal ? trafoVal + '/5' : '');
+    syncText('txt_sayac_olcum', '');
   } else if (panel === 'role' && modalConfig?.targets) {
     const roleAId = modalConfig.targets.roleA;
     const roleBId = modalConfig.targets.roleB;
