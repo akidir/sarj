@@ -1165,7 +1165,7 @@ function _binaSvgOlustur() {
     // 1. SATIR: Tip ve Özellik (Örn: x5 Kombi)
     var satir1 = (sayacTipTxt + " " + sayacOlcumTxt).trim();
     if (satir1) {
-        svg += '<text x="' + f2(txtX) + '" y="' + f2(yBaslangic-8) + '" class="st-text st-text-5">' + satir1 + '</text>';
+        svg += '<text x="' + f2(txtX) + '" y="' + f2(yBaslangic-6) + '" class="st-text st-text-5">' + satir1 + '</text>';
     }
 
     // 2. SATIR: Varsa Trafo Oranı (Örn: 100/5)
