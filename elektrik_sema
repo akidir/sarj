@@ -1259,7 +1259,7 @@ function acModal(evt, options, cfg) {
     }
     guncelleSayacTrafoAlani();
     const olcumText = getText('txt_sayac_olcum');
-    if (olcumText) setActiveButton('#sayac-olcum-ozellik', olcumText);
+    if (olcumText === 'Kombi') setActiveButton('#sayac-olcum-ozellik', 'Kombi Sayaç');
   } else if (panel === 'role') {
     const targets  = cfg?.targets || {};
     const roleData = parseRole(getText(targets.roleA), getText(targets.roleB));
@@ -1337,7 +1337,12 @@ function kapatModal() {
     syncText('txt_sayac_tip', tipText);
     syncText('txt_sayac_trafo', seciliTip === 'X5' && trafoVal ? trafoVal + '/5' : '');
     const olcumBtn = document.querySelector('#sayac-olcum-ozellik button.active');
-    syncText('txt_sayac_olcum', (seciliTip !== 'Monofaze' && olcumBtn) ? olcumBtn.getAttribute('data-value') : '');
+    const olcumDeger = olcumBtn ? olcumBtn.getAttribute('data-value') : '';
+    if (seciliTip !== 'Monofaze' && olcumDeger === 'Kombi Sayaç') {
+      syncText('txt_sayac_olcum', 'Kombi');
+    } else {
+      syncText('txt_sayac_olcum', '');
+    }
   } else if (panel === 'role' && modalConfig?.targets) {
     const roleAId = modalConfig.targets.roleA;
     const roleBId = modalConfig.targets.roleB;
