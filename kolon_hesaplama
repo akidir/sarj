@@ -1157,16 +1157,26 @@ function _binaSvgOlustur() {
       svg += '<line x1="' + f2(kx) + '" y1="' + f2(kutuY+KOLON_SAYAC.line2) + '" x2="' + f2(kx+KOLON_SAYAC.kutuW) + '" y2="' + f2(kutuY+KOLON_SAYAC.line2) + '" class="st-line-thin"/>';
       svg += '<line x1="' + f2(kx) + '" y1="' + f2(kutuY+KOLON_SAYAC.line3) + '" x2="' + f2(kx+KOLON_SAYAC.kutuW) + '" y2="' + f2(kutuY+KOLON_SAYAC.line3) + '" class="st-line-thin"/>';
       svg += '<text x="' + f2(kx+2) + '" y="' + f2(kutuY+KOLON_SAYAC.kutuH-3) + '" class="st-text st-text-5">kWh</text>';
-      if (isIstek && sayacTipiX5) {
-        var txtX = kx + KOLON_SAYAC.kutuW + 1;
-        var sayacTipTxt   = (sema && sema.sayacTip)   || '';
-        var sayacTrafoTxt = (sema && sema.sayacTrafo) || '';
-        if (sayacTipTxt)   svg += '<text x="' + f2(txtX+4) + '" y="' + f2(kutuY + KOLON_SAYAC.kutuH / 2 - 1) + '" class="st-text st-text-5">' + sayacTipTxt + '</text>';
-        if (sayacTrafoTxt) svg += '<text x="' + f2(txtX+2) + '" y="' + f2(kutuY + KOLON_SAYAC.kutuH / 2 + 4) + '" class="st-text st-text-5">' + sayacTrafoTxt + '</text>';
-      } else if (isIstek && sema && sema.sayacOlcumOzellik === 'Kombi') {
-        var txtX = kx + KOLON_SAYAC.kutuW + 1;
-        svg += '<text x="' + f2(txtX+2) + '" y="' + f2(kutuY + KOLON_SAYAC.kutuH / 2 + 2) + '" class="st-text st-text-5">Kombi</text>';
-      }
+      if (isIstek) {
+    var txtX = kx + KOLON_SAYAC.kutuW + 4; 
+    var yBaslangic = kutuY + KOLON_SAYAC.kutuH / 2 + 4; 
+    
+    var sayacTipTxt   = (sema && sema.sayacTip)   || '';
+    var sayacOlcumTxt = (sema && sema.sayacOlcumOzellik === 'Kombi') ? 'Kombi' : '';
+    var sayacTrafoTxt = (sema && sema.sayacTrafo) || '';
+
+    // 1. SATIR: Tip ve Özellik (Örn: x5 Kombi)
+    var satir1 = (sayacTipTxt + " " + sayacOlcumTxt).trim();
+    if (satir1) {
+        svg += '<text x="' + f2(txtX) + '" y="' + f2(yBaslangic-8) + '" class="st-text st-text-5">' + satir1 + '</text>';
+    }
+
+    // 2. SATIR: Varsa Trafo Oranı (Örn: 100/5)
+    if (sayacTrafoTxt) {
+        var satir2Y = yBaslangic + 6; 
+        svg += '<text x="' + f2(txtX) + '" y="' + f2(satir2Y-5) + '" class="st-text st-text-5"">' + sayacTrafoTxt + '</text>';
+    }
+}
 
       var e1Y = kutuY + REL.elipse1Y;
       svg += '<ellipse cx="' + f2(cx+0.3) + '" cy="' + f2(e1Y) + '" rx="2.5" ry="1.3" class="st-rect-thin"/>';
