@@ -24,6 +24,15 @@
     .durum-bar.info{background:#e8f4fd;color:#1565c0;border-left:4px solid #1565c0}
     .durum-bar.hata{background:#fdecea;color:#c62828;border-left:4px solid #c62828}
     .durum-bar.tamam{background:#e8f5e9;color:#2e7d32;border-left:4px solid #2e7d32}
+    #kontrol-sonuc-panel { margin-top: 16px; }
+    .kontrol-satir { display: flex; align-items: flex-start; gap: 8px; padding: 6px 10px; border-radius: 5px; margin-bottom: 4px; font-size: 13px; }
+    .kontrol-satir.ok { background: #e8f5e9; color: #2e7d32; }
+    .kontrol-satir.hata { background: #fdecea; color: #c62828; }
+    .kontrol-satir.uyari { background: #fff8e1; color: #f57f17; }
+    .kontrol-ozet { font-weight: 700; font-size: 14px; padding: 10px 14px; border-radius: 7px; margin-bottom: 12px; }
+    .kontrol-ozet.tamam { background: #e8f5e9; color: #2e7d32; border-left: 4px solid #2e7d32; }
+    .kontrol-ozet.hatali { background: #fdecea; color: #c62828; border-left: 4px solid #c62828; }
+    .kontrol-baslik-grup { font-weight: 700; font-size: 12px; color: #005088; margin: 10px 0 4px; text-transform: uppercase; letter-spacing: 0.5px; }
 
     /* Ayar Grid */
     .ayar-baslik{font-size:15px;font-weight:700;color:#005088;border-bottom:2px solid #e0e8f0;padding-bottom:8px;margin:22px 0 14px;display:flex;align-items:center;gap:8px}
@@ -72,6 +81,7 @@
       <button class="btn btn-onizle"  id="btn-onizle" disabled>🔍 PDF Önizle</button>
       <button class="btn btn-indir"   id="btn-indir"  disabled>⬇️ PDF İndir</button>
     </div>
+    <div id="kontrol-sonuc-panel"></div>
 
     <!-- ═══════════════════════════════════════════════
          GÖRSEL YERLEŞİM AYARLARI
@@ -424,44 +434,584 @@ async function embedPng(pdfDoc, page, pdfH, dataUrl, imgX, imgY_top, imgW, imgH)
 }
 
 // ═══════════════════════════════════════════════════════
+// PARSE FONKSİYONLARI (elektrik_sema'dan bağımsız kopya)
+// ═══════════════════════════════════════════════════════
+const _KABLO_TIP_LIST = ['NHXMH','N2XH','NYMHY','NYM','NYY','H07RN'];
+
+// Elektrik sabitleri
+const _SQRT3         = 1.73;
+const _V_TRIFAZ      = 380;
+const _V_MONOFAZ     = 220;
+const _DEFAULT_COSQ  = 0.8;
+
+function parseKablo(txt) {
+  const raw        = String(txt || '').replace(/\s+/g, ' ').trim();
+  const damarSayi  = Number(raw.match(/^(\d)/)?.[1] || 3);
+  const kesitMatch = raw.match(/\d+x\s*([0-9]+(?:[.,][0-9]+)?)\s*(?:\+\s*([0-9]+(?:[.,][0-9]+)?))?\s*mm2/i);
+  const kesit      = (kesitMatch?.[1] || '2,5').replace('.', ',');
+  const toprak     = (kesitMatch?.[2] || '').replace('.', ',');
+  let tip = 'NYY';
+  for (const t of _KABLO_TIP_LIST) {
+    if (new RegExp('\\b' + t + '\\b', 'i').test(raw)) { tip = t; break; }
+  }
+  const metraj = Number(raw.match(/(\d+)\s*m\b/i)?.[1] || 10);
+  return { damar_sayi: damarSayi, kesit, toprak_kesit: toprak, tip, metraj, ham: raw };
+}
+
+function parseYuk(txt) {
+  if (!txt || !txt.trim()) return null;
+  const raw   = String(txt).trim();
+  const parts = raw.split('-').map(s => s.trim());
+  return { tip: parts[0] || '', faz: parts[1] || '', toplam_guc: Number(raw.match(/(\d+)\s*W/i)?.[1] || 0), ham: raw };
+}
+
+function parseSigorta(txt) {
+  if (!txt || !txt.trim()) return null;
+  const raw  = String(txt).trim();
+  const faz  = raw.includes('3x') ? '3x' : '1x';
+  const akim = Number(raw.match(/(\d+)\s*A/i)?.[1] || 0);
+  return { faz, akim, ham: raw };
+}
+
+function parseRole(txtA, txtB) {
+  if (!txtA && !txtB) return null;
+  const rawA = String(txtA || '').trim();
+  const rawB = String(txtB || '').trim();
+  const tip  = rawA.includes('30mA') ? '30mA' : '300mA';
+  const fazB = rawB.includes('4x') ? '4x' : '2x';
+  const akim = Number(rawB.match(/(\d+)\s*A/i)?.[1] || 0);
+  return { tip, faz: fazB, akim, hamA: rawA, hamB: rawB };
+}
+
+function parseKofre(txt) {
+  if (!txt || !txt.trim()) return null;
+  const raw   = String(txt).trim();
+  const tip   = raw.includes('TMŞ') ? 'TMŞ' : 'YSYA';
+  const deger = Number(raw.match(/(\d+)/)?.[1] || 0);
+  return { tip, deger, ham: raw };
+}
+
+function parseSayac(tipTxt, trafoTxt) {
+  const rawTip   = String(tipTxt  || '').trim();
+  const rawTrafo = String(trafoTxt || '').trim();
+  const ilkKelime = rawTip.split(' ')[0];
+  let sayacTipi = 'Trifaze';
+  if (ilkKelime === '1x10')      sayacTipi = 'Monofaze';
+  else if (ilkKelime === '3x10') sayacTipi = 'Trifaze';
+  else if (ilkKelime === 'X5')   sayacTipi = 'X5';
+  const trafoOrani = rawTrafo && rawTrafo.includes('/5') ? rawTrafo.replace('/5', '').trim() : '';
+  return { sayac_tipi: sayacTipi, trafo_orani: trafoOrani, trafo_tam: trafoOrani ? trafoOrani + '/5' : '' };
+}
+
+// ═══════════════════════════════════════════════════════
+// NYY AKIM KAPASİTESİ TABLOSU
+// ═══════════════════════════════════════════════════════
+const NYY_AKIM_KAPASITESI = {
+  '1': { '1.5':24,'2.5':32,'4':43,'6':55,'10':75,'16':100,'25':132,'35':159,'50':191,'70':241,'120':320,'150':365,'180':407,'240':480 },
+  '2': { '1.5':19,'2.5':26,'4':34,'6':44,'10':60,'16':80,'25':105,'35':127,'50':153,'70':191,'120':255,'150':291,'180':325,'240':384 },
+  '3': { '1.5':19,'2.5':26,'4':34,'6':44,'10':60,'16':80,'25':105,'35':127,'50':153,'70':191,'120':255,'150':291,'180':325,'240':384 },
+  '4': { '1.5':17,'2.5':23,'4':30,'6':39,'10':52,'16':70,'25':92,'35':111,'50':133,'70':167,'120':223,'150':254,'180':284,'240':335 },
+  '5': { '1.5':17,'2.5':23,'4':30,'6':39,'10':52,'16':70,'25':92,'35':111,'50':133,'70':167,'120':223,'150':254,'180':284,'240':335 }
+};
+
+function _normKesit(k) { return String(k || '').replace(',', '.'); }
+
+function _getAkimKap(damar_sayi, kesit) {
+  const row = NYY_AKIM_KAPASITESI[String(damar_sayi)];
+  if (!row) return 0;
+  return row[_normKesit(kesit)] || 0;
+}
+
+function _uygunKesitler(damar_sayi, yukAkimi) {
+  const row = NYY_AKIM_KAPASITESI[String(damar_sayi)];
+  if (!row) return [];
+  const sorted = Object.keys(row).sort((a, b) => parseFloat(a) - parseFloat(b));
+  return sorted.filter(k => row[k] > yukAkimi).slice(0, 2);
+}
+
+function _kabloTrifazMi(kablo) {
+  if (!kablo || !kablo.ham) return false;
+  return (kablo.damar_sayi === 4 && !!kablo.toprak_kesit) || kablo.damar_sayi === 5;
+}
+
+function _kabloMonofazMi(kablo) {
+  if (!kablo || !kablo.ham) return false;
+  return (kablo.damar_sayi === 2 && !!kablo.toprak_kesit) || kablo.damar_sayi === 3;
+}
+
+function _sigTrifazMi(sig) {
+  if (!sig) return false;
+  return sig.faz === '3x' || sig.faz === '4x';
+}
+
+function _sigMonofazMi(sig) {
+  if (!sig) return false;
+  return sig.faz === '1x' || sig.faz === '2x';
+}
+
+function _yukTrifazMi(yuk) {
+  if (!yuk) return false;
+  const f = String(yuk.faz || '').toLowerCase();
+  return f === 'trifaz' || f === 'üç faz';
+}
+
+// ═══════════════════════════════════════════════════════
 // KONTROL ET
 // ═══════════════════════════════════════════════════════
 btnKontrol.addEventListener('click', function() {
   kontrolGecti = false;
   pdfBlob      = null;
+  btnKontrol.classList.remove('ok');
+  btnKontrol.textContent = '✅ Kontrol Et';
+
+  const panel = document.getElementById('kontrol-sonuc-panel');
+  panel.innerHTML = '';
 
   const sema = loadLS(KEY_SEMA);
-  const yapi = loadLS(KEY_YAPI);
-  const hatalar  = [];
-  const uyarilar = [];
-
-  if (!sema) hatalar.push('proje_sema_v1 bulunamadı — Elektrik Şeması sekmesini açın');
-  if (!yapi) hatalar.push('proje_yapi_v1 bulunamadı — Kolon Hesaplama sekmesini açın');
-
-  if (hatalar.length) {
-    gosterDurum('❌ ' + hatalar.join(' | '), 'hata');
-    btnOnizle.disabled = true; btnIndir.disabled = true;
+  if (!sema) {
+    gosterDurum('❌ proje_sema_v1 bulunamadı — Elektrik Şeması sekmesini açın', 'hata');
+    btnOnizle.disabled = true;
+    btnIndir.disabled  = true;
     return;
   }
+  durumBar.style.display = 'none';
 
-  // Hangi alanlar var, hangileri eksik?
-  VARSAYILAN_OGELERI.forEach(function(og) {
-    const kaynak = og.kaynak === 'sema' ? sema : yapi;
-    if (!kaynak || !kaynak[og.alan]) {
-      uyarilar.push(og.baslik);
+  // ── Verileri oku ────────────────────────────────────
+  const gucRaw        = sema.guc || {};
+  const eskiKurulu    = Number(gucRaw.eskiKurulu  || 0);
+  const eskiTalep     = Number(gucRaw.eskiTalep   || 0);
+  const ilaveKurulu   = Number(gucRaw.ilaveKurulu || 0);
+  const ilaveTalep    = Number(gucRaw.ilaveTalep  || 0);
+  const yapiEskiKGP   = Number(gucRaw.yapiEskiKGPuant || 0);
+
+  const yeniKuruluGuc = eskiKurulu  + ilaveKurulu;
+  const yeniTalepGuc  = eskiTalep   + ilaveTalep;
+  const yapiYeniTG    = Math.round(yapiEskiKGP * 0.8) + ilaveTalep;
+  const istekCosQ     = (sema.istekCosQ !== null && sema.istekCosQ !== undefined) ? Number(sema.istekCosQ) : _DEFAULT_COSQ;
+
+  // Parse bileşenler
+  const kofreData       = parseKofre(sema.kofre);
+  const kabloKolon      = parseKablo(sema.kolonKablo);
+  const sayac           = parseSayac(sema.sayacTip, sema.sayacTrafo);
+  const sigKolon        = parseSigorta(sema.sigKolonText);
+  const tmsKolon        = parseSigorta(sema.tmsKolonText);
+  const aktifKolonSig   = (sema.visibility && sema.visibility.tmsKolonVisible) ? tmsKolon : sigKolon;
+  const sigSayacGiris   = parseSigorta(sema.sigSayacGiris);
+  const roleSayacGiris  = parseRole(sema.roleSayacGirisA, sema.roleSayacGirisB);
+  const sigSayacCikis   = parseSigorta(sema.sigSayacCikis);
+  const kabloMevcut     = parseKablo(sema.linyeDtMevcut);
+  const sigMevcut       = parseSigorta(sema.sigMevcut);
+  const roleMevcut      = parseRole(sema.roleMevcutA, sema.roleMevcutB);
+  const kabloLinyeMevcut= parseKablo(sema.linyeYukMevcut);
+  const yukMevcut       = parseYuk(sema.yukMevcut);
+  const kabloIstek      = parseKablo(sema.linyeDtIstek);
+  const sigIstek        = parseSigorta(sema.sigIstek);
+  const roleIstek       = parseRole(sema.roleIstekA, sema.roleIstekB);
+  const kabloLinyeIstek = parseKablo(sema.linyeYukIstek);
+  const yukIstek        = parseYuk(sema.yukIstek);
+
+  // Akım hesap yardımcıları
+  const I_TRI  = (P) => P / (_SQRT3 * _V_TRIFAZ * _DEFAULT_COSQ);
+  const I_MONO = (P) => P / _V_MONOFAZ;
+
+  const sonuclar = []; // { grup, baslik, durum, mesaj }
+
+  function ekle(grup, baslik, durum, mesaj) {
+    sonuclar.push({ grup, baslik, durum, mesaj });
+  }
+
+  // ════════════════════════════════════════════════════
+  // KURAL SETİ 1: FAZ SAYISI DENGESİ
+  // ════════════════════════════════════════════════════
+
+  // 1. Ana Kolon Kablosu → her zaman trifaz
+  if (!kabloKolon || !kabloKolon.ham) {
+    ekle('faz', 'Ana Kolon Kablosu Faz', 'uyari', 'Ana kolon kablosu tanımlı değil');
+  } else if (_kabloTrifazMi(kabloKolon)) {
+    ekle('faz', 'Ana Kolon Kablosu Faz', 'ok', 'Trifaz — Uygun');
+  } else {
+    ekle('faz', 'Ana Kolon Kablosu Faz', 'hata', 'Trifaz olmalı, mevcut: ' + kabloKolon.ham);
+  }
+
+  // 2. Ana Kolon Kesicileri → her zaman trifaz
+  if (!aktifKolonSig) {
+    ekle('faz', 'Ana Kolon Kesicisi Faz', 'uyari', 'Ana kolon kesicisi tanımlı değil');
+  } else if (_sigTrifazMi(aktifKolonSig)) {
+    ekle('faz', 'Ana Kolon Kesicisi Faz', 'ok', 'Trifaz — Uygun');
+  } else {
+    ekle('faz', 'Ana Kolon Kesicisi Faz', 'hata', 'Trifaz olmalı, mevcut: ' + aktifKolonSig.ham);
+  }
+
+  // 3. Sayaç Tipi
+  const yukAkimiSayac = I_TRI(yeniKuruluGuc);
+  let beklenenSayac;
+  if (yukAkimiSayac >= 100) {
+    beklenenSayac = 'X5';
+  } else if (yeniKuruluGuc > 5000) {
+    beklenenSayac = 'Trifaze';
+  } else {
+    beklenenSayac = 'Monofaze';
+  }
+
+  if (!sayac || !sema.sayacTip) {
+    ekle('faz', 'Sayaç Tipi Faz', 'uyari', 'Sayaç tanımlı değil');
+  } else {
+    const mevcut = sayac.sayac_tipi;
+    let sayacUygun = false;
+    if (beklenenSayac === 'X5') sayacUygun = (mevcut === 'X5');
+    else if (beklenenSayac === 'Trifaze') sayacUygun = (mevcut === 'Trifaze' || mevcut === 'X5');
+    else sayacUygun = (mevcut === 'Monofaze');
+    if (sayacUygun) {
+      ekle('faz', 'Sayaç Tipi Faz', 'ok', mevcut + ' — Uygun (beklenen: ' + beklenenSayac + ')');
+    } else {
+      ekle('faz', 'Sayaç Tipi Faz', 'hata', beklenenSayac + ' olmalı, mevcut: ' + mevcut);
     }
+  }
+
+  // Sayaç trifaz/x5 mi monofaz mı? (sonraki kurallar için)
+  const sayacTrifazMi = (sayac && (sayac.sayac_tipi === 'Trifaze' || sayac.sayac_tipi === 'X5'));
+
+  // 4. Sayaç Giriş/Çıkış sigorta ve role faz
+  function _kontrolSayacEleman(nesne, ad, beklenenTrifaz) {
+    if (!nesne) { ekle('faz', ad + ' Faz', 'uyari', ad + ' tanımlı değil'); return; }
+    const uygun = beklenenTrifaz ? _sigTrifazMi(nesne) : _sigMonofazMi(nesne);
+    if (uygun) {
+      ekle('faz', ad + ' Faz', 'ok', (beklenenTrifaz ? 'Trifaz' : 'Monofaz') + ' — Uygun');
+    } else {
+      ekle('faz', ad + ' Faz', 'hata',
+        (beklenenTrifaz ? 'Trifaz' : 'Monofaz') + ' olmalı, mevcut: ' + (nesne.ham || nesne.hamB || ''));
+    }
+  }
+  _kontrolSayacEleman(sigSayacGiris,  'Sayaç Giriş Sigortası', sayacTrifazMi);
+  _kontrolSayacEleman(roleSayacGiris, 'Sayaç Giriş Rölesi',    sayacTrifazMi);
+  _kontrolSayacEleman(sigSayacCikis,  'Sayaç Çıkış Sigortası', sayacTrifazMi);
+
+  // 5. Mevcut Kolon Kablosu faz
+  if (!kabloMevcut || !kabloMevcut.ham) {
+    ekle('faz', 'Mevcut Kolon Kablosu Faz', 'uyari', 'Mevcut kolon kablosu tanımlı değil');
+  } else {
+    const beklTri = sayacTrifazMi;
+    const uygun   = beklTri ? _kabloTrifazMi(kabloMevcut) : _kabloMonofazMi(kabloMevcut);
+    if (uygun) {
+      ekle('faz', 'Mevcut Kolon Kablosu Faz', 'ok', (beklTri ? 'Trifaz' : 'Monofaz') + ' — Uygun');
+    } else {
+      ekle('faz', 'Mevcut Kolon Kablosu Faz', 'hata',
+        (beklTri ? 'Trifaz' : 'Monofaz') + ' olmalı, mevcut: ' + kabloMevcut.ham);
+    }
+  }
+
+  // 6. Mevcut Kolon Kesicileri faz
+  function _kontrolKesici(sig, role, ad, beklenenTrifaz) {
+    if (sig) {
+      const uygun = beklenenTrifaz ? _sigTrifazMi(sig) : _sigMonofazMi(sig);
+      if (uygun) ekle('faz', ad + ' Sigortası Faz', 'ok', (beklenenTrifaz ? 'Trifaz' : 'Monofaz') + ' — Uygun');
+      else ekle('faz', ad + ' Sigortası Faz', 'hata',
+        (beklenenTrifaz ? 'Trifaz' : 'Monofaz') + ' olmalı, mevcut: ' + sig.ham);
+    }
+    if (role) {
+      const uygun = beklenenTrifaz ? _sigTrifazMi(role) : _sigMonofazMi(role);
+      if (uygun) ekle('faz', ad + ' Rölesi Faz', 'ok', (beklenenTrifaz ? 'Trifaz' : 'Monofaz') + ' — Uygun');
+      else ekle('faz', ad + ' Rölesi Faz', 'hata',
+        (beklenenTrifaz ? 'Trifaz' : 'Monofaz') + ' olmalı, mevcut: ' + (role.hamB || role.hamA || ''));
+    }
+  }
+  _kontrolKesici(sigMevcut, roleMevcut, 'Mevcut Kolon', sayacTrifazMi);
+
+  // 7. Mevcut Linye Kablosu faz
+  if (!kabloLinyeMevcut || !kabloLinyeMevcut.ham) {
+    ekle('faz', 'Mevcut Linye Kablosu Faz', 'uyari', 'Mevcut linye kablosu tanımlı değil');
+  } else {
+    const beklTri = sayacTrifazMi ? _yukTrifazMi(yukMevcut) : false;
+    const uygun   = beklTri ? _kabloTrifazMi(kabloLinyeMevcut) : _kabloMonofazMi(kabloLinyeMevcut);
+    if (uygun) {
+      ekle('faz', 'Mevcut Linye Kablosu Faz', 'ok', (beklTri ? 'Trifaz' : 'Monofaz') + ' — Uygun');
+    } else {
+      ekle('faz', 'Mevcut Linye Kablosu Faz', 'hata',
+        (beklTri ? 'Trifaz' : 'Monofaz') + ' olmalı, mevcut: ' + kabloLinyeMevcut.ham);
+    }
+  }
+
+  // 8. İstek Kolon Kablosu faz
+  if (!kabloIstek || !kabloIstek.ham) {
+    ekle('faz', 'İstek Kolon Kablosu Faz', 'uyari', 'İstek kolon kablosu tanımlı değil');
+  } else {
+    const beklTri = sayacTrifazMi ? _yukTrifazMi(yukIstek) : false;
+    const uygun   = beklTri ? _kabloTrifazMi(kabloIstek) : _kabloMonofazMi(kabloIstek);
+    if (uygun) {
+      ekle('faz', 'İstek Kolon Kablosu Faz', 'ok', (beklTri ? 'Trifaz' : 'Monofaz') + ' — Uygun');
+    } else {
+      ekle('faz', 'İstek Kolon Kablosu Faz', 'hata',
+        (beklTri ? 'Trifaz' : 'Monofaz') + ' olmalı, mevcut: ' + kabloIstek.ham);
+    }
+  }
+
+  // 9. İstek Kolon Kesicileri faz
+  const istekYukTrifaz = sayacTrifazMi ? _yukTrifazMi(yukIstek) : false;
+  _kontrolKesici(sigIstek, roleIstek, 'İstek Kolon', istekYukTrifaz);
+
+  // 10. İstek Linye Kablosu faz
+  if (!kabloLinyeIstek || !kabloLinyeIstek.ham) {
+    ekle('faz', 'İstek Linye Kablosu Faz', 'uyari', 'İstek linye kablosu tanımlı değil');
+  } else {
+    const beklTri = sayacTrifazMi ? _yukTrifazMi(yukIstek) : false;
+    const uygun   = beklTri ? _kabloTrifazMi(kabloLinyeIstek) : _kabloMonofazMi(kabloLinyeIstek);
+    if (uygun) {
+      ekle('faz', 'İstek Linye Kablosu Faz', 'ok', (beklTri ? 'Trifaz' : 'Monofaz') + ' — Uygun');
+    } else {
+      ekle('faz', 'İstek Linye Kablosu Faz', 'hata',
+        (beklTri ? 'Trifaz' : 'Monofaz') + ' olmalı, mevcut: ' + kabloLinyeIstek.ham);
+    }
+  }
+
+  // ════════════════════════════════════════════════════
+  // KURAL SETİ 2: GÜÇ DENGESİ
+  // ════════════════════════════════════════════════════
+
+  // 1. Kofre güç
+  if (yapiYeniTG > 0) {
+    const yukI = I_TRI(yapiYeniTG);
+    const kabloKapasitesi = _getAkimKap(kabloKolon ? kabloKolon.damar_sayi : 0, kabloKolon ? kabloKolon.kesit : '');
+    if (!kofreData) {
+      ekle('guc', 'Kofre Güç', 'uyari', 'Kofre tanımlı değil');
+    } else {
+      const deger = kofreData.deger;
+      const altLimit = deger > yukI;
+      const ustLimit = kabloKapasitesi > 0 ? (deger < kabloKapasitesi * 1.1) : true;
+      if (altLimit && ustLimit) {
+        ekle('guc', 'Kofre Güç', 'ok',
+          deger + 'A > ' + yukI.toFixed(1) + 'A (yük) ve ' + deger + 'A < ' + (kabloKapasitesi * 1.1).toFixed(1) + 'A (kablo×1.1) — Uygun');
+      } else if (!altLimit) {
+        ekle('guc', 'Kofre Güç', 'hata',
+          'Kofre ' + deger + 'A, yük akımı ' + yukI.toFixed(1) + "A'dan büyük olmalı");
+      } else {
+        ekle('guc', 'Kofre Güç', 'hata',
+          'Kofre ' + deger + 'A, kablo kapasitesi×1.1 = ' + (kabloKapasitesi * 1.1).toFixed(1) + "A'dan küçük olmalı");
+      }
+    }
+  } else {
+    ekle('guc', 'Kofre Güç', 'uyari', 'Yapı yeni talep gücü girilmemiş (kofre kontrolü atlandı)');
+  }
+
+  // 2. Ana Kolon Kablosu güç
+  if (yapiYeniTG > 0 && kabloKolon && kabloKolon.ham) {
+    const yukI      = I_TRI(yapiYeniTG);
+    const uygunlar  = _uygunKesitler(kabloKolon.damar_sayi, yukI);
+    const normKesit = _normKesit(kabloKolon.kesit);
+    if (uygunlar.includes(normKesit)) {
+      ekle('guc', 'Ana Kolon Kablosu Güç', 'ok',
+        kabloKolon.kesit + ' mm² — Uygun (yük akımı: ' + yukI.toFixed(1) + 'A)');
+    } else {
+      ekle('guc', 'Ana Kolon Kablosu Güç', 'hata',
+        kabloKolon.kesit + ' mm² uygun değil; yük akımı ' + yukI.toFixed(1) + 'A için önerilen: ' + uygunlar.join(', ') + ' mm²');
+    }
+  } else if (!kabloKolon || !kabloKolon.ham) {
+    ekle('guc', 'Ana Kolon Kablosu Güç', 'uyari', 'Ana kolon kablosu tanımlı değil');
+  }
+
+  // 3. Ana Kolon Kesicileri güç
+  if (yapiYeniTG > 0 && aktifKolonSig) {
+    const yukI        = I_TRI(yapiYeniTG);
+    const kabloKap    = _getAkimKap(kabloKolon ? kabloKolon.damar_sayi : 0, kabloKolon ? kabloKolon.kesit : '');
+    const deger       = aktifKolonSig.akim;
+    const altLimit    = deger > yukI;
+    const ustLimit    = kabloKap > 0 ? (deger < kabloKap * 1.1) : true;
+    if (altLimit && ustLimit) {
+      ekle('guc', 'Ana Kolon Kesicisi Güç', 'ok',
+        deger + 'A > ' + yukI.toFixed(1) + 'A (yük) — Uygun');
+    } else if (!altLimit) {
+      ekle('guc', 'Ana Kolon Kesicisi Güç', 'hata',
+        'Kesici ' + deger + 'A, yük akımı ' + yukI.toFixed(1) + "A'dan büyük olmalı");
+    } else {
+      ekle('guc', 'Ana Kolon Kesicisi Güç', 'hata',
+        'Kesici ' + deger + 'A, kablo kapasitesi×1.1 = ' + (kabloKap * 1.1).toFixed(1) + "A'dan küçük olmalı");
+    }
+  }
+
+  // 4. Akım Trafo Oranı (sadece X5 sayaç)
+  if (sayac && sayac.sayac_tipi === 'X5' && yeniTalepGuc > 0) {
+    const yukI        = I_TRI(yeniTalepGuc);
+    const trafoGereken = yukI / 5;
+    const trafoMevcut  = Number(sayac.trafo_orani) || 0;
+    if (trafoMevcut > 0) {
+      if (trafoMevcut > trafoGereken) {
+        ekle('guc', 'Akım Trafo Oranı', 'ok',
+          trafoMevcut + '/5 > ' + trafoGereken.toFixed(1) + '/5 — Uygun');
+      } else {
+        ekle('guc', 'Akım Trafo Oranı', 'hata',
+          'Trafo oranı ' + trafoMevcut + '/5, en az ' + Math.ceil(trafoGereken) + '/5 olmalı');
+      }
+    } else {
+      ekle('guc', 'Akım Trafo Oranı', 'uyari', 'X5 sayaç seçili ama trafo oranı girilmemiş');
+    }
+  }
+
+  // 5. Sayaç Kesicileri güç
+  if (yeniTalepGuc > 0) {
+    const yukI = I_TRI(yeniTalepGuc);
+    function _kontrolSayacKesiciGuc(nesne, ad) {
+      if (!nesne) { ekle('guc', ad + ' Güç', 'uyari', ad + ' tanımlı değil'); return; }
+      if (nesne.akim > yukI) {
+        ekle('guc', ad + ' Güç', 'ok', nesne.akim + 'A > ' + yukI.toFixed(1) + 'A — Uygun');
+      } else {
+        ekle('guc', ad + ' Güç', 'hata',
+          nesne.akim + 'A, yük akımı ' + yukI.toFixed(1) + "A'dan büyük olmalı");
+      }
+    }
+    _kontrolSayacKesiciGuc(sigSayacGiris,  'Sayaç Giriş Sigortası');
+    _kontrolSayacKesiciGuc(roleSayacGiris, 'Sayaç Giriş Rölesi');
+    _kontrolSayacKesiciGuc(sigSayacCikis,  'Sayaç Çıkış Sigortası');
+  }
+
+  // 6. Mevcut Kolon Kablosu güç
+  if (eskiTalep > 0 && kabloMevcut && kabloMevcut.ham) {
+    const yukI     = _kabloMonofazMi(kabloMevcut) ? I_MONO(eskiTalep) : I_TRI(eskiTalep);
+    const uygunlar = _uygunKesitler(kabloMevcut.damar_sayi, yukI);
+    const normK    = _normKesit(kabloMevcut.kesit);
+    if (uygunlar.includes(normK)) {
+      ekle('guc', 'Mevcut Kolon Kablosu Güç', 'ok',
+        kabloMevcut.kesit + ' mm² — Uygun (yük: ' + yukI.toFixed(1) + 'A)');
+    } else {
+      ekle('guc', 'Mevcut Kolon Kablosu Güç', 'hata',
+        kabloMevcut.kesit + ' mm² uygun değil; yük ' + yukI.toFixed(1) + 'A için önerilen: ' + uygunlar.join(', ') + ' mm²');
+    }
+  }
+
+  // 7. Mevcut Kolon Kesicileri güç
+  if (eskiTalep > 0 && kabloMevcut && kabloMevcut.ham) {
+    const yukI   = _kabloMonofazMi(kabloMevcut) ? I_MONO(eskiTalep) : I_TRI(eskiTalep);
+    const kabKap = _getAkimKap(kabloMevcut.damar_sayi, kabloMevcut.kesit);
+    function _kontrolMevcutKesici(nesne, ad) {
+      if (!nesne) { ekle('guc', ad + ' Güç', 'uyari', ad + ' tanımlı değil'); return; }
+      const alt = nesne.akim > yukI;
+      const ust = kabKap > 0 ? (nesne.akim < kabKap * 1.1) : true;
+      if (alt && ust) {
+        ekle('guc', ad + ' Güç', 'ok', nesne.akim + 'A > ' + yukI.toFixed(1) + 'A — Uygun');
+      } else if (!alt) {
+        ekle('guc', ad + ' Güç', 'hata',
+          nesne.akim + 'A, yük ' + yukI.toFixed(1) + "A'dan büyük olmalı");
+      } else {
+        ekle('guc', ad + ' Güç', 'hata',
+          nesne.akim + 'A, kablo kapasitesi×1.1 = ' + (kabKap * 1.1).toFixed(1) + "A'dan küçük olmalı");
+      }
+    }
+    _kontrolMevcutKesici(sigMevcut,  'Mevcut Kolon Sigortası');
+    _kontrolMevcutKesici(roleMevcut, 'Mevcut Kolon Rölesi');
+  }
+
+  // 8. Mevcut Linye Kablosu güç
+  if (yukMevcut && yukMevcut.toplam_guc > 0 && kabloLinyeMevcut && kabloLinyeMevcut.ham) {
+    const yukI     = _yukTrifazMi(yukMevcut) ? I_TRI(yukMevcut.toplam_guc) : I_MONO(yukMevcut.toplam_guc);
+    const uygunlar = _uygunKesitler(kabloLinyeMevcut.damar_sayi, yukI);
+    const normK    = _normKesit(kabloLinyeMevcut.kesit);
+    if (uygunlar.includes(normK)) {
+      ekle('guc', 'Mevcut Linye Kablosu Güç', 'ok',
+        kabloLinyeMevcut.kesit + ' mm² — Uygun (yük: ' + yukI.toFixed(1) + 'A)');
+    } else {
+      ekle('guc', 'Mevcut Linye Kablosu Güç', 'hata',
+        kabloLinyeMevcut.kesit + ' mm² uygun değil; yük ' + yukI.toFixed(1) + 'A için önerilen: ' + uygunlar.join(', ') + ' mm²');
+    }
+  }
+
+  // 9. İstek Kolon Kablosu güç
+  if (ilaveTalep > 0 && kabloIstek && kabloIstek.ham) {
+    const yukI     = _yukTrifazMi(yukIstek) ? I_TRI(ilaveTalep) : I_MONO(ilaveTalep);
+    const uygunlar = _uygunKesitler(kabloIstek.damar_sayi, yukI);
+    const normK    = _normKesit(kabloIstek.kesit);
+    if (uygunlar.includes(normK)) {
+      ekle('guc', 'İstek Kolon Kablosu Güç', 'ok',
+        kabloIstek.kesit + ' mm² — Uygun (yük: ' + yukI.toFixed(1) + 'A)');
+    } else {
+      ekle('guc', 'İstek Kolon Kablosu Güç', 'hata',
+        kabloIstek.kesit + ' mm² uygun değil; yük ' + yukI.toFixed(1) + 'A için önerilen: ' + uygunlar.join(', ') + ' mm²');
+    }
+  }
+
+  // 10. İstek Kolon Kesicileri güç
+  if (ilaveTalep > 0 && kabloIstek && kabloIstek.ham) {
+    const yukI   = _yukTrifazMi(yukIstek) ? I_TRI(ilaveTalep) : I_MONO(ilaveTalep);
+    const kabKap = _getAkimKap(kabloIstek.damar_sayi, kabloIstek.kesit);
+    function _kontrolIstekKesici(nesne, ad) {
+      if (!nesne) { ekle('guc', ad + ' Güç', 'uyari', ad + ' tanımlı değil'); return; }
+      const alt = nesne.akim > yukI;
+      const ust = kabKap > 0 ? (nesne.akim < kabKap * 1.1) : true;
+      if (alt && ust) {
+        ekle('guc', ad + ' Güç', 'ok', nesne.akim + 'A > ' + yukI.toFixed(1) + 'A — Uygun');
+      } else if (!alt) {
+        ekle('guc', ad + ' Güç', 'hata',
+          nesne.akim + 'A, yük ' + yukI.toFixed(1) + "A'dan büyük olmalı");
+      } else {
+        ekle('guc', ad + ' Güç', 'hata',
+          nesne.akim + 'A, kablo kapasitesi×1.1 = ' + (kabKap * 1.1).toFixed(1) + "A'dan küçük olmalı");
+      }
+    }
+    _kontrolIstekKesici(sigIstek,  'İstek Kolon Sigortası');
+    _kontrolIstekKesici(roleIstek, 'İstek Kolon Rölesi');
+  }
+
+  // 11. İstek Linye Kablosu güç
+  if (ilaveTalep > 0 && kabloLinyeIstek && kabloLinyeIstek.ham) {
+    const cosq     = istekCosQ || 0.8;
+    const yukI     = _yukTrifazMi(yukIstek)
+      ? ilaveTalep / (_SQRT3 * _V_TRIFAZ * cosq)
+      : I_MONO(ilaveTalep);
+    const uygunlar = _uygunKesitler(kabloLinyeIstek.damar_sayi, yukI);
+    const normK    = _normKesit(kabloLinyeIstek.kesit);
+    if (uygunlar.includes(normK)) {
+      ekle('guc', 'İstek Linye Kablosu Güç', 'ok',
+        kabloLinyeIstek.kesit + ' mm² — Uygun (yük: ' + yukI.toFixed(1) + 'A)');
+    } else {
+      ekle('guc', 'İstek Linye Kablosu Güç', 'hata',
+        kabloLinyeIstek.kesit + ' mm² uygun değil; yük ' + yukI.toFixed(1) + 'A için önerilen: ' + uygunlar.join(', ') + ' mm²');
+    }
+  }
+
+  // ════════════════════════════════════════════════════
+  // SONUÇLARI RENDER ET
+  // ════════════════════════════════════════════════════
+  const hataCount  = sonuclar.filter(s => s.durum === 'hata').length;
+  const uyariCount = sonuclar.filter(s => s.durum === 'uyari').length;
+
+  let ozetHtml = '<div class="kontrol-ozet ' + (hataCount ? 'hatali' : 'tamam') + '">';
+  if (hataCount === 0 && uyariCount === 0) {
+    ozetHtml += '✅ Tüm kontroller geçti';
+  } else if (hataCount === 0) {
+    ozetHtml += '⚠️ ' + uyariCount + ' uyarı bulundu';
+  } else {
+    ozetHtml += '❌ ' + hataCount + ' hata' + (uyariCount ? ', ' + uyariCount + ' uyarı' : '') + ' bulundu';
+  }
+  ozetHtml += '</div>';
+
+  const gruplar = [
+    { key: 'faz', baslik: 'Kural Seti 1 — Faz Sayısı Dengesi' },
+    { key: 'guc', baslik: 'Kural Seti 2 — Güç Dengesi' }
+  ];
+
+  let html = ozetHtml;
+  gruplar.forEach(function(g) {
+    const grupSonuclar = sonuclar.filter(s => s.grup === g.key);
+    if (!grupSonuclar.length) return;
+    html += '<div class="kontrol-baslik-grup">' + g.baslik + '</div>';
+    grupSonuclar.forEach(function(s) {
+      const ikon = s.durum === 'ok' ? '✅' : s.durum === 'hata' ? '❌' : '⚠️';
+      html += '<div class="kontrol-satir ' + s.durum + '">'
+        + '<span>' + ikon + '</span>'
+        + '<span><strong>' + s.baslik + ':</strong> ' + s.mesaj + '</span>'
+        + '</div>';
+    });
   });
 
-  kontrolGecti = true;
-  btnKontrol.classList.add('ok');
-  btnKontrol.textContent = '✅ Kontrol Tamam';
-  btnOnizle.disabled = false;
-  btnIndir.disabled  = false;
+  panel.innerHTML = html;
 
-  if (uyarilar.length) {
-    gosterDurum('⚠️ Şu öğeler eksik/boş (PDF\'de atlanacak): ' + uyarilar.join(', '), 'info');
+  if (hataCount === 0) {
+    kontrolGecti = true;
+    btnKontrol.classList.add('ok');
+    btnKontrol.textContent = '✅ Kontrol Tamam';
+    btnOnizle.disabled = false;
+    btnIndir.disabled  = false;
   } else {
-    gosterDurum('✅ Tüm veriler mevcut. PDF oluşturulabilir.', 'tamam');
+    kontrolGecti = false;
+    btnOnizle.disabled = true;
+    btnIndir.disabled  = true;
   }
 });
 
