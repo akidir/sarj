@@ -613,7 +613,7 @@
           <button type="button" data-value="TMŞ">TMŞ</button>
         </div>
         <div class="form-title">Kofre Sigorta Değeri</div>
-        <input id="kofre-deger" class="popup-select" type="number" placeholder="Örn: 80" />
+        <select id="kofre-deger" class="popup-select"></select>
       </div>
 
       <!-- KABLO PANELİ -->
@@ -680,7 +680,7 @@
           <button type="button" data-value="3x">Trifaz</button>
         </div>
         <div class="form-title">Sigorta Akım Değeri</div>
-        <input id="sig-a" class="popup-select" type="number" placeholder="Amper (A)" />
+        <select id="sig-a" class="popup-select"></select>
       </div>
 
       <!-- SAYAÇ PANELİ -->
@@ -716,7 +716,7 @@
           <button type="button" data-value="4x">Trifaz</button>
         </div>
         <div class="form-title">Röle Akım Değeri</div>
-        <input id="role-a" class="popup-select" type="number" placeholder="Amper (A)" />
+        <select id="role-a" class="popup-select"></select>
       </div>
 
       <!-- SİGORTA EKLE PANELİ -->
@@ -745,6 +745,9 @@ var LS_SEMA_KEY = 'proje_sema_v1';
 const KABLO_KESIT_LIST = ['1,5','2,5','4','6','10','16','25','35','50','70','120','150','180','240'];
 const KABLO_TIP_LIST   = ['NYY','NYM','TTR','NYFGBY','NYAF','N2XH','NYA','Alüminyum'];
 const SADECE_TEK_DAMAR = ['NYA','NYAF'];
+const K_OTOMAT_LIST    = [6, 10, 16, 20, 25, 32, 40, 50, 63, 80, 100, 125];
+const TMS_LIST         = [16, 20, 25, 32, 40, 50, 63, 80, 100, 125, 160, 200, 250, 320, 400, 500, 600, 630, 800];
+const YSYA_LIST        = [20, 25, 32, 40, 50, 63, 80, 100, 125, 160, 200, 250, 315, 400, 500, 600, 630];
 
 let modalConfig = {};
 let _puantProgrammatic = false;
@@ -762,6 +765,21 @@ function setVal(id, val) { const el = qs(id); if (el) el.value = val === 0 ? '' 
 function setValFloat(id, val) { const el = qs(id); if (el) el.value = val === 0 ? '' : parseFloat(val.toFixed(2)); }
 function normPanelName(name) { return String(name || '').trim().toLowerCase(); }
 function closePopup() { const p = qs('proje-popup'); if (p) p.style.display = 'none'; }
+
+function fillSelect(selectEl, list, currentValue) {
+  selectEl.innerHTML = '';
+  list.forEach(val => {
+    const opt = document.createElement('option');
+    opt.value = val;
+    opt.textContent = val + ' A';
+    selectEl.appendChild(opt);
+  });
+  if (list.includes(Number(currentValue))) {
+    selectEl.value = currentValue;
+  } else {
+    selectEl.value = list[0];
+  }
+}
 
 function showPanel(name) {
   document.querySelectorAll('#proje-popup .p-panel').forEach(p => {
@@ -1202,7 +1220,10 @@ function acModal(evt, options, cfg) {
 
   if (panel === 'kofre') {
     const kofreData = parseKofre(getText('txt_kofre'));
-    if (kofreData) { setActiveButton('#kofre-tip', kofreData.tip); qs('kofre-deger').value = kofreData.deger; }
+    const kofreTip  = kofreData?.tip || 'YSYA';
+    if (kofreData) setActiveButton('#kofre-tip', kofreTip);
+    const kofreList = kofreTip === 'TMŞ' ? TMS_LIST : YSYA_LIST;
+    fillSelect(qs('kofre-deger'), kofreList, kofreData?.deger || kofreList[0]);
   } else if (panel === 'kablo') {
     const targetId = cfg?.targetId;
     let kabloData = { damar:'3x', damar_sayi:3, kesit:'2,5', tip:'NYY', metraj:10, toprak_kesit:'' };
@@ -1242,14 +1263,20 @@ function acModal(evt, options, cfg) {
     const isKolonSig = !!cfg?.isKolonSig;
     const kesiciWrapper = qs('kesici-tip-wrapper');
     if (kesiciWrapper) kesiciWrapper.style.display = isKolonSig ? 'block' : 'none';
+    let sigAkim = '';
     if (targetId) {
       const sigData = parseSigorta(getText(targetId));
-      if (sigData) { setActiveButton('#sig-faz', sigData.faz); qs('sig-a').value = sigData.akim; }
+      if (sigData) { setActiveButton('#sig-faz', sigData.faz); sigAkim = sigData.akim; }
       if (isKolonSig) {
         const kesiciTipi = isDomVisible('tms_kolon') ? 'TMŞ' : 'K.Otomat';
         setActiveButton('#kesici-tip', kesiciTipi);
       }
     }
+    const kesiciTipiAktif = isKolonSig
+      ? (document.querySelector('#kesici-tip button.active')?.getAttribute('data-value') || 'K.Otomat')
+      : 'K.Otomat';
+    const sigList = (isKolonSig && kesiciTipiAktif === 'TMŞ') ? TMS_LIST : K_OTOMAT_LIST;
+    fillSelect(qs('sig-a'), sigList, sigAkim);
     setupSigortaKaldirButton();
   } else if (panel === 'sayac') {
     const sayacData = parseSayac(getText('txt_sayac_tip'), getText('txt_sayac_trafo'));
@@ -1269,8 +1296,8 @@ function acModal(evt, options, cfg) {
     if (roleData) {
       setActiveButton('#role-ma',  roleData.tip);
       setActiveButton('#role-faz', roleData.faz);
-      qs('role-a').value = roleData.akim;
     }
+    fillSelect(qs('role-a'), K_OTOMAT_LIST, roleData?.akim || K_OTOMAT_LIST[0]);
   }
 
   const popup = qs('proje-popup');
@@ -1445,11 +1472,32 @@ document.addEventListener('DOMContentLoaded', () => {
     btn.addEventListener('click', () => {
       btn.parentElement.querySelectorAll('button').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
+      const tipDeger = btn.getAttribute('data-value');
+      const sigSel   = qs('sig-a');
+      if (sigSel) {
+        const mevcutDeger = sigSel.value;
+        const yeniList    = tipDeger === 'TMŞ' ? TMS_LIST : K_OTOMAT_LIST;
+        fillSelect(sigSel, yeniList, mevcutDeger);
+      }
+    });
+  });
+
+  document.querySelectorAll('#kofre-tip button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      btn.parentElement.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const tipDeger   = btn.getAttribute('data-value');
+      const kofreSel   = qs('kofre-deger');
+      if (kofreSel) {
+        const mevcutDeger = kofreSel.value;
+        const yeniList    = tipDeger === 'TMŞ' ? TMS_LIST : YSYA_LIST;
+        fillSelect(kofreSel, yeniList, mevcutDeger);
+      }
     });
   });
 
   document.querySelectorAll(
-    '#yuk-tip button, #yuk-faz button, #sig-faz button, #kofre-tip button, #role-ma button, #role-faz button'
+    '#yuk-tip button, #yuk-faz button, #sig-faz button, #role-ma button, #role-faz button'
   ).forEach(btn => {
     btn.addEventListener('click', () => {
       btn.parentElement.querySelectorAll('button').forEach(b => b.classList.remove('active'));
