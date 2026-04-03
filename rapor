@@ -452,6 +452,8 @@ const TRAFO_PAYLARI = [100,150,200,250,300,400,500,600,750,1250];
 const NYY_2DAMAR = {1.5:18,2.5:24,4:32,6:41,10:56,16:73,25:95,35:115,50:138,70:168,95:197,120:224,150:252,185:283,240:330};
 const NYY_4DAMAR = {1.5:15,2.5:20,4:27,6:34,10:46,16:60,25:78,35:95,50:114,70:140,95:165,120:188,150:212,185:238,240:279};
 const GD_SINIR = 4;
+const TOLERANS = 1.05;     // %5 kabul toleransı
+const TRIFAZ_BOLEN = 1.73 * 380 * 0.8;  // √3 × U × cosQ (380V, cosQ=0.8)
 
 function _parseSig(txt) {
   if (!txt || !txt.trim()) return null;
@@ -463,7 +465,7 @@ function _parseSig(txt) {
 function _parseKablo(txt) {
   if (!txt || !txt.trim()) return null;
   const raw = String(txt).replace(/\s+/g,' ').trim();
-  const damarSayi = Number(raw.match(/^(\d)/)?.[1] || 0);
+  const damarSayi = Number(raw.match(/^(\d+)/)?.[1] || 0);
   const kesitMatch = raw.match(/\d+x\s*([0-9]+(?:[.,][0-9]+)?)/i);
   const kesit = Number((kesitMatch?.[1] || '0').replace(',','.'));
   return { damar_sayi: damarSayi, kesit, ham: raw };
@@ -515,7 +517,7 @@ function _sigortaSecimiSonucu(yukAkimi, seciliAkim) {
   const ceilIdx  = SIGORTA_LIST.findIndex(s => s > yukAkimi);
   const ceilSigorta = ceilIdx >= 0 ? SIGORTA_LIST[ceilIdx] : null;
 
-  if (floorSigorta !== null && yukAkimi <= floorSigorta * 1.05) {
+  if (floorSigorta !== null && yukAkimi <= floorSigorta * TOLERANS) {
     const fi    = SIGORTA_LIST.indexOf(floorSigorta);
     const birUst = fi+1 < SIGORTA_LIST.length ? SIGORTA_LIST[fi+1] : null;
     const ikiUst = fi+2 < SIGORTA_LIST.length ? SIGORTA_LIST[fi+2] : null;
@@ -554,7 +556,7 @@ function _trafoSecimSonucu(yukAkimi, seciliPay) {
   const ceilIdx = TRAFO_PAYLARI.findIndex(t => t > trafoOrani);
   const ceilTrafo = ceilIdx >= 0 ? TRAFO_PAYLARI[ceilIdx] : null;
 
-  if (floorTrafo !== null && trafoOrani <= floorTrafo * 1.05) {
+  if (floorTrafo !== null && trafoOrani <= floorTrafo * TOLERANS) {
     const fi    = TRAFO_PAYLARI.indexOf(floorTrafo);
     const birUst = fi+1 < TRAFO_PAYLARI.length ? TRAFO_PAYLARI[fi+1] : null;
     if (seciliPay === floorTrafo) return 'potansiyel';
@@ -642,14 +644,14 @@ function onDegerlendirmeYap(sema) {
   const beklSayacFaz = sayacTrifaz ? 'trifaz' : 'monofaz';
 
   // Akım hesapları
-  const yapiYeniYukA    = yapiYeniTG  > 0 ? yapiYeniTG  / (1.73 * 380 * 0.8) : 0;
-  const yeniTalepYukA   = yeniTalep   > 0 ? yeniTalep   / (1.73 * 380 * 0.8) : 0;
+  const yapiYeniYukA    = yapiYeniTG  > 0 ? yapiYeniTG  / TRIFAZ_BOLEN : 0;
+  const yeniTalepYukA   = yeniTalep   > 0 ? yeniTalep   / TRIFAZ_BOLEN : 0;
   const eskiTalepYukA_mono  = eskiTalep  > 0 ? eskiTalep  / 220 : 0;
-  const eskiTalepYukA_tri   = eskiTalep  > 0 ? eskiTalep  / (1.73 * 380 * 0.8) : 0;
+  const eskiTalepYukA_tri   = eskiTalep  > 0 ? eskiTalep  / TRIFAZ_BOLEN : 0;
   const ilaveTalepYukA_mono = ilaveTalep > 0 ? ilaveTalep / 220 : 0;
-  const ilaveTalepYukA_tri  = ilaveTalep > 0 ? ilaveTalep / (1.73 * 380 * 0.8) : 0;
+  const ilaveTalepYukA_tri  = ilaveTalep > 0 ? ilaveTalep / TRIFAZ_BOLEN : 0;
   const yukMevYukA_mono     = yukMev.guc > 0 ? yukMev.guc / 220 : 0;
-  const yukMevYukA_tri      = yukMev.guc > 0 ? yukMev.guc / (1.73 * 380 * 0.8) : 0;
+  const yukMevYukA_tri      = yukMev.guc > 0 ? yukMev.guc / TRIFAZ_BOLEN : 0;
   const yukIstYukA_mono     = yukIst.guc > 0 ? yukIst.guc / 220 : 0;
   const yukIstYukA_tri      = yukIst.guc > 0 ? yukIst.guc / (1.73 * 380 * istekCosQ) : 0;
 
@@ -661,7 +663,7 @@ function onDegerlendirmeYap(sema) {
 
   // ─────────── 1. KABLOLAR ───────────
   // G2: Ana Kolon Kablosu kesiti
-  const kolonKabloYukA = yapiYeniTG > 0 ? yapiYeniTG / (1.73 * 380 * 0.8) : 0;
+  const kolonKabloYukA = yapiYeniTG > 0 ? yapiYeniTG / TRIFAZ_BOLEN : 0;
   const kolonKabloFazSonuc = _rfaz(_kabloFaz(kolonKablo), 'trifaz',
     'Not2: Ana kolon kablosu için seçilen faz değeri UYGUN DEĞİLDİR. Projenin onaydan dönme riskine karşı değerleri kontrol etmeniz önerilir.');
   const kolonKabloKesitSonuc = kolonKablo && kolonKabloYukA > 0
@@ -764,7 +766,7 @@ function onDegerlendirmeYap(sema) {
 
   // Kural 4b + G5: Sayaç giriş sigortası
   const beklSayacFazSig = yeniKurulu > 5000 ? 'trifaz' : 'monofaz';
-  const sayacGirisYukA  = yeniTalep > 0 ? yeniTalep / (1.73 * 380 * 0.8) : 0;
+  const sayacGirisYukA  = yeniTalep > 0 ? yeniTalep / TRIFAZ_BOLEN : 0;
   const sigSayacGFazS   = _rfaz(_sigFaz(sigSayacG), beklSayacFazSig,
     'Not5: Sayaç giriş sigortası için seçilen faz değeri UYGUN DEĞİLDİR.');
   const sigSayacGDegerS = sigSayacG && yeniTalep > 0
