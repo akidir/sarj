@@ -1189,6 +1189,8 @@ function onDegerlendirmeYap(sema, yapi) {
 
   function gdAkimUygunMu(html) {
     if (!html) return null;
+    // akimNot() fonksiyonu 'Akım yönünden uygundur.' veya 'Akım yönünden uygun değildir.' yazar;
+    // bu iki string aynı HTML'de birlikte bulunmaz (her hat için tek bir sonuç vardır).
     if (html.includes('Akım yönünden uygun değildir')) return false;
     if (html.includes('Akım yönünden uygundur')) return true;
     return null;
