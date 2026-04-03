@@ -88,33 +88,20 @@
       gap: 4px;
       margin-bottom: 12px;
     }
-    .trafo-input-group input {
+    .trafo-input-group .trafo-select {
       flex: 1;
       padding: 8px;
       border-radius: 6px;
       border: 1px solid #999;
       box-sizing: border-box;
-      text-align: center;
       font-weight: 600;
+      background: #fff;
+      cursor: pointer;
     }
-    .trafo-input-group input:disabled {
+    .trafo-input-group .trafo-select:disabled {
       background: #e0e0e0;
       color: #999;
       cursor: not-allowed;
-      opacity: 0.5;
-    }
-    .trafo-input-group .trafo-sabit {
-      padding: 8px 12px;
-      border-radius: 6px;
-      border: 1px solid #999;
-      background: #f2f2f2;
-      font-weight: 600;
-      color: #333;
-      white-space: nowrap;
-    }
-    .trafo-input-group .trafo-sabit.disabled {
-      background: #e0e0e0;
-      color: #999;
       opacity: 0.5;
     }
     .guc-panel {
@@ -698,8 +685,19 @@
         </div>
         <div class="form-title">Akım Trafo Oranı</div>
         <div class="trafo-input-group">
-          <input id="sayac-trafo-deger" type="number" placeholder="Örn: 100" disabled />
-          <span class="trafo-sabit disabled" id="sayac-trafo-sabit">/5</span>
+          <select id="sayac-trafo-deger" class="trafo-select" disabled>
+            <option value="">-- Seçiniz --</option>
+            <option value="100/5">100/5</option>
+            <option value="1250/5">1250/5</option>
+            <option value="150/5">150/5</option>
+            <option value="200/5">200/5</option>
+            <option value="250/5">250/5</option>
+            <option value="300/5">300/5</option>
+            <option value="400/5">400/5</option>
+            <option value="500/5">500/5</option>
+            <option value="600/5">600/5</option>
+            <option value="750/5">750/5</option>
+          </select>
         </div>
       </div>
 
@@ -937,8 +935,13 @@ function parseSayac(tipTxt, trafoTxt) {
   if (ilkKelime === '1x10')      sayacTipi = 'Monofaze';
   else if (ilkKelime === '3x10') sayacTipi = 'Trifaze';
   else if (ilkKelime === 'X5')   sayacTipi = 'X5';
-  const trafoOrani = rawTrafo && rawTrafo.includes('/5') ? rawTrafo.replace('/5', '').trim() : '';
-  return { sayac_tipi: sayacTipi, trafo_orani: trafoOrani, trafo_tam: trafoOrani ? trafoOrani + '/5' : '' };
+  // rawTrafo is the full ratio string, e.g. "100/5"
+  const trafoTam = rawTrafo && rawTrafo.includes('/') ? rawTrafo : '';
+  const parts = trafoTam ? trafoTam.split('/') : ['', ''];
+  const trafoAkim   = parseInt(parts[0]) || 0;
+  const trafoCarpan = parseInt(parts[1]) || 5;
+  const trafoOrani  = trafoAkim ? String(trafoAkim) : '';
+  return { sayac_tipi: sayacTipi, trafo_orani: trafoOrani, trafo_tam: trafoTam, trafo_akim: trafoAkim, trafo_carpan: trafoCarpan };
 }
 
 // ═══════════════════════════════════════════════════════
@@ -1095,14 +1098,11 @@ function sayacCikisSigortaEkle() {
 function guncelleSayacTrafoAlani() {
   const aktifBtn   = document.querySelector('#sayac-tip button.active');
   const seciliTip  = aktifBtn?.getAttribute('data-value') || '';
-  const trafoInput = qs('sayac-trafo-deger');
-  const trafoSabit = qs('sayac-trafo-sabit');
+  const trafoSel   = qs('sayac-trafo-deger');
   if (seciliTip === 'X5') {
-    if (trafoInput) trafoInput.disabled = false;
-    if (trafoSabit) trafoSabit.classList.remove('disabled');
+    if (trafoSel) trafoSel.disabled = false;
   } else {
-    if (trafoInput) { trafoInput.disabled = true; trafoInput.value = ''; }
-    if (trafoSabit) trafoSabit.classList.add('disabled');
+    if (trafoSel) { trafoSel.disabled = true; trafoSel.value = ''; }
   }
   const olcumBtnler = document.querySelectorAll('#sayac-olcum-ozellik button');
   const olcumGrup   = document.getElementById('sayac-olcum-ozellik');
@@ -1282,8 +1282,8 @@ function acModal(evt, options, cfg) {
     const sayacData = parseSayac(getText('txt_sayac_tip'), getText('txt_sayac_trafo'));
     if (sayacData) {
       setActiveButton('#sayac-tip', sayacData.sayac_tipi);
-      const trafoInput = qs('sayac-trafo-deger');
-      if (trafoInput) trafoInput.value = sayacData.trafo_orani || '';
+      const trafoSel = qs('sayac-trafo-deger');
+      if (trafoSel) trafoSel.value = sayacData.trafo_tam || '';
     }
     guncelleSayacTrafoAlani();
     const tipTamMetin  = getText('txt_sayac_tip').trim();
@@ -1355,12 +1355,12 @@ function kapatModal() {
     }
   } else if (panel === 'sayac') {
     const seciliTip  = document.querySelector('#sayac-tip button.active')?.getAttribute('data-value') || 'Trifaze';
-    const trafoInput = qs('sayac-trafo-deger');
-    const trafoVal   = trafoInput?.value?.trim() || '';
+    const trafoSel   = qs('sayac-trafo-deger');
+    const trafoVal   = trafoSel?.value?.trim() || '';
     if (seciliTip === 'X5' && !trafoVal) {
-      if (trafoInput) { trafoInput.style.border = '2px solid red'; trafoInput.focus(); } return;
+      if (trafoSel) { trafoSel.style.border = '2px solid red'; trafoSel.focus(); } return;
     }
-    if (trafoInput) trafoInput.style.border = '';
+    if (trafoSel) trafoSel.style.border = '';
     let tipText = '3x10';
     if (seciliTip === 'Monofaze') tipText = '1x10';
     else if (seciliTip === 'X5')  tipText = 'X5';
@@ -1373,7 +1373,7 @@ function kapatModal() {
     }
     const tipSatir = olcumKisalt ? tipText + ' ' + olcumKisalt : tipText;
     syncText('txt_sayac_tip',   tipSatir);
-    syncText('txt_sayac_trafo', seciliTip === 'X5' && trafoVal ? trafoVal + '/5' : '');
+    syncText('txt_sayac_trafo', seciliTip === 'X5' && trafoVal ? trafoVal : '');
     syncText('txt_sayac_olcum', '');
   } else if (panel === 'role' && modalConfig?.targets) {
     const roleAId = modalConfig.targets.roleA;
