@@ -482,8 +482,8 @@ function odParseKablo(txt) {
   }
   const fazText = raw.match(/(\d+)x/i)?.[1] || '3';
   const fazSayi = parseInt(fazText);
-  // Monofaz: 2 damar (2+toprak veya 3) , Trifaz: 4 damar (4+toprak veya 5)
-  const isTrifaz = fazSayi >= 3;
+  // Monofaz: 2x+toprak(3 damar) veya 3x. Trifaz: 4x+toprak(5 damar) veya 5x
+  const isTrifaz = fazSayi >= 4;
   return { damar, damar_sayi: damarSayi, kesit, toprak, tip, ham: raw, trifaz: isTrifaz, monofaz: !isTrifaz };
 }
 
@@ -587,14 +587,30 @@ function odSigortaKategori(secilen, yukAkim, liste) {
 
 function odDurumBadge(durum) {
   if (durum === 'uygun')     return '<span class="od-durum od-uygun">✅ UYGUN</span>';
-  if (durum === 'potansiyel') return '<span class="od-durum od-potansiyel">⚠️ POTANSİYEL</span>';
+  if (durum === 'potansiyel') return '<span class="od-durum od-potansiyel">⚠️ RİSK</span>';
   if (durum === 'atla')      return '<span class="od-durum od-atla">— PASİF</span>';
   return '<span class="od-durum od-uygunsuz">❌ UYGUNSUZ</span>';
 }
 
 function odKuralSatiri(no, aciklama, durum, not) {
   const notHtml = not ? '<br><span style="color:#666;font-style:italic">' + not + '</span>' : '';
-  return '<div class="od-kural"><span class="od-kural-no">Kural ' + no + '</span><span class="od-kural-aciklama">' + aciklama + notHtml + '</span>' + odDurumBadge(durum) + '</div>';
+  return '<div class="od-kural"><span class="od-kural-aciklama">' + aciklama + notHtml + '</span>' + odDurumBadge(durum) + '</div>';
+}
+
+// Verilen yukAkimi için uygun (uygun) sigorta değerini döndürür
+function odUygunSigortaDeger(yukAkim, liste) {
+  if (!yukAkim) return null;
+  const sirali = liste.slice().sort(function(a, b) { return a - b; });
+  const asagilar = sirali.filter(function(s) { return s <= yukAkim; });
+  const enYakinAsagi = asagilar.length > 0 ? asagilar[asagilar.length - 1] : null;
+  const a1 = enYakinAsagi !== null && yukAkim <= enYakinAsagi * 1.05;
+  if (a1) {
+    const idx = sirali.indexOf(enYakinAsagi);
+    return sirali[idx + 1] !== undefined ? sirali[idx + 1] : enYakinAsagi;
+  } else {
+    const yukarilar = sirali.filter(function(s) { return s >= yukAkim; });
+    return yukarilar.length > 0 ? yukarilar[0] : null;
+  }
 }
 
 function onDegerlendirmeYap(sema, yapi) {
@@ -661,7 +677,7 @@ function onDegerlendirmeYap(sema, yapi) {
     const k1ok = kabloKolon.trifaz;
     kural.push({no:1, grup:'1. KABLOLAR', baslik:'Ana Kolon Kablosu Faz',
       durum: k1ok ? 'uygun' : 'uygunsuz',
-      not: k1ok ? '' : 'Ana kolon kablosu için seçilen faz değeri UYGUN DEĞİLDİR. Projenin onaydan dönme riskine karşı değerleri kontrol etmeniz önerilir.'
+      not: k1ok ? '' : 'Uygun değil (uygun değer: trifaz)'
     });
   }
 
@@ -670,9 +686,10 @@ function onDegerlendirmeYap(sema, yapi) {
     const akim = yukAkimTrifaz(yapiYeniTG);
     const uygunKesitler = odUygunKesitler(kabloKolon.tip, kabloKolon.damar, akim);
     const k2ok = uygunKesitler.slice(0, 2).includes(kabloKolon.kesit);
+    const uygunKesitStr = uygunKesitler.length > 0 ? uygunKesitler[0] + ' mm²' : '?';
     kural.push({no:2, grup:'1. KABLOLAR', baslik:'Ana Kolon Kablosu Kesit',
       durum: k2ok ? 'uygun' : 'uygunsuz',
-      not: k2ok ? '' : 'Ana kolon kablosu için seçilen kablo kesit değeri UYGUN DEĞİLDİR. Projenin onaydan dönme riskine karşı değerleri kontrol etmeniz önerilir.'
+      not: k2ok ? '' : 'Uygun değil (uygun değer: ' + uygunKesitStr + ')'
     });
   }
 
@@ -681,9 +698,10 @@ function onDegerlendirmeYap(sema, yapi) {
     let k3ok;
     if (sayacMonofaz) k3ok = linyeDtMevcut.monofaz;
     else k3ok = linyeDtMevcut.trifaz;
+    const beklenFaz3 = sayacMonofaz ? 'monofaz' : 'trifaz';
     kural.push({no:3, grup:'1. KABLOLAR', baslik:'Mevcut DT Kolon Kablosu Faz',
       durum: k3ok ? 'uygun' : 'uygunsuz',
-      not: k3ok ? '' : 'Mevcut DT kolon kablosu için seçilen faz değeri UYGUN DEĞİLDİR. Projenin onaydan dönme riskine karşı değerleri kontrol etmeniz önerilir.'
+      not: k3ok ? '' : 'Uygun değil (uygun değer: ' + beklenFaz3 + ')'
     });
   }
 
@@ -692,25 +710,33 @@ function onDegerlendirmeYap(sema, yapi) {
     const akim = linyeDtMevcut.trifaz ? yukAkimTrifaz(eskiTalep) : yukAkimMonofaz(eskiTalep);
     const uygunKesitler = odUygunKesitler(linyeDtMevcut.tip, linyeDtMevcut.damar, akim);
     const k4ok = uygunKesitler.slice(0, 2).includes(linyeDtMevcut.kesit);
+    const uygunKesitStr = uygunKesitler.length > 0 ? uygunKesitler[0] + ' mm²' : '?';
     kural.push({no:4, grup:'1. KABLOLAR', baslik:'Mevcut DT Kolon Kablosu Kesit',
       durum: k4ok ? 'uygun' : 'uygunsuz',
-      not: k4ok ? '' : 'Mevcut DT kolon kablosu için seçilen kablo kesit değeri UYGUN DEĞİLDİR. Projenin onaydan dönme riskine karşı değerleri kontrol etmeniz önerilir.'
+      not: k4ok ? '' : 'Uygun değil (uygun değer: ' + uygunKesitStr + ')'
     });
   }
 
   // Kural 5: Mevcut linye kablosu faz
   if (linyeYukMevcut) {
     let k5ok;
+    let beklenFaz5;
     if (sayacMonofaz) {
       k5ok = linyeYukMevcut.monofaz;
+      beklenFaz5 = 'monofaz';
     } else {
       // trifaz/x5 → mevcut yükün fazına göre
-      if (yukMevcut) k5ok = (yukMevcut.trifaz ? linyeYukMevcut.trifaz : linyeYukMevcut.monofaz);
-      else k5ok = true;
+      if (yukMevcut) {
+        k5ok = (yukMevcut.trifaz ? linyeYukMevcut.trifaz : linyeYukMevcut.monofaz);
+        beklenFaz5 = yukMevcut.trifaz ? 'trifaz' : 'monofaz';
+      } else {
+        k5ok = false;
+        beklenFaz5 = 'trifaz';
+      }
     }
     kural.push({no:5, grup:'1. KABLOLAR', baslik:'Mevcut DT Linye Kablosu Faz',
       durum: k5ok ? 'uygun' : 'uygunsuz',
-      not: k5ok ? '' : 'Mevcut DT linye kablosu için seçilen faz değeri UYGUN DEĞİLDİR. Projenin onaydan dönme riskine karşı değerleri kontrol etmeniz önerilir.'
+      not: k5ok ? '' : 'Uygun değil (uygun değer: ' + beklenFaz5 + ')'
     });
   }
 
@@ -719,51 +745,67 @@ function onDegerlendirmeYap(sema, yapi) {
     const akim = yukMevcut.trifaz ? yukAkimTrifaz(yukMevcut.guc || eskiKurulu) : yukAkimMonofaz(yukMevcut.guc || eskiKurulu);
     const uygunKesitler = odUygunKesitler(linyeYukMevcut.tip, linyeYukMevcut.damar, akim);
     const k6ok = uygunKesitler.slice(0, 2).includes(linyeYukMevcut.kesit);
+    const uygunKesitStr = uygunKesitler.length > 0 ? uygunKesitler[0] + ' mm²' : '?';
     kural.push({no:6, grup:'1. KABLOLAR', baslik:'Mevcut DT Linye Kablosu Kesit',
       durum: k6ok ? 'uygun' : 'uygunsuz',
-      not: k6ok ? '' : 'Mevcut DT linye kablosu için seçilen kablo kesit değeri UYGUN DEĞİLDİR. Projenin onaydan dönme riskine karşı değerleri kontrol etmeniz önerilir.'
+      not: k6ok ? '' : 'Uygun değil (uygun değer: ' + uygunKesitStr + ')'
     });
   }
 
   // Kural 7: İstek kolon kablosu faz
   if (linyeDtIstek) {
     let k7ok;
+    let beklenFaz7;
     if (sayacMonofaz) {
       k7ok = linyeDtIstek.monofaz;
+      beklenFaz7 = 'monofaz';
     } else {
-      if (yukIstek) k7ok = (yukIstek.trifaz ? linyeDtIstek.trifaz : linyeDtIstek.monofaz);
-      else k7ok = linyeDtIstek.trifaz;
+      if (yukIstek) {
+        k7ok = (yukIstek.trifaz ? linyeDtIstek.trifaz : linyeDtIstek.monofaz);
+        beklenFaz7 = yukIstek.trifaz ? 'trifaz' : 'monofaz';
+      } else {
+        k7ok = linyeDtIstek.trifaz;
+        beklenFaz7 = 'trifaz';
+      }
     }
     kural.push({no:7, grup:'1. KABLOLAR', baslik:'İstek DT Linye Kablosu Faz',
       durum: k7ok ? 'uygun' : 'uygunsuz',
-      not: k7ok ? '' : 'İstek DT linye kablosu için seçilen faz değeri UYGUN DEĞİLDİR. Projenin onaydan dönme riskine karşı değerleri kontrol etmeniz önerilir.'
+      not: k7ok ? '' : 'Uygun değil (uygun değer: ' + beklenFaz7 + ')'
     });
   }
 
-  // Kural 8: İstek kolon kablosu kesit
+  // Kural 8: İstek linye kablosu kesit
   if (linyeDtIstek) {
     const istekTrifaz = yukIstek ? yukIstek.trifaz : true;
     const akim = istekTrifaz ? yukAkimTrifaz(ilaveTalep) : yukAkimMonofaz(ilaveTalep);
     const uygunKesitler = odUygunKesitler(linyeDtIstek.tip, linyeDtIstek.damar, akim);
     const k8ok = uygunKesitler.slice(0, 2).includes(linyeDtIstek.kesit);
-    kural.push({no:8, grup:'1. KABLOLAR', baslik:'İstek DT Kolon Kablosu Kesit',
+    const uygunKesitStr = uygunKesitler.length > 0 ? uygunKesitler[0] + ' mm²' : '?';
+    kural.push({no:8, grup:'1. KABLOLAR', baslik:'İstek DT Linye Kablosu Kesit',
       durum: k8ok ? 'uygun' : 'uygunsuz',
-      not: k8ok ? '' : 'İstek DT kolon kablosu için seçilen kablo kesit değeri UYGUN DEĞİLDİR. Projenin onaydan dönme riskine karşı değerleri kontrol etmeniz önerilir.'
+      not: k8ok ? '' : 'Uygun değil (uygun değer: ' + uygunKesitStr + ')'
     });
   }
 
   // Kural 9: İstek linye kablosu faz
   if (linyeYukIstek) {
     let k9ok;
+    let beklenFaz9;
     if (sayacMonofaz) {
       k9ok = linyeYukIstek.monofaz;
+      beklenFaz9 = 'monofaz';
     } else {
-      if (yukIstek) k9ok = (yukIstek.trifaz ? linyeYukIstek.trifaz : linyeYukIstek.monofaz);
-      else k9ok = linyeYukIstek.trifaz;
+      if (yukIstek) {
+        k9ok = (yukIstek.trifaz ? linyeYukIstek.trifaz : linyeYukIstek.monofaz);
+        beklenFaz9 = yukIstek.trifaz ? 'trifaz' : 'monofaz';
+      } else {
+        k9ok = linyeYukIstek.trifaz;
+        beklenFaz9 = 'trifaz';
+      }
     }
     kural.push({no:9, grup:'1. KABLOLAR', baslik:'İstek DT Linye Kablosu Faz',
       durum: k9ok ? 'uygun' : 'uygunsuz',
-      not: k9ok ? '' : 'İstek DT linye kablosu için seçilen faz değeri UYGUN DEĞİLDİR. Projenin onaydan dönme riskine karşı değerleri kontrol etmeniz önerilir.'
+      not: k9ok ? '' : 'Uygun değil (uygun değer: ' + beklenFaz9 + ')'
     });
   }
 
@@ -773,32 +815,26 @@ function onDegerlendirmeYap(sema, yapi) {
     const akim = istekTrifaz ? yukAkimTrifazCosQ(ilaveTalep, istekCosQ) : yukAkimMonofaz(ilaveTalep);
     const uygunKesitler = odUygunKesitler(linyeYukIstek.tip, linyeYukIstek.damar, akim);
     const k10ok = uygunKesitler.slice(0, 2).includes(linyeYukIstek.kesit);
+    const uygunKesitStr = uygunKesitler.length > 0 ? uygunKesitler[0] + ' mm²' : '?';
     kural.push({no:10, grup:'1. KABLOLAR', baslik:'İstek DT Linye Kablosu Kesit',
       durum: k10ok ? 'uygun' : 'uygunsuz',
-      not: k10ok ? '' : 'İstek DT linye kablosu için seçilen kablo kesit değeri UYGUN DEĞİLDİR. Projenin onaydan dönme riskine karşı değerleri kontrol etmeniz önerilir.'
+      not: k10ok ? '' : 'Uygun değil (uygun değer: ' + uygunKesitStr + ')'
     });
   }
 
   // ── 2. KESİCİLER ─────────────────────────────────────
-
-  // Kural 11: Kofre - her zaman trifaz
-  if (kofre) {
-    const k11ok = kofre.faz === '3x';
-    kural.push({no:11, grup:'2. KESİCİLER', baslik:'Kofre Faz',
-      durum: k11ok ? 'uygun' : 'uygunsuz',
-      not: k11ok ? '' : 'Kofre için seçilen faz değeri UYGUN DEĞİLDİR. Projenin onaydan dönme riskine karşı değerleri kontrol etmeniz önerilir.'
-    });
-  }
 
   // Kural 12: Kofre sigorta akım
   if (kofre) {
     const akim = yukAkimTrifaz(yapiYeniTG);
     const liste = kofre.tip === 'TMŞ' ? TMS_LIST : YSYA_LIST;
     const kat = odSigortaKategori(kofre.akim, akim, liste);
+    const uygunSig = odUygunSigortaDeger(akim, liste);
+    const uygunStr = uygunSig ? uygunSig + ' A' : '?';
     kural.push({no:12, grup:'2. KESİCİLER', baslik:'Kofre Sigorta Akım',
       durum: kat,
-      not: kat === 'uygunsuz' ? 'Kofre için seçilen sigorta akım değeri UYGUN DEĞİLDİR. Projenin onaydan dönme riskine karşı değerleri kontrol etmeniz önerilir.'
-        : (kat === 'potansiyel' ? 'Kofre için seçilen sigorta akım değeri, dağıtım şirketi kabul kriterleriyle uyumsuzluk gösterebilir. Kontrol etmeniz önerilir.' : '')
+      not: kat === 'uygunsuz' ? 'Uygun değil (uygun değer: ' + uygunStr + ')'
+        : (kat === 'potansiyel' ? 'Riskli (uygun değer: ' + uygunStr + ')' : '')
     });
   }
 
@@ -807,7 +843,7 @@ function onDegerlendirmeYap(sema, yapi) {
     const k13ok = sigKolon.faz === '3x';
     kural.push({no:13, grup:'2. KESİCİLER', baslik:'AT Giriş Sigortası Faz',
       durum: k13ok ? 'uygun' : 'uygunsuz',
-      not: k13ok ? '' : 'AT giriş sigortası için seçilen faz değeri UYGUN DEĞİLDİR. Projenin onaydan dönme riskine karşı değerleri kontrol etmeniz önerilir.'
+      not: k13ok ? '' : 'Uygun değil (uygun değer: trifaz)'
     });
   } else {
     kural.push({no:13, grup:'2. KESİCİLER', baslik:'AT Giriş Sigortası Faz', durum:'atla', not:''});
@@ -818,10 +854,12 @@ function onDegerlendirmeYap(sema, yapi) {
     const akim = yukAkimTrifaz(yapiYeniTG);
     const liste = sigKolonTip === 'TMŞ' ? TMS_LIST : K_OTOMAT_LIST;
     const kat = odSigortaKategori(sigKolon.akim, akim, liste);
+    const uygunSig = odUygunSigortaDeger(akim, liste);
+    const uygunStr = uygunSig ? uygunSig + ' A' : '?';
     kural.push({no:14, grup:'2. KESİCİLER', baslik:'AT Giriş Sigortası Akım',
       durum: kat,
-      not: kat === 'uygunsuz' ? 'AT giriş sigortası için seçilen sigorta akım değeri UYGUN DEĞİLDİR. Projenin onaydan dönme riskine karşı değerleri kontrol etmeniz önerilir.'
-        : (kat === 'potansiyel' ? 'AT giriş sigortası için seçilen sigorta akım değeri, dağıtım şirketi kabul kriterleriyle uyumsuzluk gösterebilir.' : '')
+      not: kat === 'uygunsuz' ? 'Uygun değil (uygun değer: ' + uygunStr + ')'
+        : (kat === 'potansiyel' ? 'Riskli (uygun değer: ' + uygunStr + ')' : '')
     });
   } else {
     kural.push({no:14, grup:'2. KESİCİLER', baslik:'AT Giriş Sigortası Akım', durum:'atla', not:''});
@@ -830,41 +868,42 @@ function onDegerlendirmeYap(sema, yapi) {
   // Kural 15: Not - aktif pasif kontrolü zaten 13/14'te yapıldı
   kural.push({no:15, grup:'2. KESİCİLER', baslik:'Ana Kolon Kablosu Kesicisi Durumu',
     durum: sigKolonAktif ? 'uygun' : 'atla',
-    not: sigKolonAktif ? '' : 'Ana kolon kablosu kesicisi pasif — bu kesiciye ait kurallar (13-14) değerlendirme dışındadır.'
+    not: ''
   });
 
   // Kural 16: Sayaç giriş sigortası faz
   if (sigSayacGiris) {
     const beklenFaz = yeniKurulu > 5000 ? '3x' : '1x';
+    const beklenFazStr = yeniKurulu > 5000 ? '3x (trifaz)' : '1x (monofaz)';
     const k16ok = sigSayacGiris.faz === beklenFaz;
     kural.push({no:16, grup:'2. KESİCİLER', baslik:'Sayaç Giriş Sigortası Faz',
       durum: k16ok ? 'uygun' : 'uygunsuz',
-      not: k16ok ? ''
-        : (yeniKurulu > 5000 ? 'Yeni kurulu güç >5000W olduğundan sayaç giriş sigortası trifaz olmalıdır. Seçilen değer UYGUN DEĞİLDİR.'
-                             : 'Yeni kurulu güç ≤5000W olduğundan sayaç giriş sigortası monofaz olmalıdır. Seçilen değer UYGUN DEĞİLDİR.')
+      not: k16ok ? '' : 'Uygun değil (uygun değer: ' + beklenFazStr + ')'
     });
   }
 
   // Kural 17: Sayaç giriş sigortası akım
   if (sigSayacGiris) {
-    const akim = yukAkimTrifaz(yeniTalep);
+    const monofazMi = yeniKurulu <= 5000;
+    const akim = monofazMi ? yukAkimMonofaz(yeniTalep) : yukAkimTrifaz(yeniTalep);
     const kat = odSigortaKategori(sigSayacGiris.akim, akim, K_OTOMAT_LIST);
+    const uygunSig = odUygunSigortaDeger(akim, K_OTOMAT_LIST);
+    const uygunStr = uygunSig ? uygunSig + ' A' : '?';
     kural.push({no:17, grup:'2. KESİCİLER', baslik:'Sayaç Giriş Sigortası Akım',
       durum: kat,
-      not: kat === 'uygunsuz' ? 'Sayaç giriş sigortası için seçilen sigorta akım değeri UYGUN DEĞİLDİR. Projenin onaydan dönme riskine karşı değerleri kontrol etmeniz önerilir.'
-        : (kat === 'potansiyel' ? 'Sayaç giriş sigortası için seçilen sigorta akım değeri, dağıtım şirketi kabul kriterleriyle uyumsuzluk gösterebilir.' : '')
+      not: kat === 'uygunsuz' ? 'Uygun değil (uygun değer: ' + uygunStr + ')'
+        : (kat === 'potansiyel' ? 'Riskli (uygun değer: ' + uygunStr + ')' : '')
     });
   }
 
   // Kural 18: Sayaç çıkış sigortası faz
   if (sigSayacCikisAktif && sigSayacCikis) {
     const beklenFaz = yeniKurulu > 5000 ? '3x' : '1x';
+    const beklenFazStr = yeniKurulu > 5000 ? '3x (trifaz)' : '1x (monofaz)';
     const k18ok = sigSayacCikis.faz === beklenFaz;
     kural.push({no:18, grup:'2. KESİCİLER', baslik:'Sayaç Çıkış Sigortası Faz',
       durum: k18ok ? 'uygun' : 'uygunsuz',
-      not: k18ok ? ''
-        : (yeniKurulu > 5000 ? 'Yeni kurulu güç >5000W olduğundan sayaç çıkış sigortası trifaz olmalıdır. Seçilen değer UYGUN DEĞİLDİR.'
-                             : 'Yeni kurulu güç ≤5000W olduğundan sayaç çıkış sigortası monofaz olmalıdır. Seçilen değer UYGUN DEĞİLDİR.')
+      not: k18ok ? '' : 'Uygun değil (uygun değer: ' + beklenFazStr + ')'
     });
   } else if (!sigSayacCikisAktif) {
     kural.push({no:18, grup:'2. KESİCİLER', baslik:'Sayaç Çıkış Sigortası Faz', durum:'atla', not:''});
@@ -872,29 +911,33 @@ function onDegerlendirmeYap(sema, yapi) {
 
   // Kural 19: Sayaç çıkış sigortası akım
   if (sigSayacCikisAktif && sigSayacCikis) {
-    const akim = yukAkimTrifaz(yeniTalep);
+    const monofazMi = yeniKurulu <= 5000;
+    const akim = monofazMi ? yukAkimMonofaz(yeniTalep) : yukAkimTrifaz(yeniTalep);
     const kat = odSigortaKategori(sigSayacCikis.akim, akim, K_OTOMAT_LIST);
+    const uygunSig = odUygunSigortaDeger(akim, K_OTOMAT_LIST);
+    const uygunStr = uygunSig ? uygunSig + ' A' : '?';
     kural.push({no:19, grup:'2. KESİCİLER', baslik:'Sayaç Çıkış Sigortası Akım',
       durum: kat,
-      not: kat === 'uygunsuz' ? 'Sayaç çıkış sigortası için seçilen sigorta akım değeri UYGUN DEĞİLDİR. Projenin onaydan dönme riskine karşı değerleri kontrol etmeniz önerilir.'
-        : (kat === 'potansiyel' ? 'Sayaç çıkış sigortası için seçilen sigorta akım değeri, dağıtım şirketi kabul kriterleriyle uyumsuzluk gösterebilir.' : '')
+      not: kat === 'uygunsuz' ? 'Uygun değil (uygun değer: ' + uygunStr + ')'
+        : (kat === 'potansiyel' ? 'Riskli (uygun değer: ' + uygunStr + ')' : '')
     });
   } else if (!sigSayacCikisAktif) {
     kural.push({no:19, grup:'2. KESİCİLER', baslik:'Sayaç Çıkış Sigortası Akım', durum:'atla', not:''});
   }
 
-  // Kural 20: Sayaç çıkış sigortası pasif ise potansiyel
+  // Kural 20: Sayaç çıkış sigortası pasif ise risk
   kural.push({no:20, grup:'2. KESİCİLER', baslik:'Sayaç Çıkış Sigortası Varlığı',
     durum: sigSayacCikisAktif ? 'uygun' : 'potansiyel',
-    not: sigSayacCikisAktif ? '' : 'Sayaç çıkış sigortasının olmaması dağıtım şirketi kabul kriterleriyle uyumsuzluk gösterebilir. Kontrol etmeniz önerilir.'
+    not: sigSayacCikisAktif ? '' : 'Sayaç çıkış sigortası mevcut değil.'
   });
 
   // Kural 21: Mevcut kolon kablosu sigortası faz
   if (sigMevcut) {
     const k21ok = sayacMonofaz ? sigMevcut.faz === '1x' : sigMevcut.faz === '3x';
+    const beklenFazStr = sayacMonofaz ? '1x (monofaz)' : '3x (trifaz)';
     kural.push({no:21, grup:'2. KESİCİLER', baslik:'Mevcut Kolon Kablosu Sigortası Faz',
       durum: k21ok ? 'uygun' : 'uygunsuz',
-      not: k21ok ? '' : 'Mevcut kolon kablosu sigortası için seçilen faz değeri UYGUN DEĞİLDİR. Projenin onaydan dönme riskine karşı değerleri kontrol etmeniz önerilir.'
+      not: k21ok ? '' : 'Uygun değil (uygun değer: ' + beklenFazStr + ')'
     });
   }
 
@@ -902,21 +945,32 @@ function onDegerlendirmeYap(sema, yapi) {
   if (sigMevcut) {
     const akim = sayacMonofaz ? yukAkimMonofaz(eskiTalep) : yukAkimTrifaz(eskiTalep);
     const kat = odSigortaKategori(sigMevcut.akim, akim, K_OTOMAT_LIST);
+    const uygunSig = odUygunSigortaDeger(akim, K_OTOMAT_LIST);
+    const uygunStr = uygunSig ? uygunSig + ' A' : '?';
     kural.push({no:22, grup:'2. KESİCİLER', baslik:'Mevcut Kolon Kablosu Sigortası Akım',
       durum: kat,
-      not: kat === 'uygunsuz' ? 'Mevcut kolon kablosu sigortası için seçilen sigorta akım değeri UYGUN DEĞİLDİR. Projenin onaydan dönme riskine karşı değerleri kontrol etmeniz önerilir.'
-        : (kat === 'potansiyel' ? 'Mevcut kolon kablosu sigortası için seçilen sigorta akım değeri, dağıtım şirketi kabul kriterleriyle uyumsuzluk gösterebilir.' : '')
+      not: kat === 'uygunsuz' ? 'Uygun değil (uygun değer: ' + uygunStr + ')'
+        : (kat === 'potansiyel' ? 'Riskli (uygun değer: ' + uygunStr + ')' : '')
     });
   }
 
   // Kural 23: İstek kolon kablosu sigortası faz
   if (sigIstek) {
     let k23ok;
-    if (sayacMonofaz) k23ok = sigIstek.faz === '1x';
-    else k23ok = yukIstek ? (yukIstek.trifaz ? sigIstek.faz === '3x' : sigIstek.faz === '1x') : sigIstek.faz === '3x';
+    let beklenFazStr;
+    if (sayacMonofaz) {
+      k23ok = sigIstek.faz === '1x';
+      beklenFazStr = '1x (monofaz)';
+    } else if (yukIstek) {
+      k23ok = yukIstek.trifaz ? sigIstek.faz === '3x' : sigIstek.faz === '1x';
+      beklenFazStr = yukIstek.trifaz ? '3x (trifaz)' : '1x (monofaz)';
+    } else {
+      k23ok = sigIstek.faz === '3x';
+      beklenFazStr = '3x (trifaz)';
+    }
     kural.push({no:23, grup:'2. KESİCİLER', baslik:'İstek Kolon Kablosu Sigortası Faz',
       durum: k23ok ? 'uygun' : 'uygunsuz',
-      not: k23ok ? '' : 'İstek kolon kablosu sigortası için seçilen faz değeri UYGUN DEĞİLDİR. Projenin onaydan dönme riskine karşı değerleri kontrol etmeniz önerilir.'
+      not: k23ok ? '' : 'Uygun değil (uygun değer: ' + beklenFazStr + ')'
     });
   }
 
@@ -925,10 +979,12 @@ function onDegerlendirmeYap(sema, yapi) {
     const istekTrifaz = yukIstek ? yukIstek.trifaz : !sayacMonofaz;
     const akim = istekTrifaz ? yukAkimTrifaz(ilaveTalep) : yukAkimMonofaz(ilaveTalep);
     const kat = odSigortaKategori(sigIstek.akim, akim, K_OTOMAT_LIST);
+    const uygunSig = odUygunSigortaDeger(akim, K_OTOMAT_LIST);
+    const uygunStr = uygunSig ? uygunSig + ' A' : '?';
     kural.push({no:24, grup:'2. KESİCİLER', baslik:'İstek Kolon Kablosu Sigortası Akım',
       durum: kat,
-      not: kat === 'uygunsuz' ? 'İstek kolon kablosu sigortası için seçilen sigorta akım değeri UYGUN DEĞİLDİR. Projenin onaydan dönme riskine karşı değerleri kontrol etmeniz önerilir.'
-        : (kat === 'potansiyel' ? 'İstek kolon kablosu sigortası için seçilen sigorta akım değeri, dağıtım şirketi kabul kriterleriyle uyumsuzluk gösterebilir.' : '')
+      not: kat === 'uygunsuz' ? 'Uygun değil (uygun değer: ' + uygunStr + ')'
+        : (kat === 'potansiyel' ? 'Riskli (uygun değer: ' + uygunStr + ')' : '')
     });
   }
 
@@ -937,9 +993,10 @@ function onDegerlendirmeYap(sema, yapi) {
   // Kural 25: Mevcut röle faz
   if (roleMevcut) {
     const k25ok = sayacMonofaz ? roleMevcut.faz === '2x' : roleMevcut.faz === '4x';
+    const beklenFazStr = sayacMonofaz ? '2x (monofaz)' : '4x (trifaz)';
     kural.push({no:25, grup:'3. RÖLELER', baslik:'Mevcut Röle Faz',
       durum: k25ok ? 'uygun' : 'uygunsuz',
-      not: k25ok ? '' : 'Mevcut DT rölesi için seçilen faz değeri UYGUN DEĞİLDİR. Projenin onaydan dönme riskine karşı değerleri kontrol etmeniz önerilir.'
+      not: k25ok ? '' : 'Uygun değil (uygun değer: ' + beklenFazStr + ')'
     });
   }
 
@@ -947,10 +1004,12 @@ function onDegerlendirmeYap(sema, yapi) {
   if (roleMevcut) {
     const akim = sayacMonofaz ? yukAkimMonofaz(eskiTalep) : yukAkimTrifaz(eskiTalep);
     const kat = odSigortaKategori(roleMevcut.akim, akim, K_OTOMAT_LIST);
+    const uygunSig = odUygunSigortaDeger(akim, K_OTOMAT_LIST);
+    const uygunStr = uygunSig ? uygunSig + ' A' : '?';
     kural.push({no:26, grup:'3. RÖLELER', baslik:'Mevcut Röle Akım',
       durum: kat,
-      not: kat === 'uygunsuz' ? 'Mevcut DT rölesi için seçilen akım değeri UYGUN DEĞİLDİR. Projenin onaydan dönme riskine karşı değerleri kontrol etmeniz önerilir.'
-        : (kat === 'potansiyel' ? 'Mevcut DT rölesi için seçilen akım değeri, dağıtım şirketi kabul kriterleriyle uyumsuzluk gösterebilir.' : '')
+      not: kat === 'uygunsuz' ? 'Uygun değil (uygun değer: ' + uygunStr + ')'
+        : (kat === 'potansiyel' ? 'Riskli (uygun değer: ' + uygunStr + ')' : '')
     });
   }
 
@@ -959,18 +1018,27 @@ function onDegerlendirmeYap(sema, yapi) {
     const k27ok = roleMevcut.ma === 30;
     kural.push({no:27, grup:'3. RÖLELER', baslik:'Mevcut Röle Tipi (30mA)',
       durum: k27ok ? 'uygun' : 'uygunsuz',
-      not: k27ok ? '' : 'Mevcut DT rölesi için röle tipi UYGUN DEĞİLDİR. 30mA olmalıdır. Projenin onaydan dönme riskine karşı değerleri kontrol etmeniz önerilir.'
+      not: k27ok ? '' : 'Uygun değil (uygun değer: 30mA)'
     });
   }
 
   // Kural 28: İstek röle faz
   if (roleIstek) {
     let k28ok;
-    if (sayacMonofaz) k28ok = roleIstek.faz === '2x';
-    else k28ok = yukIstek ? (yukIstek.trifaz ? roleIstek.faz === '4x' : roleIstek.faz === '2x') : roleIstek.faz === '4x';
+    let beklenFazStr;
+    if (sayacMonofaz) {
+      k28ok = roleIstek.faz === '2x';
+      beklenFazStr = '2x (monofaz)';
+    } else if (yukIstek) {
+      k28ok = yukIstek.trifaz ? roleIstek.faz === '4x' : roleIstek.faz === '2x';
+      beklenFazStr = yukIstek.trifaz ? '4x (trifaz)' : '2x (monofaz)';
+    } else {
+      k28ok = roleIstek.faz === '4x';
+      beklenFazStr = '4x (trifaz)';
+    }
     kural.push({no:28, grup:'3. RÖLELER', baslik:'İstek Röle Faz',
       durum: k28ok ? 'uygun' : 'uygunsuz',
-      not: k28ok ? '' : 'İstek DT rölesi için seçilen faz değeri UYGUN DEĞİLDİR. Projenin onaydan dönme riskine karşı değerleri kontrol etmeniz önerilir.'
+      not: k28ok ? '' : 'Uygun değil (uygun değer: ' + beklenFazStr + ')'
     });
   }
 
@@ -979,10 +1047,12 @@ function onDegerlendirmeYap(sema, yapi) {
     const istekTrifaz = yukIstek ? yukIstek.trifaz : !sayacMonofaz;
     const akim = istekTrifaz ? yukAkimTrifaz(ilaveTalep) : yukAkimMonofaz(ilaveTalep);
     const kat = odSigortaKategori(roleIstek.akim, akim, K_OTOMAT_LIST);
+    const uygunSig = odUygunSigortaDeger(akim, K_OTOMAT_LIST);
+    const uygunStr = uygunSig ? uygunSig + ' A' : '?';
     kural.push({no:29, grup:'3. RÖLELER', baslik:'İstek Röle Akım',
       durum: kat,
-      not: kat === 'uygunsuz' ? 'İstek DT rölesi için seçilen akım değeri UYGUN DEĞİLDİR. Projenin onaydan dönme riskine karşı değerleri kontrol etmeniz önerilir.'
-        : (kat === 'potansiyel' ? 'İstek DT rölesi için seçilen akım değeri, dağıtım şirketi kabul kriterleriyle uyumsuzluk gösterebilir.' : '')
+      not: kat === 'uygunsuz' ? 'Uygun değil (uygun değer: ' + uygunStr + ')'
+        : (kat === 'potansiyel' ? 'Riskli (uygun değer: ' + uygunStr + ')' : '')
     });
   }
 
@@ -991,30 +1061,32 @@ function onDegerlendirmeYap(sema, yapi) {
     const k30ok = roleIstek.ma === 30;
     kural.push({no:30, grup:'3. RÖLELER', baslik:'İstek Röle Tipi (30mA)',
       durum: k30ok ? 'uygun' : 'uygunsuz',
-      not: k30ok ? '' : 'İstek DT rölesi için röle tipi UYGUN DEĞİLDİR. 30mA olmalıdır. Projenin onaydan dönme riskine karşı değerleri kontrol etmeniz önerilir.'
+      not: k30ok ? '' : 'Uygun değil (uygun değer: 30mA)'
     });
   }
 
   // Kural 31: Sayaç giriş rölesi faz
   if (roleSayacGiris) {
     const beklenFaz = yeniKurulu > 5000 ? '4x' : '2x';
+    const beklenFazStr = yeniKurulu > 5000 ? '4x (trifaz)' : '2x (monofaz)';
     const k31ok = roleSayacGiris.faz === beklenFaz;
     kural.push({no:31, grup:'3. RÖLELER', baslik:'Sayaç Giriş Rölesi Faz',
       durum: k31ok ? 'uygun' : 'uygunsuz',
-      not: k31ok ? ''
-        : (yeniKurulu > 5000 ? 'Yeni kurulu güç >5000W olduğundan sayaç giriş rölesi trifaz (4x) olmalıdır. Seçilen değer UYGUN DEĞİLDİR.'
-                             : 'Yeni kurulu güç ≤5000W olduğundan sayaç giriş rölesi monofaz (2x) olmalıdır. Seçilen değer UYGUN DEĞİLDİR.')
+      not: k31ok ? '' : 'Uygun değil (uygun değer: ' + beklenFazStr + ')'
     });
   }
 
   // Kural 32: Sayaç giriş rölesi akım
   if (roleSayacGiris) {
-    const akim = yukAkimTrifaz(yeniTalep);
+    const monofazMi = yeniKurulu <= 5000;
+    const akim = monofazMi ? yukAkimMonofaz(yeniTalep) : yukAkimTrifaz(yeniTalep);
     const kat = odSigortaKategori(roleSayacGiris.akim, akim, K_OTOMAT_LIST);
+    const uygunSig = odUygunSigortaDeger(akim, K_OTOMAT_LIST);
+    const uygunStr = uygunSig ? uygunSig + ' A' : '?';
     kural.push({no:32, grup:'3. RÖLELER', baslik:'Sayaç Giriş Rölesi Akım',
       durum: kat,
-      not: kat === 'uygunsuz' ? 'Sayaç giriş rölesi için seçilen akım değeri UYGUN DEĞİLDİR. Projenin onaydan dönme riskine karşı değerleri kontrol etmeniz önerilir.'
-        : (kat === 'potansiyel' ? 'Sayaç giriş rölesi için seçilen akım değeri, dağıtım şirketi kabul kriterleriyle uyumsuzluk gösterebilir.' : '')
+      not: kat === 'uygunsuz' ? 'Uygun değil (uygun değer: ' + uygunStr + ')'
+        : (kat === 'potansiyel' ? 'Riskli (uygun değer: ' + uygunStr + ')' : '')
     });
   }
 
@@ -1023,7 +1095,7 @@ function onDegerlendirmeYap(sema, yapi) {
     const k33ok = roleSayacGiris.ma === 300;
     kural.push({no:33, grup:'3. RÖLELER', baslik:'Sayaç Giriş Rölesi Tipi (300mA)',
       durum: k33ok ? 'uygun' : 'uygunsuz',
-      not: k33ok ? '' : 'Sayaç giriş rölesi için röle tipi UYGUN DEĞİLDİR. 300mA olmalıdır. Projenin onaydan dönme riskine karşı değerleri kontrol etmeniz önerilir.'
+      not: k33ok ? '' : 'Uygun değil (uygun değer: 300mA)'
     });
   }
 
@@ -1039,26 +1111,25 @@ function onDegerlendirmeYap(sema, yapi) {
     const k34ok = sayac.tip === beklenTip;
     kural.push({no:34, grup:'4. SAYAÇ', baslik:'Sayaç Tipi',
       durum: k34ok ? 'uygun' : 'uygunsuz',
-      not: k34ok ? '' : ('Sayaç tipi UYGUN DEĞİLDİR. Beklenen tip: ' + beklenTip + ', seçilen: ' + sayac.tip + '. Projenin onaydan dönme riskine karşı değerleri kontrol etmeniz önerilir.')
+      not: k34ok ? '' : 'Uygun değil (uygun değer: ' + beklenTip + ')'
     });
   }
 
   // Kural 35: Akım Trafo Oranı (sadece X5 sayaç için)
   if (sayacX5) {
     const yukAkim = yukAkimTrifaz(yeniTalep);
-    const bulunanOran = yukAkim; // trafo primary current needed = load current
+    const bulunanOran = yukAkim;
     const secilenAkim = sayac.trafoAkim;
+    const sirali = TRAFO_ORANLARI.slice().sort(function(a, b) { return a - b; });
+    const uygunlar = sirali.filter(function(s) { return s >= bulunanOran; });
+    const ilkUygun = uygunlar.length > 0 ? uygunlar[0] : null;
+    const uygunStr = ilkUygun ? ilkUygun + '/5' : '?';
     if (secilenAkim > 0) {
-      // Seçilen trafo akımı < bulunan oran ≤ seçilen × 1.05 → potansiyel
       const aPotansiyel = secilenAkim < bulunanOran && bulunanOran <= secilenAkim * 1.05;
       let kat;
       if (aPotansiyel) {
         kat = 'potansiyel';
       } else {
-        // bulunanOran'dan büyük ilk oran uygun
-        const sirali = TRAFO_ORANLARI.slice().sort((a, b) => a - b);
-        const uygunlar = sirali.filter(s => s >= bulunanOran);
-        const ilkUygun = uygunlar.length > 0 ? uygunlar[0] : null;
         if (!ilkUygun) {
           kat = 'uygunsuz';
         } else {
@@ -1071,17 +1142,17 @@ function onDegerlendirmeYap(sema, yapi) {
       }
       kural.push({no:35, grup:'4. SAYAÇ', baslik:'Akım Trafo Oranı',
         durum: kat,
-        not: kat === 'uygunsuz' ? 'Seçilen akım trafo oranı UYGUN DEĞİLDİR. Hesaplanan gerekli akım: ' + bulunanOran.toFixed(1) + 'A, seçilen: ' + secilenAkim + '/5. Projenin onaydan dönme riskine karşı değerleri kontrol etmeniz önerilir.'
-          : (kat === 'potansiyel' ? 'Seçilen akım trafo oranı, dağıtım şirketi kabul kriterleriyle uyumsuzluk gösterebilir. Hesaplanan gerekli akım: ' + bulunanOran.toFixed(1) + 'A. Kontrol etmeniz önerilir.' : '')
+        not: kat === 'uygunsuz' ? 'Uygun değil (uygun değer: ' + uygunStr + ')'
+          : (kat === 'potansiyel' ? 'Riskli (uygun değer: ' + uygunStr + ')' : '')
       });
     } else {
       kural.push({no:35, grup:'4. SAYAÇ', baslik:'Akım Trafo Oranı',
         durum: 'uygunsuz',
-        not: 'X5 sayaç için akım trafo oranı seçilmemiştir. Projenin onaydan dönme riskine karşı değerleri kontrol etmeniz önerilir.'
+        not: 'Akım trafo oranı seçilmemiş (uygun değer: ' + uygunStr + ')'
       });
     }
   } else {
-    kural.push({no:35, grup:'4. SAYAÇ', baslik:'Akım Trafo Oranı', durum:'atla', not:'X5 sayaç seçili değil — bu kural değerlendirme dışındadır.'});
+    kural.push({no:35, grup:'4. SAYAÇ', baslik:'Akım Trafo Oranı', durum:'atla', not:'İnceleme dışı'});
   }
 
   // ── 5. GERİLİM DÜŞÜMÜ HESAPLARI ─────────────────────
@@ -1093,7 +1164,7 @@ function onDegerlendirmeYap(sema, yapi) {
       const ok = gdUzun.includes('uygundur') && !gdUzun.includes('uygun değildir');
       kural.push({no:36, grup:'5. GERİLİM DÜŞÜMÜ', baslik:'En Uzun Gerilim Düşümü (%etop)',
         durum: ok ? 'uygun' : 'uygunsuz',
-        not: ok ? '' : 'En uzun hat için gerilim düşümü (%etop) UYGUN DEĞİLDİR. Projenin onaydan dönme riskine karşı kesit değerlerini kontrol etmeniz önerilir.'
+        not: ok ? '' : 'Gerilim düşümü izin verilen sınırı aşıyor — kablo kesitlerini kontrol edin.'
       });
     } else {
       kural.push({no:36, grup:'5. GERİLİM DÜŞÜMÜ', baslik:'En Uzun Gerilim Düşümü (%etop)', durum:'atla', not:'Gerilim düşümü hesabı verisi bulunamadı.'});
@@ -1107,7 +1178,7 @@ function onDegerlendirmeYap(sema, yapi) {
       const ok = gdGuclu.includes('uygundur') && !gdGuclu.includes('uygun değildir');
       kural.push({no:37, grup:'5. GERİLİM DÜŞÜMÜ', baslik:'En Güçlü Gerilim Düşümü (%etop)',
         durum: ok ? 'uygun' : 'uygunsuz',
-        not: ok ? '' : 'En güçlü hat için gerilim düşümü (%etop) UYGUN DEĞİLDİR. Projenin onaydan dönme riskine karşı kesit değerlerini kontrol etmeniz önerilir.'
+        not: ok ? '' : 'Gerilim düşümü izin verilen sınırı aşıyor — kablo kesitlerini kontrol edin.'
       });
     } else {
       kural.push({no:37, grup:'5. GERİLİM DÜŞÜMÜ', baslik:'En Güçlü Gerilim Düşümü (%etop)', durum:'atla', not:'Gerilim düşümü hesabı verisi bulunamadı.'});
@@ -1116,62 +1187,40 @@ function onDegerlendirmeYap(sema, yapi) {
 
   // ── 6. AKIM HESAPLARI ────────────────────────────────
 
-  function gdAkimUygunMu(html, akimLabel) {
+  function gdAkimUygunMu(html) {
     if (!html) return null;
-    // Akım notları "Akım yönünden uygundur." veya "uygun değildir." içerir
-    const idx = html.indexOf(akimLabel);
-    if (idx === -1) return null;
-    const sonra = html.substring(idx, idx + 200);
-    if (sonra.includes('Akım yönünden uygundur')) return true;
-    if (sonra.includes('Akım yönünden uygun değildir')) return false;
+    // akimNot() fonksiyonu 'Akım yönünden uygundur.' veya 'Akım yönünden uygun değildir.' yazar;
+    // bu iki string aynı HTML'de birlikte bulunmaz (her hat için tek bir sonuç vardır).
+    if (html.includes('Akım yönünden uygun değildir')) return false;
+    if (html.includes('Akım yönünden uygundur')) return true;
     return null;
   }
 
-  // Kural 38: En uzun I1, I2, I3
+  // Kural 38: En uzun hat akım
   {
     const gdUzun = sema.gdEnUzunHtml || '';
     if (gdUzun) {
-      const i1ok = gdAkimUygunMu(gdUzun, 'I1');
-      const i2ok = gdAkimUygunMu(gdUzun, 'I2');
-      const i3ok = gdAkimUygunMu(gdUzun, 'I3');
-      kural.push({no:'38.1', grup:'6. AKIM HESAPLARI', baslik:'En Uzun I1 Akım',
-        durum: i1ok === null ? 'atla' : (i1ok ? 'uygun' : 'uygunsuz'),
-        not: i1ok === false ? 'En uzun hat I1 akımı kolon kablosu akım taşıma kapasitesini aşıyor. Kesit büyütülmelidir.' : ''
-      });
-      kural.push({no:'38.2', grup:'6. AKIM HESAPLARI', baslik:'En Uzun I2 Akım',
-        durum: i2ok === null ? 'atla' : (i2ok ? 'uygun' : 'uygunsuz'),
-        not: i2ok === false ? 'En uzun hat I2 akımı DT kolon kablosu akım taşıma kapasitesini aşıyor. Kesit büyütülmelidir.' : ''
-      });
-      kural.push({no:'38.3', grup:'6. AKIM HESAPLARI', baslik:'En Uzun I3 Akım',
-        durum: i3ok === null ? 'atla' : (i3ok ? 'uygun' : 'uygunsuz'),
-        not: i3ok === false ? 'En uzun hat I3 akımı yük linye kablosu akım taşıma kapasitesini aşıyor. Kesit büyütülmelidir.' : ''
+      const ok = gdAkimUygunMu(gdUzun);
+      kural.push({no:38, grup:'6. AKIM HESAPLARI', baslik:'En Uzun Hat Akımı',
+        durum: ok === null ? 'atla' : (ok ? 'uygun' : 'uygunsuz'),
+        not: ok === false ? 'Kablo akım taşıma kapasitesi yetersiz — kesit büyütülmeli.' : ''
       });
     } else {
-      kural.push({no:'38.1', grup:'6. AKIM HESAPLARI', baslik:'En Uzun I1/I2/I3', durum:'atla', not:'Akım hesabı verisi bulunamadı.'});
+      kural.push({no:38, grup:'6. AKIM HESAPLARI', baslik:'En Uzun Hat Akımı', durum:'atla', not:'Akım hesabı verisi bulunamadı.'});
     }
   }
 
-  // Kural 39: En güçlü I1, I2, I3
+  // Kural 39: En güçlü hat akım
   {
     const gdGuclu = sema.gdEnGucluHtml || '';
     if (gdGuclu) {
-      const i1ok = gdAkimUygunMu(gdGuclu, 'I1');
-      const i2ok = gdAkimUygunMu(gdGuclu, 'I2');
-      const i3ok = gdAkimUygunMu(gdGuclu, 'I3');
-      kural.push({no:'39.1', grup:'6. AKIM HESAPLARI', baslik:'En Güçlü I1 Akım',
-        durum: i1ok === null ? 'atla' : (i1ok ? 'uygun' : 'uygunsuz'),
-        not: i1ok === false ? 'En güçlü hat I1 akımı kolon kablosu akım taşıma kapasitesini aşıyor. Kesit büyütülmelidir.' : ''
-      });
-      kural.push({no:'39.2', grup:'6. AKIM HESAPLARI', baslik:'En Güçlü I2 Akım',
-        durum: i2ok === null ? 'atla' : (i2ok ? 'uygun' : 'uygunsuz'),
-        not: i2ok === false ? 'En güçlü hat I2 akımı DT kolon kablosu akım taşıma kapasitesini aşıyor. Kesit büyütülmelidir.' : ''
-      });
-      kural.push({no:'39.3', grup:'6. AKIM HESAPLARI', baslik:'En Güçlü I3 Akım',
-        durum: i3ok === null ? 'atla' : (i3ok ? 'uygun' : 'uygunsuz'),
-        not: i3ok === false ? 'En güçlü hat I3 akımı yük linye kablosu akım taşıma kapasitesini aşıyor. Kesit büyütülmelidir.' : ''
+      const ok = gdAkimUygunMu(gdGuclu);
+      kural.push({no:39, grup:'6. AKIM HESAPLARI', baslik:'En Güçlü Hat Akımı',
+        durum: ok === null ? 'atla' : (ok ? 'uygun' : 'uygunsuz'),
+        not: ok === false ? 'Kablo akım taşıma kapasitesi yetersiz — kesit büyütülmeli.' : ''
       });
     } else {
-      kural.push({no:'39.1', grup:'6. AKIM HESAPLARI', baslik:'En Güçlü I1/I2/I3', durum:'atla', not:'Akım hesabı verisi bulunamadı.'});
+      kural.push({no:39, grup:'6. AKIM HESAPLARI', baslik:'En Güçlü Hat Akımı', durum:'atla', not:'Akım hesabı verisi bulunamadı.'});
     }
   }
 
@@ -1182,22 +1231,90 @@ function onDegerlendirmeYap(sema, yapi) {
     gruplar[k.grup].push(k);
   });
 
+  // Başlıktaki Faz/Kesit/Akım/Varlığı/Durumu/Tipi(xmA) son eklerini kaldırarak temel başlık döndürür
+  function odBaslikGrubu(baslik) {
+    return baslik.replace(/\s+(Faz|Kesit|Akım|Varlığı|Durumu|Tipi\s*\(\d+mA\))$/, '').trim();
+  }
+
+  // Durum şiddet sıralaması: uygunsuz > potansiyel > uygun > atla
+  function odDurumSeviye(durum) {
+    if (durum === 'uygunsuz') return 3;
+    if (durum === 'potansiyel') return 2;
+    if (durum === 'uygun') return 1;
+    return 0;
+  }
+
   let html = '<div class="od-baslik">🔍 Ön Değerlendirme Sonuçları</div>';
+  let hicGosterilmedi = true;
 
   Object.keys(gruplar).forEach(function(grupAdi) {
     const kurallar = gruplar[grupAdi];
-    const tumUygun = kurallar.every(k => k.durum === 'uygun' || k.durum === 'atla');
-    const herhangiUygunsuz = kurallar.some(k => k.durum === 'uygunsuz');
-    const herhangiPotansiyel = !herhangiUygunsuz && kurallar.some(k => k.durum === 'potansiyel');
-    let ozet = tumUygun ? '✅ UYGUN' : (herhangiUygunsuz ? '❌ UYGUNSUZ' : '⚠️ POTANSİYEL UYGUNSUZLUK');
+
+    // Aynı temel başlık altındaki kuralları birleştir
+    const baslikGruplari = {};
+    const baslikSirasi = [];
+    kurallar.forEach(function(k) {
+      const bg = odBaslikGrubu(k.baslik);
+      if (!baslikGruplari[bg]) {
+        baslikGruplari[bg] = [];
+        baslikSirasi.push(bg);
+      }
+      baslikGruplari[bg].push(k);
+    });
+
+    // Her temel başlık için en kötü durum ve notları birleştir
+    const gosterimler = [];
+    baslikSirasi.forEach(function(bg) {
+      const list = baslikGruplari[bg];
+      const worstSeviye = list.reduce(function(w, k) {
+        return odDurumSeviye(k.durum) > w ? odDurumSeviye(k.durum) : w;
+      }, 0);
+      const worstDurum = ['atla','uygun','potansiyel','uygunsuz'][worstSeviye];
+
+      // Uygunsuz veya riskli olan notları topla, çoklu grupta ön ek ekle
+      const notlar = [];
+      list.forEach(function(k) {
+        if (k.not && (k.durum === 'uygunsuz' || k.durum === 'potansiyel')) {
+          if (list.length > 1) {
+            const sonek = k.baslik.replace(bg, '').trim();
+            notlar.push(sonek ? sonek + ': ' + k.not : k.not);
+          } else {
+            notlar.push(k.not);
+          }
+        }
+      });
+
+      gosterimler.push({ baslik: bg, durum: worstDurum, notlar: notlar });
+    });
+
+    // Sadece uygunsuz veya riskli başlıkları göster
+    const gosterilecekler = gosterimler.filter(function(g) {
+      return g.durum === 'uygunsuz' || g.durum === 'potansiyel';
+    });
+
+    if (gosterilecekler.length === 0) return; // Bu grupta sorun yok, atla
+    hicGosterilmedi = false;
+
+    const grupUygunsuz = gosterilecekler.some(function(g) { return g.durum === 'uygunsuz'; });
+    const ozet = grupUygunsuz ? '❌ UYGUNSUZ' : '⚠️ RİSK';
+
     html += '<div class="od-grup">';
     html += '<div class="od-grup-baslik">' + grupAdi + '<span>' + ozet + '</span></div>';
     html += '<div class="od-kural-listesi">';
-    kurallar.forEach(function(k) {
-      html += odKuralSatiri(k.no, k.baslik, k.durum, k.not);
+
+    gosterilecekler.forEach(function(g) {
+      const notHtml = g.notlar.length > 0
+        ? g.notlar.map(function(n) { return '<br><span style="color:#666;font-style:italic">' + n + '</span>'; }).join('')
+        : '';
+      html += '<div class="od-kural"><span class="od-kural-aciklama">' + g.baslik + notHtml + '</span>' + odDurumBadge(g.durum) + '</div>';
     });
+
     html += '</div></div>';
   });
+
+  if (hicGosterilmedi) {
+    html += '<div style="color:#2e7d32;font-weight:700;padding:14px;background:#e8f5e9;border-radius:8px;margin-top:8px">✅ Tüm kurallar uygun — ön değerlendirme geçti.</div>';
+  }
 
   sonucEl.innerHTML = html;
 }
