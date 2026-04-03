@@ -83,38 +83,12 @@
     }
     .ekle-btn:hover { background: #45a049; }
     .trafo-input-group {
-      display: flex;
-      align-items: center;
-      gap: 4px;
       margin-bottom: 12px;
     }
-    .trafo-input-group input {
-      flex: 1;
-      padding: 8px;
-      border-radius: 6px;
-      border: 1px solid #999;
-      box-sizing: border-box;
-      text-align: center;
-      font-weight: 600;
-    }
-    .trafo-input-group input:disabled {
+    .trafo-input-group select:disabled {
       background: #e0e0e0;
       color: #999;
       cursor: not-allowed;
-      opacity: 0.5;
-    }
-    .trafo-input-group .trafo-sabit {
-      padding: 8px 12px;
-      border-radius: 6px;
-      border: 1px solid #999;
-      background: #f2f2f2;
-      font-weight: 600;
-      color: #333;
-      white-space: nowrap;
-    }
-    .trafo-input-group .trafo-sabit.disabled {
-      background: #e0e0e0;
-      color: #999;
       opacity: 0.5;
     }
     .guc-panel {
@@ -698,8 +672,18 @@
         </div>
         <div class="form-title">Akım Trafo Oranı</div>
         <div class="trafo-input-group">
-          <input id="sayac-trafo-deger" type="number" placeholder="Örn: 100" disabled />
-          <span class="trafo-sabit disabled" id="sayac-trafo-sabit">/5</span>
+          <select id="sayac-trafo-select" class="popup-select" disabled>
+            <option value="100/5">100/5</option>
+            <option value="150/5">150/5</option>
+            <option value="200/5">200/5</option>
+            <option value="250/5">250/5</option>
+            <option value="300/5">300/5</option>
+            <option value="400/5">400/5</option>
+            <option value="500/5">500/5</option>
+            <option value="600/5">600/5</option>
+            <option value="750/5">750/5</option>
+            <option value="1250/5">1250/5</option>
+          </select>
         </div>
       </div>
 
@@ -1095,14 +1079,11 @@ function sayacCikisSigortaEkle() {
 function guncelleSayacTrafoAlani() {
   const aktifBtn   = document.querySelector('#sayac-tip button.active');
   const seciliTip  = aktifBtn?.getAttribute('data-value') || '';
-  const trafoInput = qs('sayac-trafo-deger');
-  const trafoSabit = qs('sayac-trafo-sabit');
+  const trafoSelect = qs('sayac-trafo-select');
   if (seciliTip === 'X5') {
-    if (trafoInput) trafoInput.disabled = false;
-    if (trafoSabit) trafoSabit.classList.remove('disabled');
+    if (trafoSelect) trafoSelect.disabled = false;
   } else {
-    if (trafoInput) { trafoInput.disabled = true; trafoInput.value = ''; }
-    if (trafoSabit) trafoSabit.classList.add('disabled');
+    if (trafoSelect) { trafoSelect.disabled = true; trafoSelect.value = '100/5'; }
   }
   const olcumBtnler = document.querySelectorAll('#sayac-olcum-ozellik button');
   const olcumGrup   = document.getElementById('sayac-olcum-ozellik');
@@ -1282,8 +1263,8 @@ function acModal(evt, options, cfg) {
     const sayacData = parseSayac(getText('txt_sayac_tip'), getText('txt_sayac_trafo'));
     if (sayacData) {
       setActiveButton('#sayac-tip', sayacData.sayac_tipi);
-      const trafoInput = qs('sayac-trafo-deger');
-      if (trafoInput) trafoInput.value = sayacData.trafo_orani || '';
+      const trafoSelect = qs('sayac-trafo-select');
+      if (trafoSelect && sayacData.trafo_tam) trafoSelect.value = sayacData.trafo_tam;
     }
     guncelleSayacTrafoAlani();
     const tipTamMetin  = getText('txt_sayac_tip').trim();
@@ -1354,13 +1335,13 @@ function kapatModal() {
       syncText(targetId, `${faz}${a} A`);
     }
   } else if (panel === 'sayac') {
-    const seciliTip  = document.querySelector('#sayac-tip button.active')?.getAttribute('data-value') || 'Trifaze';
-    const trafoInput = qs('sayac-trafo-deger');
-    const trafoVal   = trafoInput?.value?.trim() || '';
+    const seciliTip   = document.querySelector('#sayac-tip button.active')?.getAttribute('data-value') || 'Trifaze';
+    const trafoSelect = qs('sayac-trafo-select');
+    const trafoVal    = trafoSelect?.value || '';
     if (seciliTip === 'X5' && !trafoVal) {
-      if (trafoInput) { trafoInput.style.border = '2px solid red'; trafoInput.focus(); } return;
+      if (trafoSelect) { trafoSelect.style.border = '2px solid red'; trafoSelect.focus(); } return;
     }
-    if (trafoInput) trafoInput.style.border = '';
+    if (trafoSelect) trafoSelect.style.border = '';
     let tipText = '3x10';
     if (seciliTip === 'Monofaze') tipText = '1x10';
     else if (seciliTip === 'X5')  tipText = 'X5';
@@ -1373,7 +1354,7 @@ function kapatModal() {
     }
     const tipSatir = olcumKisalt ? tipText + ' ' + olcumKisalt : tipText;
     syncText('txt_sayac_tip',   tipSatir);
-    syncText('txt_sayac_trafo', seciliTip === 'X5' && trafoVal ? trafoVal + '/5' : '');
+    syncText('txt_sayac_trafo', seciliTip === 'X5' ? trafoVal : '');
     syncText('txt_sayac_olcum', '');
   } else if (panel === 'role' && modalConfig?.targets) {
     const roleAId = modalConfig.targets.roleA;
@@ -1787,6 +1768,42 @@ function buildYapiGucTablosu() {
 }
 function saveState() {
   try {
+    // Parse akım trafo pay/payda from txt_sayac_trafo (e.g. "100/5")
+    var _trafoTam   = getText('txt_sayac_trafo') || '';
+    var _trafoParts = _trafoTam.split('/');
+    var _akimTrafoPay   = _trafoParts[0] ? Number(_trafoParts[0]) || null : null;
+    var _akimTrafoPayda = _trafoParts[1] ? Number(_trafoParts[1]) || null : null;
+
+    // Compute GD results for rule engine
+    var _gdEnUzun  = null;
+    var _gdEnGuclu = null;
+    var _gdEnUzunHtml  = document.getElementById('gd-tablo-enuzun')?.innerHTML  || '';
+    var _gdEnGucluHtml = document.getElementById('gd-tablo-enguclu')?.innerHTML || '';
+    if (typeof window.collectGDData === 'function' && typeof window.gdHesapla === 'function') {
+      try {
+        var _dU = window.collectGDData('en_uzun');
+        var _sU = _dU ? window.gdHesapla(_dU) : null;
+        if (_sU) {
+          var _n1U = window.gdAkimNot ? window.gdAkimNot(_sU.ah.I1, _dU.kolonK) : null;
+          var _n2U = window.gdAkimNot ? window.gdAkimNot(_sU.ah.I2, _dU.dtK)   : null;
+          var _n3U = window.gdAkimNot ? window.gdAkimNot(_sU.ah.I3, _dU.yukK)  : null;
+          _gdEnUzun = { etop: _sU.gd.et, etopOk: _sU.gd.ok,
+            I1: _sU.ah.I1, I2: _sU.ah.I2, I3: _sU.ah.I3,
+            I1ok: _n1U ? _n1U.ok : null, I2ok: _n2U ? _n2U.ok : null, I3ok: _n3U ? _n3U.ok : null };
+        }
+        var _dG = window.collectGDData('en_guclu');
+        var _sG = _dG ? window.gdHesapla(_dG) : null;
+        if (_sG) {
+          var _n1G = window.gdAkimNot ? window.gdAkimNot(_sG.ah.I1, _dG.kolonK) : null;
+          var _n2G = window.gdAkimNot ? window.gdAkimNot(_sG.ah.I2, _dG.dtK)   : null;
+          var _n3G = window.gdAkimNot ? window.gdAkimNot(_sG.ah.I3, _dG.yukK)  : null;
+          _gdEnGuclu = { etop: _sG.gd.et, etopOk: _sG.gd.ok,
+            I1: _sG.ah.I1, I2: _sG.ah.I2, I3: _sG.ah.I3,
+            I1ok: _n1G ? _n1G.ok : null, I2ok: _n2G ? _n2G.ok : null, I3ok: _n3G ? _n3G.ok : null };
+        }
+      } catch(e2) { console.warn('[saveState GD]', e2); }
+    }
+
     localStorage.setItem(LS_SEMA_KEY, JSON.stringify({
       // Metin verileri (mevcut)
       kofre:            getText('txt_kofre'),
@@ -1818,6 +1835,9 @@ function saveState() {
       sigKolonText:     getText('txt_sig_kolon'),
       tmsKolonText:     getText('txt_tms_kolon'),
       kolonSigortaTip:  isDomVisible('tms_kolon') ? 'TMŞ' : isDomVisible('sig_kolon') ? 'K.Otomat' : 'Yok',
+      // Akım trafo oranı (yeni alanlar)
+      akimTrafoPay:     _akimTrafoPay,
+      akimTrafoPayda:   _akimTrafoPayda,
       visibility: {
         sigKolonVisible:        isDomVisible('sig_kolon'),
         tmsKolonVisible:        isDomVisible('tms_kolon'),
@@ -1836,7 +1856,12 @@ function saveState() {
         ilaveTalepManuel: qs('guc-ilave-talep') && qs('guc-ilave-talep').dataset.manuelDegistirildi ? '1' : ''
       },
       linyeler:       _linyeListesiOlustur(),
-      istekCosQ:      window._istekCosQ
+      istekCosQ:      window._istekCosQ,
+      // GD hesabı sonuçları (kural motoru için)
+      gdEnUzun:       _gdEnUzun,
+      gdEnGuclu:      _gdEnGuclu,
+      gdEnUzunHtml:   _gdEnUzunHtml,
+      gdEnGucluHtml:  _gdEnGucluHtml
     }));
   } catch(e) { console.warn('[saveState] error:', e); }
   window.dispatchEvent(new CustomEvent('semaGuncellendi'));
@@ -2562,6 +2587,8 @@ document.addEventListener('DOMContentLoaded',function(){
 
 window.gdTabloGuncelle=gdTabloGuncelle;
 window.collectGDData=collectGDData;
+window.gdHesapla=hesapla;
+window.gdAkimNot=akimNot;
 
 })();
 </script>

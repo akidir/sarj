@@ -51,6 +51,23 @@
     /* Sandbox */
     #html-sandbox{position:fixed;left:-99999px;top:0;background:#fff;z-index:-1;pointer-events:none}
 
+    /* Ön Değerlendirme Paneli */
+    .od-panel{background:#fff;border:1px solid #dde3ea;border-radius:10px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.07)}
+    .od-baslik{background:#005088;color:#fff;padding:14px 20px;font-size:15px;font-weight:700}
+    .od-bolum{border-bottom:1px solid #e8edf2}
+    .od-bolum:last-child{border-bottom:none}
+    .od-bolum-baslik{background:#f0f4f8;padding:10px 16px;font-weight:700;font-size:13px;color:#1a3a5c;cursor:pointer;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #dde3ea}
+    .od-bolum-icerik{padding:0}
+    .od-satir{display:flex;align-items:flex-start;padding:8px 16px;border-bottom:1px solid #f0f4f8;font-size:12px;gap:10px}
+    .od-satir:last-child{border-bottom:none}
+    .od-satir-baslik{flex:0 0 240px;font-weight:600;color:#444;padding-top:1px}
+    .od-satir-sonuc{flex:1}
+    .od-uygun{color:#2e7d32;font-weight:700}
+    .od-uygunsuz{color:#c62828;font-weight:700}
+    .od-potansiyel{color:#e65100;font-weight:700}
+    .od-veri-yok{color:#888;font-style:italic}
+    .od-not{font-size:11px;color:#555;margin-top:3px}
+
     /* İlerleme */
     .progress-bar-wrap{background:#e0e8f0;border-radius:6px;height:10px;margin-bottom:12px;display:none;overflow:hidden}
     .progress-bar-inner{height:10px;background:#005088;width:0%;transition:width 0.3s;border-radius:6px}
@@ -68,10 +85,13 @@
     </div>
 
     <div class="btn-row">
-      <button class="btn btn-kontrol" id="btn-kontrol">✅ Kontrol Et</button>
+      <button class="btn btn-kontrol" id="btn-kontrol">🔍 Ön Değerlendirme</button>
       <button class="btn btn-onizle"  id="btn-onizle" disabled>🔍 PDF Önizle</button>
       <button class="btn btn-indir"   id="btn-indir"  disabled>⬇️ PDF İndir</button>
     </div>
+
+    <!-- ÖN DEĞERLENDİRME SONUÇ PANELİ -->
+    <div id="on-degerlendirme-panel" style="display:none;margin-bottom:24px;"></div>
 
     <!-- ═══════════════════════════════════════════════
          GÖRSEL YERLEŞİM AYARLARI
@@ -424,46 +444,582 @@ async function embedPng(pdfDoc, page, pdfH, dataUrl, imgX, imgY_top, imgW, imgH)
 }
 
 // ═══════════════════════════════════════════════════════
-// KONTROL ET
+// ÖN DEĞERLENDİRME KURAL SETİ
 // ═══════════════════════════════════════════════════════
+
+const SIGORTA_LIST = [6,10,16,20,25,32,40,50,63,80,100,125,160,200,250,315,400,500,630];
+const TRAFO_PAYLARI = [100,150,200,250,300,400,500,600,750,1250];
+const NYY_2DAMAR = {1.5:18,2.5:24,4:32,6:41,10:56,16:73,25:95,35:115,50:138,70:168,95:197,120:224,150:252,185:283,240:330};
+const NYY_4DAMAR = {1.5:15,2.5:20,4:27,6:34,10:46,16:60,25:78,35:95,50:114,70:140,95:165,120:188,150:212,185:238,240:279};
+const GD_SINIR = 4;
+const TOLERANS = 1.05;     // %5 kabul toleransı
+const TRIFAZ_BOLEN = 1.73 * 380 * 0.8;  // √3 × U × cosQ (380V, cosQ=0.8)
+
+function _parseSig(txt) {
+  if (!txt || !txt.trim()) return null;
+  const raw  = String(txt).trim();
+  const faz  = raw.includes('3x') ? '3x' : '1x';
+  const akim = Number(raw.match(/(\d+)\s*A/i)?.[1] || 0);
+  return { faz, akim, ham: raw };
+}
+function _parseKablo(txt) {
+  if (!txt || !txt.trim()) return null;
+  const raw = String(txt).replace(/\s+/g,' ').trim();
+  const damarSayi = Number(raw.match(/^(\d+)/)?.[1] || 0);
+  const kesitMatch = raw.match(/\d+x\s*([0-9]+(?:[.,][0-9]+)?)/i);
+  const kesit = Number((kesitMatch?.[1] || '0').replace(',','.'));
+  return { damar_sayi: damarSayi, kesit, ham: raw };
+}
+function _parseRole(txtA, txtB) {
+  const rawA = String(txtA||'').trim();
+  const rawB = String(txtB||'').trim();
+  const tip  = rawA.includes('30mA') ? '30mA' : '300mA';
+  const faz  = rawB.includes('4x') ? '4x' : '2x';
+  const akim = Number(rawB.match(/(\d+)\s*A/i)?.[1] || 0);
+  return { tip, faz, akim };
+}
+function _parseSayac(tipTxt, trafoTxt) {
+  const ilk = String(tipTxt||'').split(' ')[0];
+  let tipi = 'Trifaze';
+  if (ilk==='1x10') tipi='Monofaze';
+  else if (ilk==='X5') tipi='X5';
+  const rawT = String(trafoTxt||'').trim();
+  const pay   = rawT ? Number(rawT.split('/')[0]) || 0 : 0;
+  const payda = rawT ? Number(rawT.split('/')[1]) || 5 : 5;
+  return { tipi, pay, payda, trafoTam: rawT };
+}
+function _parseYuk(txt) {
+  const raw   = String(txt||'').trim();
+  const parts = raw.split('-').map(s=>s.trim());
+  const faz   = (parts[1]||'').toLowerCase().includes('trifaz') ? 'trifaz' : 'monofaz';
+  const guc   = Number(raw.match(/(\d+)\s*W/i)?.[1] || 0);
+  return { faz, guc };
+}
+
+function _kabloFaz(kablo) {
+  if (!kablo) return null;
+  return kablo.damar_sayi <= 3 ? 'monofaz' : 'trifaz';
+}
+function _sigFaz(sig) {
+  if (!sig) return null;
+  return sig.faz === '3x' ? 'trifaz' : 'monofaz';
+}
+function _roleFaz(role) {
+  if (!role) return null;
+  return role.faz === '4x' ? 'trifaz' : 'monofaz';
+}
+
+// Sigorta seçim sonucu: 'uygun' | 'potansiyel' | 'uygunsuz' | null
+function _sigortaSecimiSonucu(yukAkimi, seciliAkim) {
+  if (!yukAkimi || !seciliAkim) return null;
+  const sRev = [...SIGORTA_LIST].reverse();
+  const floorSigorta = sRev.find(s => s <= yukAkimi) ?? null;
+  const ceilIdx  = SIGORTA_LIST.findIndex(s => s > yukAkimi);
+  const ceilSigorta = ceilIdx >= 0 ? SIGORTA_LIST[ceilIdx] : null;
+
+  if (floorSigorta !== null && yukAkimi <= floorSigorta * TOLERANS) {
+    const fi    = SIGORTA_LIST.indexOf(floorSigorta);
+    const birUst = fi+1 < SIGORTA_LIST.length ? SIGORTA_LIST[fi+1] : null;
+    const ikiUst = fi+2 < SIGORTA_LIST.length ? SIGORTA_LIST[fi+2] : null;
+    if (seciliAkim === floorSigorta)   return 'potansiyel';
+    if (seciliAkim === birUst)         return 'uygun';
+    if (seciliAkim === ikiUst)         return 'potansiyel';
+    return 'uygunsuz';
+  } else {
+    if (!ceilSigorta) return 'uygunsuz';
+    const ci    = SIGORTA_LIST.indexOf(ceilSigorta);
+    const birUst = ci+1 < SIGORTA_LIST.length ? SIGORTA_LIST[ci+1] : null;
+    if (seciliAkim === ceilSigorta) return 'uygun';
+    if (seciliAkim === birUst)      return 'potansiyel';
+    return 'uygunsuz';
+  }
+}
+
+// Kablo kesiti seçim sonucu: 'uygun' | 'uygunsuz' | null
+function _kabloKesitiSonucu(yukAkimi, seciliKesit, damarSayisi) {
+  if (!yukAkimi || !seciliKesit) return null;
+  const table = damarSayisi <= 3 ? NYY_2DAMAR : NYY_4DAMAR;
+  const kesitler = Object.keys(table).map(Number).sort((a,b)=>a-b);
+  const acceptable = [];
+  for (const k of kesitler) {
+    if (table[k] > yukAkimi) { acceptable.push(k); if (acceptable.length === 2) break; }
+  }
+  return acceptable.includes(Number(seciliKesit)) ? 'uygun' : 'uygunsuz';
+}
+
+// Trafo seçim sonucu: 'uygun' | 'potansiyel' | 'uygunsuz' | null
+function _trafoSecimSonucu(yukAkimi, seciliPay) {
+  if (!yukAkimi || !seciliPay) return null;
+  const trafoOrani = yukAkimi / 5;
+  const tRev = [...TRAFO_PAYLARI].reverse();
+  const floorTrafo = tRev.find(t => t <= trafoOrani) ?? null;
+  const ceilIdx = TRAFO_PAYLARI.findIndex(t => t > trafoOrani);
+  const ceilTrafo = ceilIdx >= 0 ? TRAFO_PAYLARI[ceilIdx] : null;
+
+  if (floorTrafo !== null && trafoOrani <= floorTrafo * TOLERANS) {
+    const fi    = TRAFO_PAYLARI.indexOf(floorTrafo);
+    const birUst = fi+1 < TRAFO_PAYLARI.length ? TRAFO_PAYLARI[fi+1] : null;
+    if (seciliPay === floorTrafo) return 'potansiyel';
+    if (seciliPay === birUst)     return 'uygun';
+    return 'uygunsuz';
+  } else {
+    if (!ceilTrafo) return 'uygunsuz';
+    if (seciliPay === ceilTrafo) return 'uygun';
+    return 'uygunsuz';
+  }
+}
+
+// Sonuç render yardımcıları
+function _r(sonuc, uygunsuzNot, potNot) {
+  if (sonuc === null)           return '<span class="od-veri-yok">Veri Bulunamadı</span>';
+  if (sonuc === 'uygun')        return '<span class="od-uygun">✅ Uygun</span>';
+  if (sonuc === 'potansiyel')   return '<span class="od-potansiyel">⚠️ Potansiyel Uygunsuzluk</span>'
+    + (potNot ? '<div class="od-not">' + potNot + '</div>' : '');
+  return '<span class="od-uygunsuz">❌ Uygunsuz</span>'
+    + (uygunsuzNot ? '<div class="od-not">' + uygunsuzNot + '</div>' : '');
+}
+function _rfaz(gercek, beklenen, uygunsuzNot) {
+  if (!gercek) return '<span class="od-veri-yok">Veri Bulunamadı</span>';
+  if (gercek === beklenen) return '<span class="od-uygun">✅ Uygun</span>';
+  return '<span class="od-uygunsuz">❌ Uygunsuz</span>'
+    + (uygunsuzNot ? '<div class="od-not">' + uygunsuzNot + '</div>' : '');
+}
+
+function _bolumHtml(no, baslik, satirlar) {
+  const id = 'od-b' + no;
+  return `<div class="od-bolum">
+    <div class="od-bolum-baslik" onclick="var c=document.getElementById('${id}');c.style.display=c.style.display==='none'?'':'none'">
+      <span>${no}. ${baslik}</span><span style="font-size:11px;color:#aaa">▼</span>
+    </div>
+    <div class="od-bolum-icerik" id="${id}">
+      ${satirlar.map(s=>`<div class="od-satir"><div class="od-satir-baslik">${s.baslik}</div><div class="od-satir-sonuc">${s.sonuc}</div></div>`).join('')}
+    </div>
+  </div>`;
+}
+
+// ─────────── ANA KURAL MOTORU ───────────
+function onDegerlendirmeYap(sema) {
+  const g   = sema.guc || {};
+  const vis = sema.visibility || {};
+
+  // Güç değerleri
+  const eskiKurulu  = Number(g.eskiKurulu)      || 0;
+  const eskiTalep   = Number(g.eskiTalep)       || 0;
+  const ilaveKurulu = Number(g.ilaveKurulu)     || 0;
+  const ilaveTalep  = Number(g.ilaveTalep)      || 0;
+  const yeniKurulu  = eskiKurulu  + ilaveKurulu;
+  const yeniTalep   = eskiTalep   + ilaveTalep;
+  const yapiEskiKG  = Number(g.yapiEskiKGPuant) || 0;
+  const yapiEskiTG  = Math.round(yapiEskiKG * 0.8);
+  const yapiYeniTG  = yapiEskiTG + ilaveTalep;
+  const istekCosQ   = Number(sema.istekCosQ)    || 0.8;
+
+  // Sigorta aktif/pasif (Kural D1)
+  const sigKolonAktif    = !!(vis.sigKolonVisible || vis.tmsKolonVisible);
+  const sigSayacCikisAktif = !!vis.sigSayacCikisVisible;
+
+  // Parse
+  const kofre        = { ham: sema.kofre || '', deger: Number((sema.kofre||'').match(/(\d+)/)?.[1] || 0) };
+  const kolonKablo   = _parseKablo(sema.kolonKablo);
+  const sigKolonT    = sema.kolonSigortaTip;
+  const sigKolonRaw  = sigKolonT === 'TMŞ' ? sema.tmsKolonText : sema.sigKolonText;
+  const sigKolon     = sigKolonAktif ? _parseSig(sigKolonRaw) : null;
+  const sayac        = _parseSayac(sema.sayacTip, sema.sayacTrafo);
+  const sigSayacG    = _parseSig(sema.sigSayacGiris);
+  const roleSayacG   = _parseRole(sema.roleSayacGirisA, sema.roleSayacGirisB);
+  const sigSayacC    = sigSayacCikisAktif ? _parseSig(sema.sigSayacCikis) : null;
+  const linyeDtMev   = _parseKablo(sema.linyeDtMevcut);
+  const linyeYukMev  = _parseKablo(sema.linyeYukMevcut);
+  const sigMev       = _parseSig(sema.sigMevcut);
+  const roleMev      = _parseRole(sema.roleMevcutA, sema.roleMevcutB);
+  const yukMev       = _parseYuk(sema.yukMevcut);
+  const linyeDtIst   = _parseKablo(sema.linyeDtIstek);
+  const linyeYukIst  = _parseKablo(sema.linyeYukIstek);
+  const sigIst       = _parseSig(sema.sigIstek);
+  const roleIst      = _parseRole(sema.roleIstekA, sema.roleIstekB);
+  const yukIst       = _parseYuk(sema.yukIstek);
+
+  // Sayaç faz beklentisi
+  const sayacTrifaz  = sayac.tipi === 'Trifaze' || sayac.tipi === 'X5';
+  const beklSayacFaz = sayacTrifaz ? 'trifaz' : 'monofaz';
+
+  // Akım hesapları
+  const yapiYeniYukA    = yapiYeniTG  > 0 ? yapiYeniTG  / TRIFAZ_BOLEN : 0;
+  const yeniTalepYukA   = yeniTalep   > 0 ? yeniTalep   / TRIFAZ_BOLEN : 0;
+  const eskiTalepYukA_mono  = eskiTalep  > 0 ? eskiTalep  / 220 : 0;
+  const eskiTalepYukA_tri   = eskiTalep  > 0 ? eskiTalep  / TRIFAZ_BOLEN : 0;
+  const ilaveTalepYukA_mono = ilaveTalep > 0 ? ilaveTalep / 220 : 0;
+  const ilaveTalepYukA_tri  = ilaveTalep > 0 ? ilaveTalep / TRIFAZ_BOLEN : 0;
+  const yukMevYukA_mono     = yukMev.guc > 0 ? yukMev.guc / 220 : 0;
+  const yukMevYukA_tri      = yukMev.guc > 0 ? yukMev.guc / TRIFAZ_BOLEN : 0;
+  const yukIstYukA_mono     = yukIst.guc > 0 ? yukIst.guc / 220 : 0;
+  const yukIstYukA_tri      = yukIst.guc > 0 ? yukIst.guc / (1.73 * 380 * istekCosQ) : 0;
+
+  // DT mevcut / istek hat faz seçimi
+  const linyeDtMevFaz = beklSayacFaz; // mevcut kolon her zaman sayaç fazına uyar
+  const linyeDtIstFaz = beklSayacFaz === 'monofaz' ? 'monofaz' : (yukIst.faz || 'trifaz');
+  const linyeYukMevFaz = beklSayacFaz === 'monofaz' ? 'monofaz' : (yukMev.faz || 'trifaz');
+  const linyeYukIstFaz = linyeDtIstFaz;
+
+  // ─────────── 1. KABLOLAR ───────────
+  // G2: Ana Kolon Kablosu kesiti
+  const kolonKabloYukA = yapiYeniTG > 0 ? yapiYeniTG / TRIFAZ_BOLEN : 0;
+  const kolonKabloFazSonuc = _rfaz(_kabloFaz(kolonKablo), 'trifaz',
+    'Not2: Ana kolon kablosu için seçilen faz değeri UYGUN DEĞİLDİR. Projenin onaydan dönme riskine karşı değerleri kontrol etmeniz önerilir.');
+  const kolonKabloKesitSonuc = kolonKablo && kolonKabloYukA > 0
+    ? _r(_kabloKesitiSonucu(kolonKabloYukA, kolonKablo.kesit, kolonKablo.damar_sayi),
+        'Not19: Ana kolon kablosu için seçilen kablo kesit değeri UYGUN DEĞİLDİR.')
+    : '<span class="od-veri-yok">Veri Bulunamadı</span>';
+  const kolonKabloHtml = kolonKabloFazSonuc.includes('✅') && kolonKabloKesitSonuc.includes('✅')
+    ? '<span class="od-uygun">✅ Uygun</span>'
+    : !kolonKabloFazSonuc.includes('✅') ? kolonKabloFazSonuc : kolonKabloKesitSonuc;
+
+  // G6: Mevcut DT kolon kablosu kesiti
+  const mevDtFaz = _kabloFaz(linyeDtMev);
+  const mevDtIsMonofaz = linyeDtMevFaz === 'monofaz';
+  const mevDtYukA = mevDtIsMonofaz ? eskiTalepYukA_mono : eskiTalepYukA_tri;
+  const mevDtFazSonuc = _rfaz(mevDtFaz, linyeDtMevFaz,
+    'Not9: Mevcut DT kolon kablosu için seçilen faz değeri UYGUN DEĞİLDİR.');
+  const mevDtKesitSonuc = linyeDtMev && mevDtYukA > 0
+    ? _r(_kabloKesitiSonucu(mevDtYukA, linyeDtMev.kesit, linyeDtMev.damar_sayi),
+        'Not29: Mevcut DT kolon kablosu için seçilen kablo kesit değeri UYGUN DEĞİLDİR.')
+    : '<span class="od-veri-yok">Veri Bulunamadı</span>';
+  const mevDtSonuc = mevDtFazSonuc.includes('✅') && mevDtKesitSonuc.includes('✅')
+    ? '<span class="od-uygun">✅ Uygun</span>'
+    : !mevDtFazSonuc.includes('✅') ? mevDtFazSonuc : mevDtKesitSonuc;
+
+  // G8: Mevcut linye yük kablosu kesiti
+  const mevYukFaz = _kabloFaz(linyeYukMev);
+  const mevYukIsMonofaz = linyeYukMevFaz === 'monofaz';
+  const mevYukYukA = mevYukIsMonofaz ? yukMevYukA_mono : yukMevYukA_tri;
+  const mevYukFazSonuc = _rfaz(mevYukFaz, linyeYukMevFaz,
+    'Not12: Mevcut DT linye kablosu için seçilen faz değeri UYGUN DEĞİLDİR.');
+  const mevYukKesitSonuc = linyeYukMev && mevYukYukA > 0
+    ? _r(_kabloKesitiSonucu(mevYukYukA, linyeYukMev.kesit, linyeYukMev.damar_sayi),
+        'Not32: Mevcut DT linye kablosu için seçilen kablo kesit değeri UYGUN DEĞİLDİR.')
+    : '<span class="od-veri-yok">Veri Bulunamadı</span>';
+  const mevYukSonuc = mevYukFazSonuc.includes('✅') && mevYukKesitSonuc.includes('✅')
+    ? '<span class="od-uygun">✅ Uygun</span>'
+    : !mevYukFazSonuc.includes('✅') ? mevYukFazSonuc : mevYukKesitSonuc;
+
+  // G9: İstek DT kolon kablosu kesiti
+  const istDtFaz = _kabloFaz(linyeDtIst);
+  const istDtIsMonofaz = linyeDtIstFaz === 'monofaz';
+  const istDtYukA = istDtIsMonofaz ? ilaveTalepYukA_mono : ilaveTalepYukA_tri;
+  const istDtFazSonuc = _rfaz(istDtFaz, linyeDtIstFaz,
+    'Not13: İstek DT linye kablosu için seçilen faz değeri UYGUN DEĞİLDİR.');
+  const istDtKesitSonuc = linyeDtIst && istDtYukA > 0
+    ? _r(_kabloKesitiSonucu(istDtYukA, linyeDtIst.kesit, linyeDtIst.damar_sayi),
+        'Not33: İstek DT kolon kablosu için seçilen kablo kesit değeri UYGUN DEĞİLDİR.')
+    : '<span class="od-veri-yok">Veri Bulunamadı</span>';
+  const istDtSonuc = istDtFazSonuc.includes('✅') && istDtKesitSonuc.includes('✅')
+    ? '<span class="od-uygun">✅ Uygun</span>'
+    : !istDtFazSonuc.includes('✅') ? istDtFazSonuc : istDtKesitSonuc;
+
+  // G11: İstek linye yük kablosu kesiti
+  const istYukFaz = _kabloFaz(linyeYukIst);
+  const istYukIsMonofaz = linyeYukIstFaz === 'monofaz';
+  const istYukYukA = istYukIsMonofaz ? yukIstYukA_mono : yukIstYukA_tri;
+  const istYukFazSonuc = _rfaz(istYukFaz, linyeYukIstFaz,
+    'Not16: İstek DT linye kablosu için seçilen faz değeri UYGUN DEĞİLDİR.');
+  const istYukKesitSonuc = linyeYukIst && istYukYukA > 0
+    ? _r(_kabloKesitiSonucu(istYukYukA, linyeYukIst.kesit, linyeYukIst.damar_sayi),
+        'Not36: İstek DT linye kablosu için seçilen kablo kesit değeri UYGUN DEĞİLDİR.')
+    : '<span class="od-veri-yok">Veri Bulunamadı</span>';
+  const istYukSonuc = istYukFazSonuc.includes('✅') && istYukKesitSonuc.includes('✅')
+    ? '<span class="od-uygun">✅ Uygun</span>'
+    : !istYukFazSonuc.includes('✅') ? istYukFazSonuc : istYukKesitSonuc;
+
+  const kablolarBolum = _bolumHtml(1, 'Kablolar', [
+    { baslik: 'Ana Kolon Kablosu',            sonuc: kolonKabloHtml },
+    { baslik: 'Mevcut Kolon Kablosu',         sonuc: mevDtSonuc },
+    { baslik: 'Mevcut Linye Kablosu',         sonuc: mevYukSonuc },
+    { baslik: 'İstek Kolon Kablosu',          sonuc: istDtSonuc },
+    { baslik: 'İstek Linye Kablosu',          sonuc: istYukSonuc },
+  ]);
+
+  // ─────────── 2. KESİCİLER ───────────
+  // Kural 1: Kofre her zaman trifaz → kofre panelinde faz yok; bilgi alanına not
+  const kofreSonuc = kofre.deger > 0 && yapiYeniTG > 0
+    ? (function() {
+        const s = _sigortaSecimiSonucu(yapiYeniYukA, kofre.deger);
+        return _r(s,
+          'Not17: Kofre için seçilen sigorta akım değeri UYGUN DEĞİLDİR.',
+          'Not18: Kofre için seçilen sigorta akım değeri, dağıtım şirketi kabul kriterleriyle uyumsuzluk gösterebilir.');
+      })()
+    : '<span class="od-veri-yok">Veri Bulunamadı</span>';
+
+  // Kural 3 + G3: Ana kolon kesicileri faz + değer
+  let kolonSigSonuc = '<span class="od-veri-yok">Pasif / Veri Yok</span>';
+  if (sigKolonAktif && sigKolon) {
+    const fazS   = _rfaz(_sigFaz(sigKolon), 'trifaz',
+      'Not3: AT giriş sigortası için seçilen faz değeri UYGUN DEĞİLDİR. Projenin onaydan dönme riskine karşı değerleri kontrol etmeniz önerilir.');
+    const degerS = yapiYeniTG > 0
+      ? _r(_sigortaSecimiSonucu(yapiYeniYukA, sigKolon.akim),
+          'Not20: AT giriş sigortası için seçilen sigorta akım değeri UYGUN DEĞİLDİR.',
+          'Not21: AT giriş sigortası için seçilen sigorta akım değeri, dağıtım şirketi kabul kriterleriyle uyumsuzluk gösterebilir.')
+      : '<span class="od-veri-yok">Veri Bulunamadı</span>';
+    kolonSigSonuc = fazS.includes('✅') && degerS.includes('✅')
+      ? '<span class="od-uygun">✅ Uygun</span>'
+      : !fazS.includes('✅') ? fazS : degerS;
+  }
+
+  // Kural 4b + G5: Sayaç giriş sigortası
+  const beklSayacFazSig = yeniKurulu > 5000 ? 'trifaz' : 'monofaz';
+  const sayacGirisYukA  = yeniTalep > 0 ? yeniTalep / TRIFAZ_BOLEN : 0;
+  const sigSayacGFazS   = _rfaz(_sigFaz(sigSayacG), beklSayacFazSig,
+    'Not5: Sayaç giriş sigortası için seçilen faz değeri UYGUN DEĞİLDİR.');
+  const sigSayacGDegerS = sigSayacG && yeniTalep > 0
+    ? _r(_sigortaSecimiSonucu(sayacGirisYukA, sigSayacG.akim),
+        'Not25: Sayaç giriş sigortası için seçilen sigorta akım değeri UYGUN DEĞİLDİR.')
+    : '<span class="od-veri-yok">Veri Bulunamadı</span>';
+  const sigSayacGSonuc = sigSayacGFazS.includes('✅') && sigSayacGDegerS.includes('✅')
+    ? '<span class="od-uygun">✅ Uygun</span>'
+    : !sigSayacGFazS.includes('✅') ? sigSayacGFazS : sigSayacGDegerS;
+
+  // Sayaç çıkış sigortası (Kural D1: pasif ise Not28)
+  let sigSayacCSonuc;
+  if (!sigSayacCikisAktif) {
+    sigSayacCSonuc = '<span class="od-potansiyel">⚠️ Pasif</span><div class="od-not">Not28: Sayaç çıkış sigortasının olmaması dağıtım şirketi kabul kriterleriyle uyumsuzluk gösterebilir.</div>';
+  } else if (sigSayacC) {
+    const fazS   = _rfaz(_sigFaz(sigSayacC), beklSayacFazSig,
+      'Not7: Sayaç çıkış sigortası için seçilen faz değeri UYGUN DEĞİLDİR.');
+    const degerS = yeniTalep > 0
+      ? _r(_sigortaSecimiSonucu(sayacGirisYukA, sigSayacC.akim),
+          'Not27: Sayaç çıkış sigortası için seçilen faz değeri UYGUN DEĞİLDİR.')
+      : '<span class="od-veri-yok">Veri Bulunamadı</span>';
+    sigSayacCSonuc = fazS.includes('✅') && degerS.includes('✅')
+      ? '<span class="od-uygun">✅ Uygun</span>'
+      : !fazS.includes('✅') ? fazS : degerS;
+  } else {
+    sigSayacCSonuc = '<span class="od-veri-yok">Veri Bulunamadı</span>';
+  }
+
+  // Kural 6 + G7: Mevcut kolon sigortası
+  const mevIsMonofazSig = beklSayacFaz === 'monofaz';
+  const mevKolonYukA    = mevIsMonofazSig ? eskiTalepYukA_mono : eskiTalepYukA_tri;
+  const sigMevFazS      = _rfaz(_sigFaz(sigMev), beklSayacFaz,
+    'Not10: Mevcut DT sigortası için seçilen faz değeri UYGUN DEĞİLDİR.');
+  const sigMevDegerS    = sigMev && eskiTalep > 0
+    ? _r(_sigortaSecimiSonucu(mevKolonYukA, sigMev.akim),
+        'Not30: Mevcut DT sigortası için seçilen sigorta akım değeri UYGUN DEĞİLDİR.')
+    : '<span class="od-veri-yok">Veri Bulunamadı</span>';
+  const sigMevSonuc = sigMevFazS.includes('✅') && sigMevDegerS.includes('✅')
+    ? '<span class="od-uygun">✅ Uygun</span>'
+    : !sigMevFazS.includes('✅') ? sigMevFazS : sigMevDegerS;
+
+  // Kural 9 + G10: İstek kolon sigortası
+  const istIsMonofazSig = linyeDtIstFaz === 'monofaz';
+  const istKolonYukA    = istIsMonofazSig ? ilaveTalepYukA_mono : ilaveTalepYukA_tri;
+  const sigIstFazS      = _rfaz(_sigFaz(sigIst), linyeDtIstFaz,
+    'Not14: İstek DT sigortası için seçilen faz değeri UYGUN DEĞİLDİR.');
+  const sigIstDegerS    = sigIst && ilaveTalep > 0
+    ? _r(_sigortaSecimiSonucu(istKolonYukA, sigIst.akim),
+        'Not34: İstek DT sigortası için seçilen sigorta akım değeri UYGUN DEĞİLDİR.')
+    : '<span class="od-veri-yok">Veri Bulunamadı</span>';
+  const sigIstSonuc = sigIstFazS.includes('✅') && sigIstDegerS.includes('✅')
+    ? '<span class="od-uygun">✅ Uygun</span>'
+    : !sigIstFazS.includes('✅') ? sigIstFazS : sigIstDegerS;
+
+  const kesicilerBolum = _bolumHtml(2, 'Kesiciler', [
+    { baslik: 'Kofre',                                  sonuc: kofreSonuc },
+    { baslik: 'Ana Kolon Kesicileri (AT)',               sonuc: kolonSigSonuc },
+    { baslik: 'Sayaç Giriş Sigortası',                  sonuc: sigSayacGSonuc },
+    { baslik: 'Sayaç Çıkış Sigortası',                  sonuc: sigSayacCSonuc },
+    { baslik: 'Mevcut Kolon Sigortası',                 sonuc: sigMevSonuc },
+    { baslik: 'İstek Kolon Sigortası',                  sonuc: sigIstSonuc },
+  ]);
+
+  // ─────────── 3. RÖLELER ───────────
+  // Kural 6b + G7: Mevcut kolon rölesi
+  const roleMevFazS   = _rfaz(_roleFaz(roleMev), beklSayacFaz,
+    'Not11: Mevcut DT rölesi için seçilen faz değeri UYGUN DEĞİLDİR.');
+  const roleMevDegerS = roleMev && eskiTalep > 0
+    ? _r(_sigortaSecimiSonucu(mevKolonYukA, roleMev.akim),
+        'Not31: Mevcut DT rölesi için seçilen röle akım değeri UYGUN DEĞİLDİR.')
+    : '<span class="od-veri-yok">Veri Bulunamadı</span>';
+  const roleMevTipS   = roleMev
+    ? (roleMev.tip === '30mA' ? '<span class="od-uygun">✅ Uygun</span>'
+      : '<span class="od-uygunsuz">❌ Uygunsuz</span><div class="od-not">Not38: Mevcut DT rölesi için röle tipi UYGUN DEĞİLDİR. (30mA olmalı)</div>')
+    : '<span class="od-veri-yok">Veri Bulunamadı</span>';
+  const roleMevUygun  = roleMevFazS.includes('✅') && roleMevDegerS.includes('✅') && roleMevTipS.includes('✅');
+  const roleMevSonuc  = roleMevUygun ? '<span class="od-uygun">✅ Uygun</span>'
+    : !roleMevFazS.includes('✅') ? roleMevFazS
+    : !roleMevTipS.includes('✅') ? roleMevTipS : roleMevDegerS;
+
+  // Kural 9b + G10: İstek kolon rölesi
+  const roleIstFazS   = _rfaz(_roleFaz(roleIst), linyeDtIstFaz,
+    'Not15: İstek DT rölesi için seçilen faz değeri UYGUN DEĞİLDİR.');
+  const roleIstDegerS = roleIst && ilaveTalep > 0
+    ? _r(_sigortaSecimiSonucu(istKolonYukA, roleIst.akim),
+        'Not35: İstek DT rölesi için seçilen röle akım değeri UYGUN DEĞİLDİR.')
+    : '<span class="od-veri-yok">Veri Bulunamadı</span>';
+  const roleIstTipS   = roleIst
+    ? (roleIst.tip === '30mA' ? '<span class="od-uygun">✅ Uygun</span>'
+      : '<span class="od-uygunsuz">❌ Uygunsuz</span><div class="od-not">Not39: İstek DT rölesi için röle tipi UYGUN DEĞİLDİR. (30mA olmalı)</div>')
+    : '<span class="od-veri-yok">Veri Bulunamadı</span>';
+  const roleIstUygun  = roleIstFazS.includes('✅') && roleIstDegerS.includes('✅') && roleIstTipS.includes('✅');
+  const roleIstSonuc  = roleIstUygun ? '<span class="od-uygun">✅ Uygun</span>'
+    : !roleIstFazS.includes('✅') ? roleIstFazS
+    : !roleIstTipS.includes('✅') ? roleIstTipS : roleIstDegerS;
+
+  // Kural 4b + G5: Sayaç giriş rölesi
+  const roleSayacGFazS   = _rfaz(_roleFaz(roleSayacG), beklSayacFazSig,
+    'Not6: Sayaç giriş rölesi için seçilen faz değeri UYGUN DEĞİLDİR.');
+  const roleSayacGDegerS = roleSayacG && yeniTalep > 0
+    ? _r(_sigortaSecimiSonucu(sayacGirisYukA, roleSayacG.akim),
+        'Not26: Sayaç giriş rölesi için seçilen röle akım değeri UYGUN DEĞİLDİR.')
+    : '<span class="od-veri-yok">Veri Bulunamadı</span>';
+  const roleSayacGTipS   = roleSayacG
+    ? (roleSayacG.tip === '300mA' ? '<span class="od-uygun">✅ Uygun</span>'
+      : '<span class="od-uygunsuz">❌ Uygunsuz</span><div class="od-not">Not37: Sayaç giriş rölesi için röle tipi UYGUN DEĞİLDİR. (300mA olmalı)</div>')
+    : '<span class="od-veri-yok">Veri Bulunamadı</span>';
+  const roleSayacGUygun  = roleSayacGFazS.includes('✅') && roleSayacGDegerS.includes('✅') && roleSayacGTipS.includes('✅');
+  const roleSayacGSonuc  = roleSayacGUygun ? '<span class="od-uygun">✅ Uygun</span>'
+    : !roleSayacGFazS.includes('✅') ? roleSayacGFazS
+    : !roleSayacGTipS.includes('✅') ? roleSayacGTipS : roleSayacGDegerS;
+
+  const rolelerBolum = _bolumHtml(3, 'Röleler', [
+    { baslik: 'Mevcut Kolon Rölesi',      sonuc: roleMevSonuc },
+    { baslik: 'İstek Kolon Rölesi',       sonuc: roleIstSonuc },
+    { baslik: 'Sayaç Giriş Rölesi',       sonuc: roleSayacGSonuc },
+  ]);
+
+  // ─────────── 4. SAYAÇ ───────────
+  // Kural 4a: Sayaç tipi
+  const beklSayacTip = yeniKurulu > 5000 ? 'trifaz' : 'monofaz';
+  let sayacTipSonuc;
+  if (!sema.sayacTip) {
+    sayacTipSonuc = '<span class="od-veri-yok">Veri Bulunamadı</span>';
+  } else {
+    const gercekTip = sayac.tipi === 'Monofaze' ? 'monofaz'
+      : (sayac.tipi === 'Trifaze' || sayac.tipi === 'X5') ? 'trifaz' : null;
+    sayacTipSonuc = _rfaz(gercekTip, beklSayacTip,
+      'Not4: Sayaç için seçilen faz değeri UYGUN DEĞİLDİR. Projenin onaydan dönme riskine karşı değerleri kontrol etmeniz önerilir.');
+  }
+  // Kural 4c + G4: X5 eşiği
+  const x5Esik = yeniTalepYukA >= 100;
+  if (x5Esik && sayac.tipi !== 'X5') {
+    sayacTipSonuc = '<span class="od-uygunsuz">❌ Uygunsuz</span><div class="od-not">Not8 / Not22: Seçilen sayaç tipi yeni talep güç değerine göre UYGUN DEĞİLDİR. (X5 olmalı)</div>';
+  }
+
+  // G4: Akım trafo oranı
+  let trafoSonuc = '<span class="od-veri-yok">Veri Bulunamadı</span>';
+  if (sayac.tipi === 'X5') {
+    if (!sayac.pay) {
+      trafoSonuc = '<span class="od-veri-yok">Trafo oranı girilmemiş</span>';
+    } else {
+      const ts = _trafoSecimSonucu(yeniTalepYukA, sayac.pay);
+      trafoSonuc = _r(ts,
+        'Not24: Seçilen akım trafo oranı yeni talep güç değerine göre UYGUN DEĞİLDİR.',
+        'Not23: Seçilen akım trafo oranı, dağıtım şirketi kabul kriterleriyle uyumsuzluk gösterebilir.');
+    }
+  } else {
+    trafoSonuc = '<span class="od-veri-yok">X5 sayaç değil — uygulanmaz</span>';
+  }
+
+  const sayacBolum = _bolumHtml(4, 'Sayaç', [
+    { baslik: 'Sayaç Tipi',         sonuc: sayacTipSonuc },
+    { baslik: 'Akım Trafo Oranı',   sonuc: trafoSonuc },
+  ]);
+
+  // ─────────── 5. GERİLİM DÜŞÜMÜ HESAPLARI ───────────
+  const gdU = sema.gdEnUzun;
+  const gdG = sema.gdEnGuclu;
+  const gdUzunSonuc = !gdU ? '<span class="od-veri-yok">Veri Bulunamadı (Elektrik Şeması\'nı yenileyin)</span>'
+    : gdU.etopOk
+      ? `<span class="od-uygun">✅ Uygun</span><div class="od-not">%${gdU.etop.toFixed(2)} &lt; %${GD_SINIR}</div>`
+      : `<span class="od-uygunsuz">❌ Uygunsuz</span><div class="od-not">Not40: Gerilim düşümü hesabı (en uzun) için %etop değeri UYGUN DEĞİLDİR. (%${gdU.etop.toFixed(2)} &gt; %${GD_SINIR})</div>`;
+  const gdGucluSonuc = !gdG ? '<span class="od-veri-yok">Veri Bulunamadı (Elektrik Şeması\'nı yenileyin)</span>'
+    : gdG.etopOk
+      ? `<span class="od-uygun">✅ Uygun</span><div class="od-not">%${gdG.etop.toFixed(2)} &lt; %${GD_SINIR}</div>`
+      : `<span class="od-uygunsuz">❌ Uygunsuz</span><div class="od-not">Not41: Gerilim düşümü hesabı (en güçlü) için %etop değeri UYGUN DEĞİLDİR. (%${gdG.etop.toFixed(2)} &gt; %${GD_SINIR})</div>`;
+
+  const gdBolum = _bolumHtml(5, 'Gerilim Düşümü Hesapları', [
+    { baslik: 'GD En Uzun (%etop)',   sonuc: gdUzunSonuc },
+    { baslik: 'GD En Güçlü (%etop)', sonuc: gdGucluSonuc },
+  ]);
+
+  // ─────────── 6. AKIM HESAPLARI ───────────
+  function _gdAkimSatir(gdData, akimNo, notNo) {
+    if (!gdData) return '<span class="od-veri-yok">Veri Bulunamadı</span>';
+    const ok = gdData[akimNo + 'ok'];
+    if (ok === null || ok === undefined) return '<span class="od-veri-yok">Veri Bulunamadı</span>';
+    return ok
+      ? '<span class="od-uygun">✅ Uygun</span>'
+      : `<span class="od-uygunsuz">❌ Uygunsuz</span><div class="od-not">${notNo}: GD için belirlenen kablo değeri UYGUN DEĞİLDİR.</div>`;
+  }
+
+  const akimBolum = _bolumHtml(6, 'Akım Hesapları', [
+    { baslik: 'GD En Uzun — I1',   sonuc: _gdAkimSatir(gdU, 'I1', 'Not42') },
+    { baslik: 'GD En Uzun — I2',   sonuc: _gdAkimSatir(gdU, 'I2', 'Not43') },
+    { baslik: 'GD En Uzun — I3',   sonuc: _gdAkimSatir(gdU, 'I3', 'Not44') },
+    { baslik: 'GD En Güçlü — I1',  sonuc: _gdAkimSatir(gdG, 'I1', 'Not45') },
+    { baslik: 'GD En Güçlü — I2',  sonuc: _gdAkimSatir(gdG, 'I2', 'Not46') },
+    { baslik: 'GD En Güçlü — I3',  sonuc: _gdAkimSatir(gdG, 'I3', 'Not47') },
+  ]);
+
+  return `<div class="od-panel">
+    <div class="od-baslik">🔍 Ön Değerlendirme Sonuçları</div>
+    ${kablolarBolum}${kesicilerBolum}${rolelerBolum}${sayacBolum}${gdBolum}${akimBolum}
+  </div>`;
+}
+
+// ═══════════════════════════════════════════════════════
+// ÖN DEĞERLENDİRME / KONTROL ET
+// ═══════════════════════════════════════════════════════
+const onDegPanel = document.getElementById('on-degerlendirme-panel');
+
 btnKontrol.addEventListener('click', function() {
   kontrolGecti = false;
   pdfBlob      = null;
+  btnKontrol.classList.remove('ok');
+  btnKontrol.textContent = '🔍 Ön Değerlendirme';
 
   const sema = loadLS(KEY_SEMA);
   const yapi = loadLS(KEY_YAPI);
-  const hatalar  = [];
-  const uyarilar = [];
 
-  if (!sema) hatalar.push('proje_sema_v1 bulunamadı — Elektrik Şeması sekmesini açın');
-  if (!yapi) hatalar.push('proje_yapi_v1 bulunamadı — Kolon Hesaplama sekmesini açın');
+  // Temizle
+  onDegPanel.style.display = 'none';
+  onDegPanel.innerHTML     = '';
 
-  if (hatalar.length) {
-    gosterDurum('❌ ' + hatalar.join(' | '), 'hata');
+  if (!sema) {
+    gosterDurum('❌ proje_sema_v1 bulunamadı — Elektrik Şeması sekmesini açın', 'hata');
     btnOnizle.disabled = true; btnIndir.disabled = true;
     return;
   }
+  if (!yapi) {
+    gosterDurum('⚠️ proje_yapi_v1 bulunamadı — Kolon Hesaplama sekmesini açın', 'info');
+  }
 
-  // Hangi alanlar var, hangileri eksik?
+  // Ön Değerlendirme tablosunu üret
+  try {
+    onDegPanel.innerHTML     = onDegerlendirmeYap(sema);
+    onDegPanel.style.display = 'block';
+  } catch(e) {
+    onDegPanel.innerHTML     = '<div style="padding:16px;color:#c62828">⚠️ Değerlendirme hesaplanırken hata oluştu: ' + e.message + '</div>';
+    onDegPanel.style.display = 'block';
+  }
+
+  // PDF için veri kontrolü
+  const uyarilar = [];
   VARSAYILAN_OGELERI.forEach(function(og) {
     const kaynak = og.kaynak === 'sema' ? sema : yapi;
-    if (!kaynak || !kaynak[og.alan]) {
-      uyarilar.push(og.baslik);
-    }
+    if (!kaynak || !kaynak[og.alan]) uyarilar.push(og.baslik);
   });
 
-  kontrolGecti = true;
-  btnKontrol.classList.add('ok');
-  btnKontrol.textContent = '✅ Kontrol Tamam';
-  btnOnizle.disabled = false;
-  btnIndir.disabled  = false;
-
-  if (uyarilar.length) {
-    gosterDurum('⚠️ Şu öğeler eksik/boş (PDF\'de atlanacak): ' + uyarilar.join(', '), 'info');
-  } else {
-    gosterDurum('✅ Tüm veriler mevcut. PDF oluşturulabilir.', 'tamam');
+  if (sema) {
+    kontrolGecti = true;
+    btnOnizle.disabled = false;
+    btnIndir.disabled  = false;
+    if (uyarilar.length) {
+      gosterDurum('⚠️ Şu öğeler eksik/boş (PDF\'de atlanacak): ' + uyarilar.join(', '), 'info');
+    } else {
+      gosterDurum('✅ Tüm veriler mevcut. Ön değerlendirme tamamlandı.', 'tamam');
+    }
   }
 });
+
 
 // ═══════════════════════════════════════════════════════
 // ANA PDF OLUŞTURMA
