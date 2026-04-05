@@ -1134,7 +1134,9 @@ function _binaSvgOlustur() {
       var kolonUstY  = dtAltY;
 
       svg += '<g>';
-      var sayacTipiX5 = !!(sema && sema.sayacTip === 'X5');
+      var sayacTipRaw = (sema && sema.sayacTip) ? String(sema.sayacTip).trim().split(' ')[0] : '';
+      var sayacTipiX5 = sayacTipRaw === 'X5';
+      var sayacTrafoTxt = (sema && sema.sayacTrafo) || '';
       var kx = cx + KOLON_SAYAC.kutuDx;
       if (isIstek && sayacTipiX5) {
         kx += 21.12;
@@ -1150,17 +1152,24 @@ function _binaSvgOlustur() {
           + '</g>';
       }
       svg += '<rect x="' + f2(kx) + '" y="' + f2(kutuY) + '" width="' + f2(KOLON_SAYAC.kutuW) + '" height="' + f2(KOLON_SAYAC.kutuH) + '" class="st-rect-thin"/>';
-      svg += '<line x1="' + f2(kx) + '" y1="' + f2(kutuY+KOLON_SAYAC.line1) + '" x2="' + f2(kx+KOLON_SAYAC.kutuW) + '" y2="' + f2(kutuY+KOLON_SAYAC.line1) + '" class="st-line-thin"/>';
-      svg += '<line x1="' + f2(kx) + '" y1="' + f2(kutuY+KOLON_SAYAC.line2) + '" x2="' + f2(kx+KOLON_SAYAC.kutuW) + '" y2="' + f2(kutuY+KOLON_SAYAC.line2) + '" class="st-line-thin"/>';
-      svg += '<line x1="' + f2(kx) + '" y1="' + f2(kutuY+KOLON_SAYAC.line3) + '" x2="' + f2(kx+KOLON_SAYAC.kutuW) + '" y2="' + f2(kutuY+KOLON_SAYAC.line3) + '" class="st-line-thin"/>';
-      svg += '<text x="' + f2(kx+2) + '" y="' + f2(kutuY+KOLON_SAYAC.kutuH-3) + '" class="st-text st-text-5">kWh</text>';
+      if (sayacTipiX5) {
+        svg += '<text x="' + f2(kx+2) + '" y="' + f2(kutuY+KOLON_SAYAC.kutuH-6) + '" class="st-text st-text-5">X5</text>';
+        svg += '<text x="' + f2(kx+2) + '" y="' + f2(kutuY+KOLON_SAYAC.kutuH-1) + '" class="st-text st-text-5">kWh</text>';
+        if (!isIstek && sayacTrafoTxt) {
+          svg += '<text x="' + f2(kx+2) + '" y="' + f2(kutuY+KOLON_SAYAC.kutuH+8) + '" class="st-text st-text-5">' + sayacTrafoTxt + '</text>';
+        }
+      } else {
+        svg += '<line x1="' + f2(kx) + '" y1="' + f2(kutuY+KOLON_SAYAC.line1) + '" x2="' + f2(kx+KOLON_SAYAC.kutuW) + '" y2="' + f2(kutuY+KOLON_SAYAC.line1) + '" class="st-line-thin"/>';
+        svg += '<line x1="' + f2(kx) + '" y1="' + f2(kutuY+KOLON_SAYAC.line2) + '" x2="' + f2(kx+KOLON_SAYAC.kutuW) + '" y2="' + f2(kutuY+KOLON_SAYAC.line2) + '" class="st-line-thin"/>';
+        svg += '<line x1="' + f2(kx) + '" y1="' + f2(kutuY+KOLON_SAYAC.line3) + '" x2="' + f2(kx+KOLON_SAYAC.kutuW) + '" y2="' + f2(kutuY+KOLON_SAYAC.line3) + '" class="st-line-thin"/>';
+        svg += '<text x="' + f2(kx+2) + '" y="' + f2(kutuY+KOLON_SAYAC.kutuH-3) + '" class="st-text st-text-5">kWh</text>';
+      }
       if (isIstek) {
     var txtX = kx + KOLON_SAYAC.kutuW + 4; 
     var yBaslangic = kutuY + KOLON_SAYAC.kutuH / 2 + 4; 
     
     var sayacTipTxt   = (sema && sema.sayacTip)   || '';
     var sayacOlcumTxt = (sema && sema.sayacOlcumOzellik === 'Kombi') ? 'Kombi' : '';
-    var sayacTrafoTxt = (sema && sema.sayacTrafo) || '';
 
     // 1. SATIR: Tip ve Özellik (Örn: x5 Kombi)
     var satir1 = (sayacTipTxt + " " + sayacOlcumTxt).trim();
