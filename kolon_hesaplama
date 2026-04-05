@@ -1134,7 +1134,7 @@ function _binaSvgOlustur() {
       var kolonUstY  = dtAltY;
 
       svg += '<g>';
-      var sayacTipiX5 = !!(sema && sema.sayacTip === 'X5');
+     var sayacTipiX5 = !!(sema && sema.sayacTip && sema.sayacTip.indexOf('X5') === 0);
       var kx = cx + KOLON_SAYAC.kutuDx;
       if (isIstek && sayacTipiX5) {
         kx += 21.12;
