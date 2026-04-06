@@ -832,8 +832,7 @@ function _binaSvgOlustur() {
 
   function drawSarj(attachX, attachY, sema) {
     var tx = attachX - 720.5, ty = attachY - 445.7;
-    return '<g transform="translate(' + f2(tx) + ',' + f2(ty) + ')">'
-      + '<ellipse class="st-rect-thin" cx="720.5" cy="461.4" rx="0.8" ry="0.8"/>'
+    var commonContent = '<ellipse class="st-rect-thin" cx="720.5" cy="461.4" rx="0.8" ry="0.8"/>'
       + '<ellipse class="st-rect-thin" cx="720.5" cy="467.7" rx="0.8" ry="0.8"/>'
       + '<line class="st-rect-thin" x1="721.4" y1="461.3" x2="723.7" y2="466.6"/>'
       + '<line class="st-rect-thin" x1="722.5" y1="464.2" x2="726.1" y2="462.8"/>'
@@ -861,8 +860,6 @@ function _binaSvgOlustur() {
       + '<rect x="697.5" y="503.1" class="st-rect-thin" width="41.8" height="13.8"/>'
       + '<path class="st-fill" d="M698.8,516.9c13.5-4.5,27-9,40.4-13.5v13.1C725.8,516.7,712.3,516.8,698.8,516.9z"/>'
       + '<text id="s7" transform="matrix(1 0 0 1 654.5076 442.4886)" class="st-text st-text-9">' + ((sema && sema.linyeDtIstek) || '3x70+35 mm2 15m') + '</text>'
-      + '<path fill="none" stroke="#000" stroke-width="0.5" stroke-dasharray="3,2" d="M675.2,540.7h-48.6c-4.7,0-8.6-3.8-8.6-8.6v-70.9c0-4.7,3.8-8.6,8.6-8.6h48.6c4.7,0,8.6,3.8,8.6,8.6v70.9C683.7,536.8,679.9,540.7,675.2,540.7z"/>'
-      + '<text transform="matrix(0 -1 1 0 613.5 517)" class="st-text st-text-9">Mühürlü Alan</text>'
       + '<rect x="628.9" y="456.5" class="st-rect-thin" width="14" height="2.2"/>'
       + '<line class="st-rect-thin" x1="628.9" y1="458.7" x2="642.9" y2="456.5"/>'
       + '<line class="st-rect-thin" x1="628.9" y1="456.5" x2="642.9" y2="458.7"/>'
@@ -878,8 +875,14 @@ function _binaSvgOlustur() {
       + '<ellipse class="st-rect-thin" cx="635.1" cy="469.5" rx="0.8" ry="0.8"/>'
       + '<line class="st-rect-thin" x1="635.9" y1="463.1" x2="638.3" y2="468.4"/>'
       + '<line class="st-rect-thin" x1="637.1" y1="466" x2="640.7" y2="464.6"/>'
-      + '<polygon class="st-fill" points="643.1,463.4 641.3,466 640,463.1"/>'
-      + '</g>';
+      + '<polygon class="st-fill" points="643.1,463.4 641.3,466 640,463.1"/>';
+
+    var muhurluEkstra = '<path fill="none" stroke="#000" stroke-width="0.5" stroke-dasharray="3,2" d="M675.2,540.7h-48.6c-4.7,0-8.6-3.8-8.6-8.6v-70.9c0-4.7,3.8-8.6,8.6-8.6h48.6c4.7,0,8.6,3.8,8.6,8.6v70.9C683.7,536.8,679.9,540.7,675.2,540.7z"/>'
+      + '<text transform="matrix(0 -1 1 0 613.5 517)" class="st-text st-text-9">Mühürlü Alan</text>';
+
+    var xform = 'transform="translate(' + f2(tx) + ',' + f2(ty) + ')"';
+    return '<g id="alan_ici" ' + xform + '>' + commonContent + muhurluEkstra + '</g>'
+         + '<g id="alan_d\u0131s\u0131" ' + xform + ' style="display:none;">' + commonContent + '</g>';
   }
 
   function drawSayacGiris(attachX, attachY, sema) {
@@ -1206,6 +1209,27 @@ function _binaSvgOlustur() {
 
     svg += '</svg>';
     $('svgContainer').innerHTML = svg;
+
+    // alan_ici / alan_dısı görünürlük mantığı
+    var semaDurumu = loadSemaVerileri();
+    var sigSayacCikisGorunur = !!(semaDurumu.visibility && semaDurumu.visibility.sigSayacCikisVisible);
+    var muhurluAlanda = semaDurumu.muhurluAlanda || 'evet';
+    var alanIci  = document.getElementById('alan_ici');
+    var alanDisi = document.getElementById('alan_d\u0131s\u0131');
+    if (alanIci && alanDisi) {
+      if (!sigSayacCikisGorunur) {
+        alanIci.style.display  = '';
+        alanDisi.style.display = 'none';
+      } else {
+        if (muhurluAlanda === 'hayir') {
+          alanIci.style.display  = 'none';
+          alanDisi.style.display = '';
+        } else {
+          alanIci.style.display  = '';
+          alanDisi.style.display = 'none';
+        }
+      }
+    }
 
     renderPano();
   }
