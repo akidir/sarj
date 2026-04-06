@@ -964,7 +964,8 @@ function parseSayac(tipTxt, trafoTxt) {
     trafoCarpan = Number(parts[1]) || 0;
     trafoTam    = rawTrafo;
   } else if (rawTrafo && /^\d+$/.test(rawTrafo)) {
-    // geriye uyumluluk: eski kayıtlar sadece sayı içeriyorsa
+    // geriye uyumluluk: eski kayıtlar sadece sayı içeriyorsa "/5" paydası varsayılır
+    // (sistemde kullanılan tek standart akım trafo paydası 5'tir)
     trafoAkim   = Number(rawTrafo) || 0;
     trafoCarpan = 5;
     trafoTam    = trafoAkim + '/5';
