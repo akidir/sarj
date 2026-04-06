@@ -667,6 +667,14 @@
         <div class="modal-header-area" id="sigorta-modal-header" style="display:none;">
           <button type="button" class="kaldir-btn" id="btn-sigorta-kaldir" style="display:none;">Sigortayı Kaldır</button>
         </div>
+        <!-- sadece sig_sayac_cikis açıldığında gösterilir -->
+        <div id="muhurlu-alan-wrapper" style="display:none;">
+          <div class="form-title">Mühürlü Alanda</div>
+          <div class="btn-group" id="muhurlu-alan-sec">
+            <button type="button" data-value="evet">Evet</button>
+            <button type="button" data-value="hayir">Hayır</button>
+          </div>
+        </div>
         <div id="kesici-tip-wrapper" style="display:none;">
           <div class="form-title">Sigorta Tipi</div>
           <div class="btn-group" id="kesici-tip">
@@ -697,10 +705,19 @@
           <button type="button" data-value="Kombi Sayaç">Kombi Sayaç</button>
         </div>
         <div class="form-title">Akım Trafo Oranı</div>
-        <div class="trafo-input-group">
-          <input id="sayac-trafo-deger" type="number" placeholder="Örn: 100" disabled />
-          <span class="trafo-sabit disabled" id="sayac-trafo-sabit">/5</span>
-        </div>
+        <select id="sayac-trafo-select" class="popup-select" disabled>
+          <option value="">-- Seçiniz --</option>
+          <option value="100/5">100/5</option>
+          <option value="150/5">150/5</option>
+          <option value="200/5">200/5</option>
+          <option value="250/5">250/5</option>
+          <option value="300/5">300/5</option>
+          <option value="400/5">400/5</option>
+          <option value="500/5">500/5</option>
+          <option value="600/5">600/5</option>
+          <option value="750/5">750/5</option>
+          <option value="1250/5">1250/5</option>
+        </select>
       </div>
 
       <!-- RÖLE PANELİ -->
@@ -930,15 +947,36 @@ function parseKofre(txt) {
 }
 
 function parseSayac(tipTxt, trafoTxt) {
-  const rawTip   = String(tipTxt  || '').trim();
-  const rawTrafo = String(trafoTxt || '').trim();
+  const rawTip    = String(tipTxt  || '').trim();
+  const rawTrafo  = String(trafoTxt || '').trim();
   const ilkKelime = rawTip.split(' ')[0];
   let sayacTipi = 'Trifaze';
   if (ilkKelime === '1x10')      sayacTipi = 'Monofaze';
   else if (ilkKelime === '3x10') sayacTipi = 'Trifaze';
   else if (ilkKelime === 'X5')   sayacTipi = 'X5';
-  const trafoOrani = rawTrafo && rawTrafo.includes('/5') ? rawTrafo.replace('/5', '').trim() : '';
-  return { sayac_tipi: sayacTipi, trafo_orani: trafoOrani, trafo_tam: trafoOrani ? trafoOrani + '/5' : '' };
+
+  let trafoAkim   = 0;
+  let trafoCarpan = 0;
+  let trafoTam    = '';
+  if (rawTrafo && rawTrafo.includes('/')) {
+    const parts = rawTrafo.split('/');
+    trafoAkim   = Number(parts[0]) || 0;
+    trafoCarpan = Number(parts[1]) || 0;
+    trafoTam    = rawTrafo;
+  } else if (rawTrafo && /^\d+$/.test(rawTrafo)) {
+    // geriye uyumluluk: eski kayıtlar sadece sayı içeriyorsa "/5" paydası varsayılır
+    // (sistemde kullanılan tek standart akım trafo paydası 5'tir)
+    trafoAkim   = Number(rawTrafo) || 0;
+    trafoCarpan = 5;
+    trafoTam    = trafoAkim + '/5';
+  }
+  return {
+    sayac_tipi  : sayacTipi,
+    trafo_orani : trafoAkim,     // eski alan: sayısal pay (geriye uyumluluk)
+    trafo_tam   : trafoTam,      // "100/5" formatı
+    trafo_akim  : trafoAkim,     // 100
+    trafo_carpan: trafoCarpan    // 5
+  };
 }
 
 // ═══════════════════════════════════════════════════════
@@ -1095,14 +1133,11 @@ function sayacCikisSigortaEkle() {
 function guncelleSayacTrafoAlani() {
   const aktifBtn   = document.querySelector('#sayac-tip button.active');
   const seciliTip  = aktifBtn?.getAttribute('data-value') || '';
-  const trafoInput = qs('sayac-trafo-deger');
-  const trafoSabit = qs('sayac-trafo-sabit');
+  const trafoSel   = qs('sayac-trafo-select');
   if (seciliTip === 'X5') {
-    if (trafoInput) trafoInput.disabled = false;
-    if (trafoSabit) trafoSabit.classList.remove('disabled');
+    if (trafoSel) trafoSel.disabled = false;
   } else {
-    if (trafoInput) { trafoInput.disabled = true; trafoInput.value = ''; }
-    if (trafoSabit) trafoSabit.classList.add('disabled');
+    if (trafoSel) { trafoSel.disabled = true; trafoSel.value = ''; }
   }
   const olcumBtnler = document.querySelectorAll('#sayac-olcum-ozellik button');
   const olcumGrup   = document.getElementById('sayac-olcum-ozellik');
@@ -1259,10 +1294,21 @@ function acModal(evt, options, cfg) {
       }
     }
   } else if (panel === 'sigorta') {
-    const targetId   = cfg?.targetId;
-    const isKolonSig = !!cfg?.isKolonSig;
-    const kesiciWrapper = qs('kesici-tip-wrapper');
+    const targetId          = cfg?.targetId;
+    const isKolonSig        = !!cfg?.isKolonSig;
+    const isSayacCikisSig   = !!cfg?.isSayacCikisSig;
+    const kesiciWrapper     = qs('kesici-tip-wrapper');
     if (kesiciWrapper) kesiciWrapper.style.display = isKolonSig ? 'block' : 'none';
+    const muhurluWrapper    = qs('muhurlu-alan-wrapper');
+    if (muhurluWrapper) {
+      if (isSayacCikisSig) {
+        muhurluWrapper.style.display = 'block';
+        const savedMuhurlu = window._muhurluAlanda || 'evet';
+        setActiveButton('#muhurlu-alan-sec', savedMuhurlu);
+      } else {
+        muhurluWrapper.style.display = 'none';
+      }
+    }
     let sigAkim = '';
     if (targetId) {
       const sigData = parseSigorta(getText(targetId));
@@ -1282,8 +1328,22 @@ function acModal(evt, options, cfg) {
     const sayacData = parseSayac(getText('txt_sayac_tip'), getText('txt_sayac_trafo'));
     if (sayacData) {
       setActiveButton('#sayac-tip', sayacData.sayac_tipi);
-      const trafoInput = qs('sayac-trafo-deger');
-      if (trafoInput) trafoInput.value = sayacData.trafo_orani || '';
+      const trafoSel = qs('sayac-trafo-select');
+      if (trafoSel) {
+        if (sayacData.sayac_tipi === 'X5') {
+          trafoSel.disabled = false;
+          let trafoVal = '';
+          if (sayacData.trafo_tam && String(sayacData.trafo_tam).includes('/')) {
+            trafoVal = String(sayacData.trafo_tam);
+          } else if (sayacData.trafo_orani && /^\d+$/.test(String(sayacData.trafo_orani))) {
+            trafoVal = String(sayacData.trafo_orani) + '/5';
+          }
+          trafoSel.value = trafoVal;
+        } else {
+          trafoSel.disabled = true;
+          trafoSel.value = '';
+        }
+      }
     }
     guncelleSayacTrafoAlani();
     const tipTamMetin  = getText('txt_sayac_tip').trim();
@@ -1344,9 +1404,14 @@ function kapatModal() {
   } else if (panel === 'sigorta' && targetId) {
     const faz        = document.querySelector('#sig-faz button.active')?.getAttribute('data-value') || '1x';
     const a          = qs('sig-a')?.value || '0';
-    const isKolonSig = !!modalConfig?.isKolonSig;
+    const isKolonSig        = !!modalConfig?.isKolonSig;
+    const isSayacCikisSig   = !!modalConfig?.isSayacCikisSig;
     let kesiciTipi   = 'K.Otomat';
     if (isKolonSig) kesiciTipi = document.querySelector('#kesici-tip button.active')?.getAttribute('data-value') || 'K.Otomat';
+    if (isSayacCikisSig) {
+      const muhurluBtn = document.querySelector('#muhurlu-alan-sec button.active');
+      window._muhurluAlanda = muhurluBtn ? muhurluBtn.getAttribute('data-value') : 'evet';
+    }
     if (isKolonSig) {
       if (kesiciTipi === 'TMŞ') { syncText('txt_tms_kolon', `TMŞ ${faz}${a} A`); guncelleKolonSigortaGorsel('TMŞ'); }
       else { syncText('txt_sig_kolon', `${faz}${a} A`); guncelleKolonSigortaGorsel('K.Otomat'); }
@@ -1355,12 +1420,12 @@ function kapatModal() {
     }
   } else if (panel === 'sayac') {
     const seciliTip  = document.querySelector('#sayac-tip button.active')?.getAttribute('data-value') || 'Trifaze';
-    const trafoInput = qs('sayac-trafo-deger');
-    const trafoVal   = trafoInput?.value?.trim() || '';
+    const trafoSel   = qs('sayac-trafo-select');
+    const trafoVal   = trafoSel?.value?.trim() || '';
     if (seciliTip === 'X5' && !trafoVal) {
-      if (trafoInput) { trafoInput.style.border = '2px solid red'; trafoInput.focus(); } return;
+      if (trafoSel) { trafoSel.style.border = '2px solid red'; trafoSel.focus(); } return;
     }
-    if (trafoInput) trafoInput.style.border = '';
+    if (trafoSel) trafoSel.style.border = '';
     let tipText = '3x10';
     if (seciliTip === 'Monofaze') tipText = '1x10';
     else if (seciliTip === 'X5')  tipText = 'X5';
@@ -1373,7 +1438,7 @@ function kapatModal() {
     }
     const tipSatir = olcumKisalt ? tipText + ' ' + olcumKisalt : tipText;
     syncText('txt_sayac_tip',   tipSatir);
-    syncText('txt_sayac_trafo', seciliTip === 'X5' && trafoVal ? trafoVal + '/5' : '');
+    syncText('txt_sayac_trafo', seciliTip === 'X5' && trafoVal ? trafoVal : '');
     syncText('txt_sayac_olcum', '');
   } else if (panel === 'role' && modalConfig?.targets) {
     const roleAId = modalConfig.targets.roleA;
@@ -1497,7 +1562,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   document.querySelectorAll(
-    '#yuk-tip button, #yuk-faz button, #sig-faz button, #role-ma button, #role-faz button'
+    '#yuk-tip button, #yuk-faz button, #sig-faz button, #role-ma button, #role-faz button, #muhurlu-alan-sec button'
   ).forEach(btn => {
     btn.addEventListener('click', () => {
       btn.parentElement.querySelectorAll('button').forEach(b => b.classList.remove('active'));
@@ -1836,7 +1901,8 @@ function saveState() {
         ilaveTalepManuel: qs('guc-ilave-talep') && qs('guc-ilave-talep').dataset.manuelDegistirildi ? '1' : ''
       },
       linyeler:       _linyeListesiOlustur(),
-      istekCosQ:      window._istekCosQ
+      istekCosQ:      window._istekCosQ,
+      muhurluAlanda:  window._muhurluAlanda || 'evet'
     }));
   } catch(e) { console.warn('[saveState] error:', e); }
   window.dispatchEvent(new CustomEvent('semaGuncellendi'));
@@ -1943,6 +2009,7 @@ function restoreState() {
       }, 100);
     }
     if (data.istekCosQ != null) window._istekCosQ = data.istekCosQ;
+    if (data.muhurluAlanda != null) window._muhurluAlanda = data.muhurluAlanda;
     return true;
   } catch(e) { console.warn('[restoreState] error:', e); return false; }
 }

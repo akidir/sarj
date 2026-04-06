@@ -1264,6 +1264,32 @@ function _binaSvgOlustur() {
     svg += '</svg>';
     $('svgContainer').innerHTML = svg;
 
+    // alan_ici / alan_dısı görünürlük mantığı
+    var muhurluAlanda = (sema && sema.muhurluAlanda) || 'evet';
+    var sigSayacCikisGorunur = !!(sema && sema.visibility && sema.visibility.sigSayacCikisVisible);
+
+    var alanIci  = document.getElementById('alan_ici');
+    var alanDisi = document.getElementById('alan_dısı');
+
+    if (alanIci && alanDisi) {
+      if (!sigSayacCikisGorunur) {
+        // sig_sayac_cikis pasif (görünmez) → alan_ici aktif, alan_dısı pasif
+        alanIci.style.display  = '';
+        alanDisi.style.display = 'none';
+      } else {
+        // sig_sayac_cikis aktif (görünür)
+        if (muhurluAlanda === 'hayir') {
+          // Hayır seçildi → alan_dısı aktif, alan_ici pasif
+          alanIci.style.display  = 'none';
+          alanDisi.style.display = '';
+        } else {
+          // Evet seçildi (veya varsayılan) → alan_ici aktif, alan_dısı pasif
+          alanIci.style.display  = '';
+          alanDisi.style.display = 'none';
+        }
+      }
+    }
+
     renderPano();
   }
 
