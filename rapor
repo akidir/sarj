@@ -1292,7 +1292,7 @@ function onDegerlendirmeYap(sema, yapi) {
   {
     const gdUzun = sema.gdEnUzun;
     if (gdUzun && gdUzun.etf && gdUzun.etf !== '—') {
-      const etop = gdUzun.et != null ? gdUzun.et : parseFloat(String(gdUzun.etf).replace(',', '.').replace('%', ''));
+      const etop = (gdUzun.et !== undefined && gdUzun.et !== null) ? gdUzun.et : parseFloat(String(gdUzun.etf).replace(',', '.').replace('%', ''));
       const ok = !isNaN(etop) && etop < 3;
       kural.push({no:36, grup:'5. GERİLİM DÜŞÜMÜ', baslik:'Gerilim düşümü hesabı (en uzun) için gerilim düşümü uygunluğu',
         durum: ok ? 'uygun' : 'uygunsuz',
@@ -1311,7 +1311,7 @@ function onDegerlendirmeYap(sema, yapi) {
   {
     const gdGuclu = sema.gdEnGuclu;
     if (gdGuclu && gdGuclu.etf && gdGuclu.etf !== '—') {
-      const etop = gdGuclu.et != null ? gdGuclu.et : parseFloat(String(gdGuclu.etf).replace(',', '.').replace('%', ''));
+      const etop = (gdGuclu.et !== undefined && gdGuclu.et !== null) ? gdGuclu.et : parseFloat(String(gdGuclu.etf).replace(',', '.').replace('%', ''));
       const ok = !isNaN(etop) && etop < 3;
       kural.push({no:37, grup:'5. GERİLİM DÜŞÜMÜ', baslik:'Gerilim düşümü hesabı (en güçlü) için gerilim düşümü uygunluğu',
         durum: ok ? 'uygun' : 'uygunsuz',
