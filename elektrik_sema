@@ -600,6 +600,7 @@
 
     <div id="cetveli-canli-alan"></div>
     <div id="gd-canli-alan"></div>
+    <div id="pon-deg-canli-alan"></div>
 
     <!-- POPUP MODAL -->
     <div id="proje-popup">
@@ -865,7 +866,22 @@ function parseKablo(txt) {
     if (new RegExp('\\b' + t + '\\b', 'i').test(raw)) { tip = t; break; }
   }
   const metraj = Number(raw.match(/(\d+)\s*m\b/i)?.[1] || 10);
-  return { damar, damar_sayi: damarSayi, kesit, toprak_kesit: toprak, tip, metraj, ham: raw };
+  const trifaz = damarSayi >= 3;
+  return { damar, damar_sayi: damarSayi, kesit, toprak_kesit: toprak, tip, metraj,
+    trifaz, monofaz: !trifaz, ham: raw };
+}
+
+function hesaplaOnerilenTopraklamaKesit(s) {
+  var STANDART = [1.5, 2.5, 4, 6, 10, 16, 25, 35, 50, 70, 120, 150, 180, 240];
+  var v = parseFloat(String(s || '0').replace(',', '.'));
+  if (!v) return 0;
+  if (v <= 16) return v;
+  if (v <= 35) return 16;
+  var half = v / 2;
+  for (var i = 0; i < STANDART.length; i++) {
+    if (STANDART[i] >= half) return STANDART[i];
+  }
+  return STANDART[STANDART.length - 1];
 }
 
 function parseYuk(txt) {
@@ -1369,6 +1385,8 @@ window.getGucVerileri = getGucVerileri;
 window.qs             = qs;
 window.numVal         = numVal;
 window.getText        = getText;
+window.isDomVisible   = isDomVisible;
+window.hesaplaOnerilenTopraklamaKesit = hesaplaOnerilenTopraklamaKesit;
 
 // ═══════════════════════════════════════════════════════
 // SAVE / RESTORE
@@ -1676,7 +1694,15 @@ function saveState() {
         eskiTalepManuel:  qs('guc-eski-talep')  && qs('guc-eski-talep').dataset.manuelDegistirildi  ? '1' : '',
         ilaveTalepManuel: qs('guc-ilave-talep') && qs('guc-ilave-talep').dataset.manuelDegistirildi ? '1' : ''
       },
-      linyeler:       _linyeListesiOlustur()
+      linyeler:       _linyeListesiOlustur(),
+      svgString:      _serializeSvgTemiz(qs('katman_1')),
+      cetveliHtml:    qs('cetveli-canli-alan') ? qs('cetveli-canli-alan').innerHTML : '',
+      tesisatGucHtml: buildTesisatGucTablosu(),
+      kofreOlcumHtml: buildKofreOlcumTablosu(),
+      yapiGucHtml:    buildYapiGucTablosu(),
+      gdEnUzunHtml:   qs('gd-tablo-enuzun')  ? qs('gd-tablo-enuzun').outerHTML  : '',
+      gdEnGucluHtml:  qs('gd-tablo-enguclu') ? qs('gd-tablo-enguclu').outerHTML : '',
+      ponDegerlendirmeHtml: qs('pon-deg-canli-alan') ? qs('pon-deg-canli-alan').innerHTML : ''
     }));
   } catch(e) { console.warn('[saveState] error:', e); }
   window.dispatchEvent(new CustomEvent('semaGuncellendi'));
@@ -1776,9 +1802,10 @@ function restoreState() {
       if (g.eskiTalepManuel  && qs('guc-eski-talep'))  qs('guc-eski-talep').dataset.manuelDegistirildi  = '1';
       if (g.ilaveTalepManuel && qs('guc-ilave-talep')) qs('guc-ilave-talep').dataset.manuelDegistirildi = '1';
       setTimeout(function() {
-        if (typeof gucHesapla      === 'function') gucHesapla();
-        if (typeof cetveliGuncelle === 'function') cetveliGuncelle();
-        if (typeof gdTabloGuncelle === 'function') gdTabloGuncelle();
+        if (typeof gucHesapla           === 'function') gucHesapla();
+        if (typeof cetveliGuncelle      === 'function') cetveliGuncelle();
+        if (typeof gdTabloGuncelle      === 'function') gdTabloGuncelle();
+        if (typeof ponDegTabloGuncelle  === 'function') ponDegTabloGuncelle();
       }, 100);
     }
     return true;
@@ -2397,6 +2424,323 @@ document.addEventListener('DOMContentLoaded',function(){
 
 window.gdTabloGuncelle=gdTabloGuncelle;
 window.collectGDData=collectGDData;
+
+})();
+</script>
+<script id="on_degerlendirme">
+(function(){
+'use strict';
+
+var qs      = window.qs;
+var numVal  = window.numVal;
+var getText = window.getText;
+var isDomVisible = window.isDomVisible;
+var hesaplaOnerilenTopraklamaKesit = window.hesaplaOnerilenTopraklamaKesit;
+
+var COSQ = 0.8;
+var STAN_SIGORTA = [6,10,16,20,25,32,40,50,63,80,100,125];
+
+function _kf(v){ return parseFloat(String(v||'0').replace(',','.'))||0; }
+
+function _gerekenAkim(guc, trifaz){
+  if(!guc) return 0;
+  return trifaz ? guc/(1.73*380*COSQ) : guc/(220*COSQ);
+}
+
+function _getAK(tip,damar,kesit){
+  var AK=window._AK; if(!AK) return null;
+  var t=String(tip||'').trim(); if(!AK[t]) return null;
+  var d=String(damar||'').replace(/x$/i,'').trim(); if(!AK[t][d]) return null;
+  var k=parseFloat(String(kesit||'0').replace(',','.')); if(!k) return null;
+  var c=AK[t][d][k]; return c!==undefined?c:null;
+}
+
+function _minKesitBul(tip,damar,gerekenI){
+  var AK=window._AK; if(!AK) return null;
+  var STAN=[1.5,2.5,4,6,10,16,25,35,50,70,120,150,180,240];
+  var t=String(tip||'').trim(); if(!AK[t]) return null;
+  var d=String(damar||'').replace(/x$/i,'').trim(); if(!AK[t][d]) return null;
+  for(var i=0;i<STAN.length;i++){
+    var c=AK[t][d][STAN[i]];
+    if(c!==undefined&&c>=gerekenI) return STAN[i];
+  }
+  return null;
+}
+
+function _minSigortaBul(I){
+  for(var i=0;i<STAN_SIGORTA.length;i++){
+    if(STAN_SIGORTA[i]>=I) return STAN_SIGORTA[i];
+  }
+  return null;
+}
+
+function _parseKablo(txt){
+  var r=String(txt||'').replace(/\s+/g,' ').trim();
+  var TL=['NYAF','NYA','NYY','TTR','Alüminyum','N2XH'];
+  var ds=Number(r.match(/^(\d)/)?.[1]||3),dm=ds+'x';
+  var km=r.match(/\d+x\s*([0-9]+(?:[.,][0-9]+)?)\s*(?:\+\s*([0-9]+(?:[.,][0-9]+)?))?\s*mm2/i);
+  var ks=(km?.[1]||'2,5').replace('.',','),tp=(km?.[2]||'').replace('.',',');
+  var ti='NYY';
+  for(var i=0;i<TL.length;i++){if(new RegExp('\\b'+TL[i]+'\\b','i').test(r)){ti=TL[i];break;}}
+  var mt=Number(r.match(/(\d+)\s*m\b/i)?.[1]||10);
+  var trifaz=ds>=3;
+  return{damar:dm,damar_sayi:ds,kesit:ks,toprak_kesit:tp,tip:ti,metraj:mt,trifaz:trifaz,monofaz:!trifaz,ham:r};
+}
+
+function _parseSigorta(txt){
+  if(!txt||!txt.trim()) return null;
+  var raw=String(txt).trim();
+  var faz=raw.includes('3x')?'3x':'1x';
+  var akim=Number(raw.match(/(\d+)\s*A/i)?.[1]||0);
+  return{faz:faz,akim:akim,ham:raw};
+}
+
+function _parseRole(txtA,txtB){
+  if(!txtA&&!txtB) return null;
+  var rawA=String(txtA||'').trim(),rawB=String(txtB||'').trim();
+  var tip=rawA.includes('30mA')?'30mA':'300mA';
+  var faz=rawB.includes('4x')?'4x':'2x';
+  var akim=Number(rawB.match(/(\d+)\s*A/i)?.[1]||0);
+  return{tip:tip,faz:faz,akim:akim,ham:rawA+' / '+rawB};
+}
+
+function _parseYuk(txt){
+  if(!txt||!txt.trim()) return null;
+  var r=String(txt).trim();
+  var p=r.split('-').map(function(s){return s.trim();});
+  return{faz:p[1]||'',toplam_guc:Number(r.match(/(\d+)\s*W/i)?.[1]||0)};
+}
+
+function _yukTrifaz(yuk){ return yuk?String(yuk.faz||'').toLowerCase().indexOf('trifaz')>=0:true; }
+
+// Evaluate cable: returns array of failing field names
+function _kabloHatalar(kp,yukTrifaz,yukGuc){
+  var h=[];
+  if(yukTrifaz&&!kp.trifaz) h.push('faz değeri');
+  var I=_gerekenAkim(yukGuc,yukTrifaz);
+  if(I>0){
+    var cap=_getAK(kp.tip,kp.damar,kp.kesit);
+    if(cap!==null&&cap<I) h.push('kablo kesit değeri');
+  }
+  if(kp.toprak_kesit&&kp.toprak_kesit!==''){
+    var tAct=_kf(kp.toprak_kesit);
+    var tOnr=hesaplaOnerilenTopraklamaKesit(_kf(kp.kesit));
+    if(tAct<tOnr) h.push('topraklama kablosu kesit değeri');
+  }
+  return h;
+}
+
+// Build merged cable error message (items 3 & 4)
+function _kabloMesaj(adName,hatalar){
+  if(!hatalar.length) return '<span style="color:#2e7d32">Uygun</span>';
+  return '<span style="color:#c62828;font-weight:bold">'+adName+' için seçilen '+hatalar.join(', ')+' UYGUN DEĞİLDİR. Projenin onaydan dönme riskine karşı değerleri kontrol etmeniz önerilir.</span>';
+}
+
+// Evaluate sigorta: returns array of error note strings
+function _sigortaNotlar(sp,yukTrifaz,yukGuc,adName){
+  if(!sp) return [];
+  var n=[];
+  if(yukTrifaz&&sp.faz!=='3x')
+    n.push('<span style="color:#c62828;font-weight:bold">'+adName+' için seçilen faz değeri UYGUN DEĞİLDİR. Projenin onaydan dönme riskine karşı değerleri kontrol etmeniz önerilir.</span>');
+  var I=_gerekenAkim(yukGuc,yukTrifaz);
+  if(I>0&&sp.akim<I)
+    n.push('<span style="color:#c62828;font-weight:bold">'+adName+' için seçilen akım değeri UYGUN DEĞİLDİR. Projenin onaydan dönme riskine karşı değerleri kontrol etmeniz önerilir.</span>');
+  return n;
+}
+
+// Evaluate role: returns array of error note strings
+function _roleNotlar(rp,yukTrifaz,yukGuc,adName){
+  if(!rp) return [];
+  var n=[];
+  if(yukTrifaz&&rp.faz!=='4x')
+    n.push('<span style="color:#c62828;font-weight:bold">'+adName+' için seçilen faz değeri UYGUN DEĞİLDİR. Projenin onaydan dönme riskine karşı değerleri kontrol etmeniz önerilir.</span>');
+  var I=_gerekenAkim(yukGuc,yukTrifaz);
+  if(I>0&&rp.akim<I)
+    n.push('<span style="color:#c62828;font-weight:bold">'+adName+' için seçilen akım değeri UYGUN DEĞİLDİR. Projenin onaydan dönme riskine karşı değerleri kontrol etmeniz önerilir.</span>');
+  return n;
+}
+
+// Recommended cable string
+function _onerilenKablo(kp,yukTrifaz,yukGuc){
+  var I=_gerekenAkim(yukGuc,yukTrifaz); if(!I) return '—';
+  var fixDamar=yukTrifaz&&kp.monofaz?'3x':kp.damar;
+  var minK=_minKesitBul(kp.tip,fixDamar,I); if(minK===null) return '—';
+  var toprak=hesaplaOnerilenTopraklamaKesit(minK);
+  return fixDamar+minK+(toprak>0?'+'+toprak:'')+' mm² '+kp.tip;
+}
+
+// Recommended sigorta string
+function _onerilenSigorta(sp,yukTrifaz,yukGuc){
+  if(!sp) return '—';
+  var fixFaz=yukTrifaz?'3x':'1x';
+  var I=_gerekenAkim(yukGuc,yukTrifaz);
+  var minA=I>0?_minSigortaBul(I):null;
+  if(minA===null) return fixFaz+(sp.akim||'?')+' A';
+  return fixFaz+minA+' A';
+}
+
+// Recommended role string
+function _onerilenRole(rp,yukTrifaz,yukGuc){
+  if(!rp) return '—';
+  var fixFaz=yukTrifaz?'4x':'2x';
+  var I=_gerekenAkim(yukGuc,yukTrifaz);
+  var minA=I>0?_minSigortaBul(I):null;
+  var akimStr=minA!==null?minA:(rp.akim||'?');
+  return fixFaz+akimStr+' A / '+rp.tip;
+}
+
+var TD='border:1px solid #ccc;padding:6px 8px;font-size:11px;vertical-align:top;';
+var TDL=TD+'text-align:left;';
+var TDR=TD+'text-align:center;';
+var THD='border:1px solid #999;padding:6px 8px;font-size:11px;font-weight:bold;background:#e8eef5;text-align:center;';
+
+function _secHdr(no,title,uygun){
+  var badge=uygun
+    ?'<span style="background:#2e7d32;color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;margin-left:8px">✓ UYGUN</span>'
+    :'<span style="background:#c62828;color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;margin-left:8px">✗ UYGUNSUZ</span>';
+  return '<tr><td colspan="4" style="'+TD+'background:#005088;color:#fff;font-weight:bold;font-size:12px;padding:8px 10px;">'+no+'. '+title+badge+'</td></tr>'
+    +'<tr><th style="'+THD+'width:20%">Eleman</th><th style="'+THD+'width:22%">Kullanılan</th><th style="'+THD+'width:22%">Önerilen</th><th style="'+THD+'width:36%">Değerlendirme</th></tr>';
+}
+
+function _kabloSatir(ad,kp,yukTrifaz,yukGuc){
+  var h=_kabloHatalar(kp,yukTrifaz,yukGuc);
+  var degMsg=_kabloMesaj(ad,h);
+  var oner=h.length?_onerilenKablo(kp,yukTrifaz,yukGuc):'—';
+  return '<tr><td style="'+TDL+'font-weight:bold">'+ad+'</td>'
+    +'<td style="'+TDR+'">'+kp.ham+'</td>'
+    +'<td style="'+TDR+'">'+oner+'</td>'
+    +'<td style="'+TDL+'">'+degMsg+'</td></tr>';
+}
+
+function _sigortaSatir(ad,sp,yukTrifaz,yukGuc){
+  if(!sp) return '';
+  var notlar=_sigortaNotlar(sp,yukTrifaz,yukGuc,ad);
+  var deg=notlar.length?notlar.join('<br>'):'<span style="color:#2e7d32">Uygun</span>';
+  var oner=notlar.length?_onerilenSigorta(sp,yukTrifaz,yukGuc):'—';
+  return '<tr><td style="'+TDL+'font-weight:bold">'+ad+'</td>'
+    +'<td style="'+TDR+'">'+sp.ham+'</td>'
+    +'<td style="'+TDR+'">'+oner+'</td>'
+    +'<td style="'+TDL+'">'+deg+'</td></tr>';
+}
+
+function _roleSatir(ad,rp,yukTrifaz,yukGuc){
+  if(!rp) return '';
+  var notlar=_roleNotlar(rp,yukTrifaz,yukGuc,ad);
+  var deg=notlar.length?notlar.join('<br>'):'<span style="color:#2e7d32">Uygun</span>';
+  var oner=notlar.length?_onerilenRole(rp,yukTrifaz,yukGuc):'—';
+  return '<tr><td style="'+TDL+'font-weight:bold">'+ad+'</td>'
+    +'<td style="'+TDR+'">'+rp.ham+'</td>'
+    +'<td style="'+TDR+'">'+oner+'</td>'
+    +'<td style="'+TDL+'">'+deg+'</td></tr>';
+}
+
+function buildOnDegerlendirmeTablo(){
+  var eskiTalep=numVal('guc-eski-talep');
+  var ilaveTalep=numVal('guc-ilave-talep');
+  var toplamTalep=eskiTalep+ilaveTalep;
+
+  var yukMevcut=_parseYuk(getText('txt_yuk_mevcut'));
+  var yukIstek=_parseYuk(getText('txt_yuk_istek'));
+  var yukMevcutTrifaz=_yukTrifaz(yukMevcut);
+  var yukIstekTrifaz=_yukTrifaz(yukIstek);
+  var yukMevcutGuc=yukMevcut?yukMevcut.toplam_guc:eskiTalep;
+  var yukIstekGuc=yukIstek?yukIstek.toplam_guc:ilaveTalep;
+
+  // ── 1. KABLOLAR
+  var kolonKp=_parseKablo(getText('txt_kolon'));
+  var dtMevKp=_parseKablo(getText('txt_linye_dt_mevcut'));
+  var yukMevKp=_parseKablo(getText('txt_linye_yuk_mevcut'));
+  var dtIstKp=_parseKablo(getText('txt_linye_dt_istek'));
+  var yukIstKp=_parseKablo(getText('txt_linye_yuk_istek'));
+
+  var kabloHataSayisi=0;
+  function _kSatir(ad,kp,tri,guc){
+    var h=_kabloHatalar(kp,tri,guc); kabloHataSayisi+=h.length;
+    return _kabloSatir(ad,kp,tri,guc);
+  }
+
+  var kTabloSatir='';
+  kTabloSatir+=_kSatir('Ana kolon kablosu',kolonKp,true,toplamTalep);
+  if(getText('txt_linye_dt_mevcut')) kTabloSatir+=_kSatir('DT mevcut kablosu',dtMevKp,yukMevcutTrifaz,yukMevcutGuc);
+  if(getText('txt_linye_yuk_mevcut')) kTabloSatir+=_kSatir('Yük mevcut kablosu',yukMevKp,yukMevcutTrifaz,yukMevcutGuc);
+  if(getText('txt_linye_dt_istek')) kTabloSatir+=_kSatir('DT istek kablosu',dtIstKp,yukIstekTrifaz,yukIstekGuc);
+  if(getText('txt_linye_yuk_istek')) kTabloSatir+=_kSatir('Yük istek kablosu',yukIstKp,yukIstekTrifaz,yukIstekGuc);
+
+  // ── 2. KESİCİLER
+  var kolonSigTip=isDomVisible('tms_kolon')?'TMŞ':isDomVisible('sig_kolon')?'K.Otomat':null;
+  var kolonSigTxt=kolonSigTip==='TMŞ'?getText('txt_tms_kolon'):getText('txt_sig_kolon');
+  var kolonSigAd=kolonSigTip?'Kolon sigortası ('+kolonSigTip+')':'Kolon sigortası';
+  var kolonSp=_parseSigorta(kolonSigTxt);
+  var sayacGirisSp=_parseSigorta(getText('txt_sig_sayac_giris'));
+  var sayacCikisSp=isDomVisible('sig_sayac_cikis')?_parseSigorta(getText('txt_sig_sayac_cikis')):null;
+  var sigIstekSp=_parseSigorta(getText('txt_sig_istek'));
+  var sigMevcutSp=_parseSigorta(getText('txt_sig_mevcut'));
+
+  var kesiciHataSayisi=0;
+  function _sSatir(ad,sp,tri,guc){
+    var n=sp?_sigortaNotlar(sp,tri,guc,ad):[];
+    kesiciHataSayisi+=n.length;
+    return _sigortaSatir(ad,sp,tri,guc);
+  }
+
+  var kesiSatir='';
+  kesiSatir+=_sSatir(kolonSigAd,kolonSp,true,toplamTalep);
+  kesiSatir+=_sSatir('Sayaç giriş sigortası',sayacGirisSp,true,toplamTalep);
+  if(sayacCikisSp) kesiSatir+=_sSatir('Sayaç çıkış sigortası',sayacCikisSp,true,toplamTalep);
+  kesiSatir+=_sSatir('Linye istek sigortası',sigIstekSp,yukIstekTrifaz,yukIstekGuc);
+  kesiSatir+=_sSatir('Linye mevcut sigortası',sigMevcutSp,yukMevcutTrifaz,yukMevcutGuc);
+
+  // ── 3. RÖLE
+  var roleGirisRp=_parseRole(getText('txt_role_sayac_giris_a'),getText('txt_role_sayac_giris_b'));
+  var roleIstekRp=_parseRole(getText('txt_role_istek_a'),getText('txt_role_istek_b'));
+  var roleMevcutRp=_parseRole(getText('txt_role_mevcut_a'),getText('txt_role_mevcut_b'));
+
+  var roleHataSayisi=0;
+  function _rSatir(ad,rp,tri,guc){
+    var n=rp?_roleNotlar(rp,tri,guc,ad):[];
+    roleHataSayisi+=n.length;
+    return _roleSatir(ad,rp,tri,guc);
+  }
+
+  var roleSatir='';
+  roleSatir+=_rSatir('Sayaç giriş rolesi',roleGirisRp,true,toplamTalep);
+  roleSatir+=_rSatir('Linye istek rolesi',roleIstekRp,yukIstekTrifaz,yukIstekGuc);
+  roleSatir+=_rSatir('Linye mevcut rolesi',roleMevcutRp,yukMevcutTrifaz,yukMevcutGuc);
+
+  var h='<div style="font-family:Arial,sans-serif;max-width:1200px;padding:10px;">';
+  h+='<div style="text-align:center;font-size:15px;font-weight:bold;letter-spacing:2px;border-bottom:3px solid #000;padding-bottom:8px;margin-bottom:15px;">ÖN DEĞERLENDİRME SONUÇLARI</div>';
+  h+='<table style="width:100%;border-collapse:collapse;font-size:11px;border:2px solid #ccc;">';
+  h+=_secHdr(1,'KABLOLAR',kabloHataSayisi===0);
+  h+=kTabloSatir;
+  h+=_secHdr(2,'KESİCİLER',kesiciHataSayisi===0);
+  h+=kesiSatir;
+  h+=_secHdr(3,'RÖLE',roleHataSayisi===0);
+  h+=roleSatir;
+  h+='</table></div>';
+  return h;
+}
+
+function ponDegTabloGuncelle(){
+  var alan=qs('pon-deg-canli-alan'); if(!alan) return;
+  alan.innerHTML=buildOnDegerlendirmeTablo();
+}
+
+// Trigger after kapatModal (same pattern as gdTabloGuncelle)
+var _eskiKapat3=window.kapatModal;
+window.kapatModal=function(){
+  _eskiKapat3();
+  setTimeout(ponDegTabloGuncelle,60);
+};
+
+document.addEventListener('DOMContentLoaded',function(){
+  ['guc-eski-kurulu','guc-eski-talep','guc-ilave-kurulu','guc-ilave-talep'].forEach(function(id){
+    var el=qs(id); if(el) el.addEventListener('input',function(){ setTimeout(ponDegTabloGuncelle,150); });
+  });
+  setTimeout(ponDegTabloGuncelle,250);
+});
+
+window.buildOnDegerlendirmeTablo=buildOnDegerlendirmeTablo;
+window.ponDegTabloGuncelle=ponDegTabloGuncelle;
 
 })();
 </script>
