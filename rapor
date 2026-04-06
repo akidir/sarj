@@ -183,6 +183,12 @@ const VARSAYILAN_OGELERI = [
     renderW: 700,
     x:380, y:1760, scale:0.65, dpi:2, aktif:true
   },
+  {
+    id:'pondeg', baslik:'📋 Ön Değerlendirme Sonuçları',
+    kaynak:'sema', alan:'ponDegerlendirmeHtml', tip:'html',
+    renderW: 1200,
+    x:20,  y:2050, scale:0.60, dpi:2, aktif:true
+  },
 ];
 // ── DOM ──────────────────────────────────────────────
 const btnKontrol    = document.getElementById('btn-kontrol');
