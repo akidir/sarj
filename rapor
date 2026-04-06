@@ -76,6 +76,7 @@
     .od-tablo td{padding:7px 12px;border-bottom:1px solid #eef0f3;vertical-align:top;color:#333;font-size:12px;line-height:1.6}
     .od-tablo tbody tr:last-child td{border-bottom:none}
     .od-tablo td:first-child{font-weight:600;color:#1a3a5c;white-space:nowrap}
+    .od-tablo td:nth-child(2){white-space:nowrap}
     .od-tablo td:nth-child(3){white-space:nowrap}
   </style>
 </head>
@@ -1005,14 +1006,6 @@ function onDegerlendirmeYap(sema, yapi) {
     }
   }
 
-  // Kural 15: Ana Kolon Kablosu Kesicisi Durumu
-  kural.push({no:15, grup:'2. KESİCİLER', baslik:'Ana Kolon Kablosu Kesicisi Durumu',
-    durum: sigKolonAktif ? 'uygun' : 'atla',
-    not: '',
-    kullanilan: sigKolonAktif && sigKolon ? sigKolon.kullanilan_kisa : '—',
-    onerilen_row: '—', alan_adi: 'kesici durumu'
-  });
-
   // Kural 16-17: Sayaç giriş sigortası faz ve akım
   if (sigSayacGiris) {
     const beklenFazSG = yeniKurulu > 5000 ? '3x' : '1x';
@@ -1295,98 +1288,67 @@ function onDegerlendirmeYap(sema, yapi) {
 
   // ── 5. GERİLİM DÜŞÜMÜ HESAPLARI ─────────────────────
 
-  // Yardımcı: HTML string'den N. satırın (1-bazlı) son <td> değerini döndürür
-  function odHtmlSatirDeger(htmlStr, satirNo) {
-    const div = document.createElement('div');
-    div.innerHTML = htmlStr || '';
-    const satirlar = div.querySelectorAll('tr');
-    const satirEl = satirlar[satirNo - 1];
-    if (!satirEl) return null;
-    const tdler = satirEl.querySelectorAll('td');
-    if (tdler.length === 0) return null;
-    return tdler[tdler.length - 1].textContent.trim();
-  }
-
-  // Kural 36: En uzun %etop ≤ 3 olmalı
+  // Kural 36: En uzun %etop < 3 olmalı
   {
-    const gdUzun = sema.gdEnUzunHtml || '';
-    if (gdUzun) {
-      const etopStr = odHtmlSatirDeger(gdUzun, 26);
-      const etop = etopStr !== null ? parseFloat(String(etopStr).replace(',', '.').replace('%', '')) : null;
-      if (etop !== null && !isNaN(etop)) {
-        const ok = etop <= 3;
-        kural.push({no:36, grup:'5. GERİLİM DÜŞÜMÜ', baslik:'En Uzun Gerilim Düşümü (%etop)',
-          durum: ok ? 'uygun' : 'uygunsuz',
-          not: ok ? '' : 'Gerilim düşümü hesabı (en uzun) için %etop değeri UYGUN DEĞİLDİR. Projenin onaydan dönme riskine karşı değerleri kontrol etmeniz önerilir.',
-          kullanilan: etopStr, onerilen_row: '≤ 3%', alan_adi: '%etop değeri'
-        });
-      } else {
-        kural.push({no:36, grup:'5. GERİLİM DÜŞÜMÜ', baslik:'En Uzun Gerilim Düşümü (%etop)',
-          durum:'atla', not:'Gerilim düşümü hesabı verisi bulunamadı.',
-          kullanilan: '—', onerilen_row: '—', alan_adi: '%etop değeri'
-        });
-      }
+    const gdUzun = sema.gdEnUzun;
+    if (gdUzun && gdUzun.etf && gdUzun.etf !== '—') {
+      const etop = gdUzun.et != null ? gdUzun.et : parseFloat(String(gdUzun.etf).replace(',', '.').replace('%', ''));
+      const ok = !isNaN(etop) && etop < 3;
+      kural.push({no:36, grup:'5. GERİLİM DÜŞÜMÜ', baslik:'Gerilim düşümü hesabı (en uzun) için gerilim düşümü uygunluğu',
+        durum: ok ? 'uygun' : 'uygunsuz',
+        not: ok ? '' : 'Gerilim düşümü hesabı (en uzun) için %etop değeri UYGUN DEĞİLDİR. Projenin onaylanmama riskine karşı değerleri kontrol etmeniz önerilir.',
+        kullanilan: gdUzun.etf, onerilen_row: '<%3', alan_adi: '%etop değeri'
+      });
     } else {
-      kural.push({no:36, grup:'5. GERİLİM DÜŞÜMÜ', baslik:'En Uzun Gerilim Düşümü (%etop)',
+      kural.push({no:36, grup:'5. GERİLİM DÜŞÜMÜ', baslik:'Gerilim düşümü hesabı (en uzun) için gerilim düşümü uygunluğu',
         durum:'atla', not:'Gerilim düşümü hesabı verisi bulunamadı.',
         kullanilan: '—', onerilen_row: '—', alan_adi: '%etop değeri'
       });
     }
   }
 
-  // Kural 37: En güçlü %etop ≤ 3 olmalı
+  // Kural 37: En güçlü %etop < 3 olmalı
   {
-    const gdGuclu = sema.gdEnGucluHtml || '';
-    if (gdGuclu) {
-      const etopStr = odHtmlSatirDeger(gdGuclu, 26);
-      const etop = etopStr !== null ? parseFloat(String(etopStr).replace(',', '.').replace('%', '')) : null;
-      if (etop !== null && !isNaN(etop)) {
-        const ok = etop <= 3;
-        kural.push({no:37, grup:'5. GERİLİM DÜŞÜMÜ', baslik:'En Güçlü Gerilim Düşümü (%etop)',
-          durum: ok ? 'uygun' : 'uygunsuz',
-          not: ok ? '' : 'Gerilim düşümü hesabı (en güçlü) için %etop değeri UYGUN DEĞİLDİR. Projenin onaydan dönme riskine karşı değerleri kontrol etmeniz önerilir.',
-          kullanilan: etopStr, onerilen_row: '≤ 3%', alan_adi: '%etop değeri'
-        });
-      } else {
-        kural.push({no:37, grup:'5. GERİLİM DÜŞÜMÜ', baslik:'En Güçlü Gerilim Düşümü (%etop)',
-          durum:'atla', not:'Gerilim düşümü hesabı verisi bulunamadı.',
-          kullanilan: '—', onerilen_row: '—', alan_adi: '%etop değeri'
-        });
-      }
+    const gdGuclu = sema.gdEnGuclu;
+    if (gdGuclu && gdGuclu.etf && gdGuclu.etf !== '—') {
+      const etop = gdGuclu.et != null ? gdGuclu.et : parseFloat(String(gdGuclu.etf).replace(',', '.').replace('%', ''));
+      const ok = !isNaN(etop) && etop < 3;
+      kural.push({no:37, grup:'5. GERİLİM DÜŞÜMÜ', baslik:'Gerilim düşümü hesabı (en güçlü) için gerilim düşümü uygunluğu',
+        durum: ok ? 'uygun' : 'uygunsuz',
+        not: ok ? '' : 'Gerilim düşümü hesabı (en güçlü) için %etop değeri UYGUN DEĞİLDİR. Projenin onaylanmama riskine karşı değerleri kontrol etmeniz önerilir.',
+        kullanilan: gdGuclu.etf, onerilen_row: '<%3', alan_adi: '%etop değeri'
+      });
     } else {
-      kural.push({no:37, grup:'5. GERİLİM DÜŞÜMÜ', baslik:'En Güçlü Gerilim Düşümü (%etop)',
+      kural.push({no:37, grup:'5. GERİLİM DÜŞÜMÜ', baslik:'Gerilim düşümü hesabı (en güçlü) için gerilim düşümü uygunluğu',
         durum:'atla', not:'Gerilim düşümü hesabı verisi bulunamadı.',
         kullanilan: '—', onerilen_row: '—', alan_adi: '%etop değeri'
       });
     }
-  }
-
-  // Yardımcı: HTML'deki belirtilen satırın son td içeriğini uygunluk açısından değerlendirir
-  function gdSatirUygunMu(html, satirNo) {
-    if (!html) return null;
-    const deger = odHtmlSatirDeger(html, satirNo);
-    if (deger === null) return null;
-    const lower = deger.toLowerCase();
-    if (lower.includes('uygun değil') || lower.includes('uygunsuz')) return false;
-    if (lower.includes('uygun')) return true;
-    return null;
   }
 
   // Kural 38: En uzun hat — I1, I2, I3 akım kablo uygunluğu
   {
-    const gdUzun = sema.gdEnUzunHtml || '';
-    if (gdUzun) {
-      const iSatirlar = [{ruleNo:38, no:'I1', satirNo:32}, {ruleNo:38.1, no:'I2', satirNo:35}, {ruleNo:38.2, no:'I3', satirNo:38}];
-      iSatirlar.forEach(function(is) {
-        const ok = gdSatirUygunMu(gdUzun, is.satirNo);
-        kural.push({no:is.ruleNo, grup:'5. GERİLİM DÜŞÜMÜ', baslik:'En Uzun Hat Akımı',
+    const gdUzun = sema.gdEnUzun;
+    if (gdUzun && gdUzun.ah) {
+      const akimlar = [
+        {no:38,   noStr:'I1', val:gdUzun.F1,         n:gdUzun.n1},
+        {no:38.1, noStr:'I2', val:gdUzun.ah.I2f,     n:gdUzun.n2},
+        {no:38.2, noStr:'I3', val:gdUzun.ah.I3f,     n:gdUzun.n3}
+      ];
+      akimlar.forEach(function(a) {
+        const ok = a.n ? a.n.ok : null;
+        const nHtml = a.n ? '<br><span style="color:' + (a.n.ok ? '#2e7d32' : '#c62828') + '">' + a.n.s1 + ' — ' + a.n.s2 + '</span>' : '';
+        kural.push({no:a.no, grup:'6. AKIM HESABI',
+          baslik:'Gerilim düşümü hesabı (en uzun) için akım hesabı ' + a.noStr + ' uygunluğu',
           durum: ok === null ? 'atla' : (ok ? 'uygun' : 'uygunsuz'),
-          not: ok === false ? 'Gerilim düşümü hesabı (en uzun) için yapılan akım hesabına göre ' + is.no + ' değeri için belirlenen kablo değeri UYGUN DEĞİLDİR. Projenin onaydan dönme riskine karşı değerleri kontrol etmeniz önerilir.' : '',
-          kullanilan: '—', onerilen_row: '—', alan_adi: is.no + ' kablo değeri'
+          not: '',
+          kullanilan: '', onerilen_row: '',
+          custom_degerlendirme: (a.val || '—') + nHtml,
+          alan_adi: a.noStr + ' akım değeri'
         });
       });
     } else {
-      kural.push({no:38, grup:'5. GERİLİM DÜŞÜMÜ', baslik:'En Uzun Hat Akımı',
+      kural.push({no:38, grup:'6. AKIM HESABI', baslik:'Gerilim düşümü hesabı (en uzun) için akım hesabı uygunluğu',
         durum:'atla', not:'Akım hesabı verisi bulunamadı.',
         kullanilan: '—', onerilen_row: '—', alan_adi: 'akım değeri'
       });
@@ -1395,19 +1357,27 @@ function onDegerlendirmeYap(sema, yapi) {
 
   // Kural 39: En güçlü hat — I1, I2, I3 akım kablo uygunluğu
   {
-    const gdGuclu = sema.gdEnGucluHtml || '';
-    if (gdGuclu) {
-      const iSatirlar = [{ruleNo:39, no:'I1', satirNo:32}, {ruleNo:39.1, no:'I2', satirNo:35}, {ruleNo:39.2, no:'I3', satirNo:38}];
-      iSatirlar.forEach(function(is) {
-        const ok = gdSatirUygunMu(gdGuclu, is.satirNo);
-        kural.push({no:is.ruleNo, grup:'5. GERİLİM DÜŞÜMÜ', baslik:'En Güçlü Hat Akımı',
+    const gdGuclu = sema.gdEnGuclu;
+    if (gdGuclu && gdGuclu.ah) {
+      const akimlar = [
+        {no:39,   noStr:'I1', val:gdGuclu.F1,         n:gdGuclu.n1},
+        {no:39.1, noStr:'I2', val:gdGuclu.ah.I2f,     n:gdGuclu.n2},
+        {no:39.2, noStr:'I3', val:gdGuclu.ah.I3f,     n:gdGuclu.n3}
+      ];
+      akimlar.forEach(function(a) {
+        const ok = a.n ? a.n.ok : null;
+        const nHtml = a.n ? '<br><span style="color:' + (a.n.ok ? '#2e7d32' : '#c62828') + '">' + a.n.s1 + ' — ' + a.n.s2 + '</span>' : '';
+        kural.push({no:a.no, grup:'6. AKIM HESABI',
+          baslik:'Gerilim düşümü hesabı (en güçlü) için akım hesabı ' + a.noStr + ' uygunluğu',
           durum: ok === null ? 'atla' : (ok ? 'uygun' : 'uygunsuz'),
-          not: ok === false ? 'Gerilim düşümü hesabı (en güçlü) için yapılan akım hesabına göre ' + is.no + ' değeri için belirlenen kablo değeri UYGUN DEĞİLDİR. Projenin onaydan dönme riskine karşı değerleri kontrol etmeniz önerilir.' : '',
-          kullanilan: '—', onerilen_row: '—', alan_adi: is.no + ' kablo değeri'
+          not: '',
+          kullanilan: '', onerilen_row: '',
+          custom_degerlendirme: (a.val || '—') + nHtml,
+          alan_adi: a.noStr + ' akım değeri'
         });
       });
     } else {
-      kural.push({no:39, grup:'5. GERİLİM DÜŞÜMÜ', baslik:'En Güçlü Hat Akımı',
+      kural.push({no:39, grup:'6. AKIM HESABI', baslik:'Gerilim düşümü hesabı (en güçlü) için akım hesabı uygunluğu',
         durum:'atla', not:'Akım hesabı verisi bulunamadı.',
         kullanilan: '—', onerilen_row: '—', alan_adi: 'akım değeri'
       });
@@ -1438,11 +1408,11 @@ function onDegerlendirmeYap(sema, yapi) {
     const parcalar = [];
     if (uygunsuzlar.length > 0) {
       const alanlar = uygunsuzlar.map(function(k) { return k.alan_adi || ''; }).filter(Boolean);
-      parcalar.push('<span style="color:#c62828">' + bg + ' için seçilen ' + alanlar.join(', ') + ' UYGUN DEĞİLDİR. Projenin onaydan dönme riskine karşı değerleri kontrol etmeniz önerilir.</span>');
+      parcalar.push('<span style="color:#c62828">' + bg + ' için seçilen ' + alanlar.join(', ') + ' UYGUN DEĞİLDİR. Projenin onaylanmama riskine karşı değerleri kontrol etmeniz önerilir.</span>');
     }
     if (potansiyellar.length > 0) {
       const alanlar = potansiyellar.map(function(k) { return k.alan_adi || ''; }).filter(Boolean);
-      parcalar.push('<span style="color:#e65100">' + bg + ' için seçilen ' + alanlar.join(', ') + ' dağıtım şirketi kabul kriterleriyle uyumsuzluk gösterebilir. Projenin onaydan dönme riskine karşı değerleri kontrol etmeniz önerilir.</span>');
+      parcalar.push('<span style="color:#e65100">' + bg + ' için seçilen ' + alanlar.join(', ') + ' dağıtım şirketi kabul kriterleriyle uyumsuzluk gösterebilir. Projenin onaylanmama riskine karşı değerleri kontrol etmeniz önerilir.</span>');
     }
     return parcalar.join('<br><br>');
   }
@@ -1508,7 +1478,9 @@ function onDegerlendirmeYap(sema, yapi) {
       const firstWithData = list.find(function(k) { return k.kullanilan && k.kullanilan !== '—'; }) || list[0];
       const kullanilan = (firstWithData && firstWithData.kullanilan) || '—';
       const onerilen_row = (firstWithData && firstWithData.onerilen_row) || '—';
-      const degerlendirme = odDegerlendirmeHtml(grupAdi, bg, list);
+      const degerlendirme = (list[0] && list[0].custom_degerlendirme !== undefined)
+        ? list[0].custom_degerlendirme
+        : odDegerlendirmeHtml(grupAdi, bg, list);
 
       html += '<tr>';
       html += '<td>' + bg + '</td>';
