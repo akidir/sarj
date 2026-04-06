@@ -1376,10 +1376,10 @@ function onDegerlendirmeYap(sema, yapi) {
   {
     const gdUzun = sema.gdEnUzunHtml || '';
     if (gdUzun) {
-      const iSatirlar = [{no:'I1', satirNo:32}, {no:'I2', satirNo:35}, {no:'I3', satirNo:38}];
+      const iSatirlar = [{ruleNo:38, no:'I1', satirNo:32}, {ruleNo:38.1, no:'I2', satirNo:35}, {ruleNo:38.2, no:'I3', satirNo:38}];
       iSatirlar.forEach(function(is) {
         const ok = gdSatirUygunMu(gdUzun, is.satirNo);
-        kural.push({no:38, grup:'5. GERİLİM DÜŞÜMÜ', baslik:'En Uzun Hat Akımı',
+        kural.push({no:is.ruleNo, grup:'5. GERİLİM DÜŞÜMÜ', baslik:'En Uzun Hat Akımı',
           durum: ok === null ? 'atla' : (ok ? 'uygun' : 'uygunsuz'),
           not: ok === false ? 'Gerilim düşümü hesabı (en uzun) için yapılan akım hesabına göre ' + is.no + ' değeri için belirlenen kablo değeri UYGUN DEĞİLDİR. Projenin onaydan dönme riskine karşı değerleri kontrol etmeniz önerilir.' : '',
           kullanilan: '—', onerilen_row: '—', alan_adi: is.no + ' kablo değeri'
@@ -1397,10 +1397,10 @@ function onDegerlendirmeYap(sema, yapi) {
   {
     const gdGuclu = sema.gdEnGucluHtml || '';
     if (gdGuclu) {
-      const iSatirlar = [{no:'I1', satirNo:32}, {no:'I2', satirNo:35}, {no:'I3', satirNo:38}];
+      const iSatirlar = [{ruleNo:39, no:'I1', satirNo:32}, {ruleNo:39.1, no:'I2', satirNo:35}, {ruleNo:39.2, no:'I3', satirNo:38}];
       iSatirlar.forEach(function(is) {
         const ok = gdSatirUygunMu(gdGuclu, is.satirNo);
-        kural.push({no:39, grup:'5. GERİLİM DÜŞÜMÜ', baslik:'En Güçlü Hat Akımı',
+        kural.push({no:is.ruleNo, grup:'5. GERİLİM DÜŞÜMÜ', baslik:'En Güçlü Hat Akımı',
           durum: ok === null ? 'atla' : (ok ? 'uygun' : 'uygunsuz'),
           not: ok === false ? 'Gerilim düşümü hesabı (en güçlü) için yapılan akım hesabına göre ' + is.no + ' değeri için belirlenen kablo değeri UYGUN DEĞİLDİR. Projenin onaydan dönme riskine karşı değerleri kontrol etmeniz önerilir.' : '',
           kullanilan: '—', onerilen_row: '—', alan_adi: is.no + ' kablo değeri'
