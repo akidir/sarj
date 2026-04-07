@@ -1902,7 +1902,11 @@ function saveState() {
       },
       linyeler:       _linyeListesiOlustur(),
       istekCosQ:      window._istekCosQ,
-      muhurluAlanda:  window._muhurluAlanda || 'evet'
+      muhurluAlanda:  window._muhurluAlanda || 'evet',
+      gdEnUzun:     (typeof window.getGDData === 'function') ? window.getGDData('en_uzun')  : null,
+      gdEnGuclu:    (typeof window.getGDData === 'function') ? window.getGDData('en_guclu') : null,
+      gdEnUzunHtml: (typeof window.renderGD  === 'function') ? window.renderGD('en_uzun')   : null,
+      gdEnGucluHtml:(typeof window.renderGD  === 'function') ? window.renderGD('en_guclu')  : null
     }));
   } catch(e) { console.warn('[saveState] error:', e); }
   window.dispatchEvent(new CustomEvent('semaGuncellendi'));
@@ -2629,6 +2633,18 @@ document.addEventListener('DOMContentLoaded',function(){
 
 window.gdTabloGuncelle=gdTabloGuncelle;
 window.collectGDData=collectGDData;
+window.renderGD=renderGD;
+window.getGDData=function(tip){
+  var d=collectGDData(tip);
+  var s=hesapla(d);
+  if(!s)return null;
+  var a6v=(d.kolonK&&d.kolonK.kablo_ah_u)?d.kolonK.kablo_ah_u:1;
+  var F1=fn(d.toplamGuc/a6v,2)+' A';
+  var n1=akimNot(s.ah.I1,d.kolonK);
+  var n2=akimNot(s.ah.I2,d.dtK);
+  var n3=akimNot(s.ah.I3,d.yukK);
+  return{et:s.gd.et,etf:s.gd.etf,ok:s.gd.ok,ah:s.ah,F1:F1,n1:n1,n2:n2,n3:n3};
+};
 
 })();
 </script>
