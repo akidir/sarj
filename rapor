@@ -1557,6 +1557,7 @@ async function pdfOlustur() {
   // Tüm öğeleri sırayla işle
   const toplam = VARSAYILAN_OGELERI.length;
   let tamamlanan = 0;
+  let yerlestirildi = 0;
 
   gosterDurum('🖼️ ' + toplam + ' öğe işlenecek...', 'info');
 
@@ -1612,7 +1613,8 @@ async function pdfOlustur() {
 
       await embedPng(pdfDoc, page, PH, pngSonuc.dataUrl, posX, posY, imgW, imgH);
 
-      console.log(`[PDF] ${og.baslik} → PDF'e yerleştirildi: x=${ayar.x != null ? ayar.x : og.x}, y=${ayar.y != null ? ayar.y : og.y}, scale=${scale}, imgW=${imgW.toFixed(1)}pt, imgH=${imgH.toFixed(1)}pt`);
+      console.log(`[PDF] ${og.baslik} → PDF'e yerleştirildi: x=${posX}, y=${posY}, scale=${scale}, imgW=${imgW.toFixed(1)}pt, imgH=${imgH.toFixed(1)}pt`);
+      yerlestirildi++;
     } catch(e) {
       console.warn('⚠️', og.id, 'yerleştirilemedi:', e.message);
     }
@@ -1626,7 +1628,7 @@ async function pdfOlustur() {
   const finalBytes = await pdfDoc.save();
   pdfBlob = new Blob([finalBytes], { type: 'application/pdf' });
   setProgress(100);
-  gosterDurum('✅ PDF hazır! (' + toplam + ' öğe işlendi)', 'tamam');
+  gosterDurum('✅ PDF hazır! (' + yerlestirildi + ' öğe yerleştirildi)', 'tamam');
   return pdfBlob;
 }
 
