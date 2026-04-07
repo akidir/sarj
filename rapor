@@ -969,7 +969,7 @@ function onDegerlendirmeYap(sema, yapi) {
       durum: kat,
       not: kat === 'uygunsuz' ? 'Uygun değil (uygun değer: ' + uygunStr + ')'
         : (kat === 'potansiyel' ? 'Riskli (uygun değer: ' + uygunStr + ')' : ''),
-      kullanilan: kofre.kullanilan_kisa, onerilen_row: uygunStr, alan_adi: 'sigorta akım değeri'
+      kullanilan: kofre.akim + 'A', onerilen_row: uygunStr, alan_adi: 'sigorta akım değeri'
     });
   }
 
@@ -1281,7 +1281,7 @@ function onDegerlendirmeYap(sema, yapi) {
     }
   } else {
     kural.push({no:35, grup:'4. SAYAÇ', baslik:'Akım Trafo Oranı',
-      durum:'atla', not:'İnceleme dışı',
+      durum:'atla', not:'Sayaç monofaze/trifaze — trafo oranı kuralı uygulanmaz',
       kullanilan: '—', onerilen_row: '—', alan_adi: 'akım trafo oranı'
     });
   }
@@ -1337,7 +1337,7 @@ function onDegerlendirmeYap(sema, yapi) {
       ];
       akimlar.forEach(function(a) {
         const ok = a.n ? a.n.ok : null;
-        const nHtml = a.n ? '<br><span style="color:' + (a.n.ok ? '#2e7d32' : '#c62828') + '">' + a.n.s1 + ' — ' + a.n.s2 + '</span>' : '';
+        const nHtml = a.n ? ' <span style="color:' + (a.n.ok ? '#2e7d32' : '#c62828') + '">' + a.n.s1 + ' — ' + a.n.s2 + '</span>' : '';
         kural.push({no:a.no, grup:'6. AKIM HESABI',
           baslik:'Gerilim düşümü hesabı (en uzun) için akım hesabı ' + a.noStr + ' uygunluğu',
           durum: ok === null ? 'atla' : (ok ? 'uygun' : 'uygunsuz'),
@@ -1366,7 +1366,7 @@ function onDegerlendirmeYap(sema, yapi) {
       ];
       akimlar.forEach(function(a) {
         const ok = a.n ? a.n.ok : null;
-        const nHtml = a.n ? '<br><span style="color:' + (a.n.ok ? '#2e7d32' : '#c62828') + '">' + a.n.s1 + ' — ' + a.n.s2 + '</span>' : '';
+        const nHtml = a.n ? ' <span style="color:' + (a.n.ok ? '#2e7d32' : '#c62828') + '">' + a.n.s1 + ' — ' + a.n.s2 + '</span>' : '';
         kural.push({no:a.no, grup:'6. AKIM HESABI',
           baslik:'Gerilim düşümü hesabı (en güçlü) için akım hesabı ' + a.noStr + ' uygunluğu',
           durum: ok === null ? 'atla' : (ok ? 'uygun' : 'uygunsuz'),
@@ -1458,14 +1458,17 @@ function onDegerlendirmeYap(sema, yapi) {
     });
     const ozetMetin = hasUygunsuz ? '❌ UYGUNSUZ' : (hasPotansiyel ? '⚠️ RİSK' : '✅ UYGUN');
 
+    const isAkimHesabi = grupAdi.includes('AKIM HESABI');
     html += '<div class="od-grup">';
     html += '<table class="od-tablo">';
     html += '<thead>';
-    html += '<tr class="od-tablo-grup-satiri"><th colspan="4">' + grupAdi + '<span style="float:right">' + ozetMetin + '</span></th></tr>';
+    html += '<tr class="od-tablo-grup-satiri"><th colspan="' + (isAkimHesabi ? '2' : '4') + '">' + grupAdi + '<span style="float:right">' + ozetMetin + '</span></th></tr>';
     html += '<tr class="od-tablo-sut-satiri">';
     html += '<th>' + odGrupSutunBasligi(grupAdi) + '</th>';
-    html += '<th>Kullanılan</th>';
-    html += '<th>Önerilen</th>';
+    if (!isAkimHesabi) {
+      html += '<th>Kullanılan</th>';
+      html += '<th>Önerilen</th>';
+    }
     html += '<th>Değerlendirme</th>';
     html += '</tr>';
     html += '</thead><tbody>';
@@ -1484,8 +1487,10 @@ function onDegerlendirmeYap(sema, yapi) {
 
       html += '<tr>';
       html += '<td>' + bg + '</td>';
-      html += '<td>' + kullanilan + '</td>';
-      html += '<td>' + onerilen_row + '</td>';
+      if (!isAkimHesabi) {
+        html += '<td>' + kullanilan + '</td>';
+        html += '<td>' + onerilen_row + '</td>';
+      }
       html += '<td>' + degerlendirme + '</td>';
       html += '</tr>';
     });
