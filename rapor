@@ -20,13 +20,6 @@
     .btn-kontrol.ok{background:#27ae60}
     .btn-ozet{background:#7f8c8d;color:#fff}
     .btn-pdf{background:#005088;color:#fff}
-    .pdf-menu-wrap{position:relative;display:inline-block}
-    .pdf-dropdown{position:absolute;top:100%;left:0;margin-top:4px;background:#fff;border:1px solid #ccd6e0;border-radius:7px;box-shadow:0 4px 14px rgba(0,0,0,.15);min-width:170px;z-index:999;display:none}
-    .pdf-dropdown.acik{display:block}
-    .pdf-dropdown-item{display:block;width:100%;padding:11px 18px;border:none;background:transparent;text-align:left;font-size:14px;font-weight:600;cursor:pointer;color:#333;transition:background .15s}
-    .pdf-dropdown-item:first-child{border-radius:7px 7px 0 0}
-    .pdf-dropdown-item:last-child{border-radius:0 0 7px 7px}
-    .pdf-dropdown-item:hover{background:#f0f6fc;color:#005088}
     .durum-bar{padding:12px 18px;border-radius:7px;margin-bottom:20px;font-size:13px;font-weight:600;display:none}
     .durum-bar.info{background:#e8f4fd;color:#1565c0;border-left:4px solid #1565c0}
     .durum-bar.hata{background:#fdecea;color:#c62828;border-left:4px solid #c62828}
@@ -101,13 +94,7 @@
     <div class="btn-row">
       <button class="btn btn-kontrol" id="btn-kontrol">🔍 Ön Değerlendirme</button>
       <button class="btn btn-ozet" id="btn-proje-ozeti">📋 Proje Özeti</button>
-      <div class="pdf-menu-wrap">
-        <button class="btn btn-pdf" id="btn-pdf-menu" disabled>📄 PDF Önizle / İndir ▼</button>
-        <div class="pdf-dropdown" id="pdf-dropdown">
-          <button class="pdf-dropdown-item" id="btn-pdf-onizle">🔍 PDF Önizle</button>
-          <button class="pdf-dropdown-item" id="btn-pdf-indir">⬇️ PDF İndir</button>
-        </div>
-      </div>
+      <button class="btn btn-pdf" id="btn-pdf-menu" disabled>📄 PDF Önizle / İndir</button>
     </div>
 
     <!-- Ön Değerlendirme Sonuç Alanı -->
@@ -162,74 +149,53 @@ const LS_AYAR    = 'rapor_ayarlar_v2';
 // pxW/pxH: SVG için canvas boyutu
 const VARSAYILAN_OGELERI = [
   // ── Kolon Hesaplama sekmesinden ──
-    {
-    id:'bina', baslik:'🏢 Bina Görseli',
-    kaynak:'yapi', alan:'binaSvg', tip:'svg',
-    pxW:600, pxH:500,
-    x:20,  y:40,   scale:0.55, dpi:3, aktif:true
+  {
+    id: 'bina', baslik: '🏢 Bina Görseli',
+    kaynak: 'yapi', alan: 'binaSvg', tip: 'svg',
+    pxW: 600, pxH: 500,
+    x: 20, y: 40, scale: 0.55, dpi: 3, aktif: true
   },
   {
-    id:'kolon', baslik:'🏛️ Kolon Şeması',
-    kaynak:'yapi', alan:'kolonSvg', tip:'svg',
-    pxW:1400, pxH:900,
-    x:20,  y:340,  scale:0.45, dpi:3, aktif:true
+    id: 'kolon', baslik: '🏛️ Kolon Şeması',
+    kaynak: 'yapi', alan: 'kolonSvg', tip: 'svg',
+    pxW: 1400, pxH: 900,
+    x: 20, y: 340, scale: 0.45, dpi: 3, aktif: true
   },
   {
-    id:'pano', baslik:'🗄️ Pano Görseli',
-    kaynak:'yapi', alan:'panoSvg', tip:'svg',
-    pxW:1100, pxH:700,
-    x:20,  y:700,  scale:0.45, dpi:3, aktif:true
+    id: 'pano', baslik: '🗄️ Pano Görseli',
+    kaynak: 'yapi', alan: 'panoSvg', tip: 'svg',
+    pxW: 1100, pxH: 700,
+    x: 20, y: 700, scale: 0.45, dpi: 3, aktif: true
   },
   // ── Elektrik Şeması sekmesinden ──
   {
-    id:'tekhat', baslik:'🔌 Tekhat Şeması',
-    kaynak:'sema', alan:'svgString', tip:'svg',
-    pxW:1800, pxH:560,
-    x:20,  y:900,  scale:0.45, dpi:3, aktif:true
+    id: 'tekhat', baslik: '🔌 Tekhat Şeması',
+    kaynak: 'sema', alan: 'svgString', tip: 'svg',
+    pxW: 1800, pxH: 560,
+    x: 20, y: 900, scale: 0.45, dpi: 3, aktif: true
   },
   {
-    id:'cetvel', baslik:'📋 Yükleme Cetveli',
-    kaynak:'sema', alan:'cetveliHtml', tip:'html',
+    id: 'cetvel', baslik: '📋 Yükleme Cetveli',
+    kaynak: 'sema', alan: 'cetveliHtml', tip: 'html',
     renderW: 1200,
-    x:20,  y:1050, scale:0.60, dpi:2, aktif:true
+    x: 20, y: 1050, scale: 0.60, dpi: 3, aktif: true
   },
   {
-    id:'tesisatguc', baslik:'⚡ Tesisat Güç Bilgileri',
-    kaynak:'sema', alan:'tesisatGucHtml', tip:'html',
-    renderW: 900,
-    x:20,  y:1280, scale:0.60, dpi:2, aktif:true
-  },
-  {
-    id:'kofreolem', baslik:'🔧 Kofre Ölçüm Değerleri',
-    kaynak:'sema', alan:'kofreOlcumHtml', tip:'html',
+    id: 'gduzun', baslik: '📉 GD Hesabı (En Uzun)',
+    kaynak: 'sema', alan: 'gdEnUzunHtml', tip: 'html',
     renderW: 700,
-    x:20,  y:1420, scale:0.60, dpi:2, aktif:true
+    x: 20, y: 1280, scale: 0.65, dpi: 3, aktif: true
   },
   {
-    id:'yapiguc', baslik:'🏗️ Yapı Güç Bilgileri',
-    kaynak:'sema', alan:'yapiGucHtml', tip:'html',
-    renderW: 1200,
-    x:20,  y:1580, scale:0.60, dpi:2, aktif:true
-  },
-  {
-    id:'gduzun', baslik:'📉 GD Hesabı (En Uzun)',
-    kaynak:'sema', alan:'gdEnUzunHtml', tip:'html',
+    id: 'gdguclu', baslik: '📉 GD Hesabı (En Güçlü)',
+    kaynak: 'sema', alan: 'gdEnGucluHtml', tip: 'html',
     renderW: 700,
-    x:20,  y:1760, scale:0.65, dpi:2, aktif:true
-  },
-  {
-    id:'gdguclu', baslik:'📉 GD Hesabı (En Güçlü)',
-    kaynak:'sema', alan:'gdEnGucluHtml', tip:'html',
-    renderW: 700,
-    x:380, y:1760, scale:0.65, dpi:2, aktif:true
+    x: 380, y: 1280, scale: 0.65, dpi: 3, aktif: true
   },
 ];
 // ── DOM ──────────────────────────────────────────────
 const btnKontrol    = document.getElementById('btn-kontrol');
 const btnPdfMenu   = document.getElementById('btn-pdf-menu');
-const btnPdfOnizle = document.getElementById('btn-pdf-onizle');
-const btnPdfIndir  = document.getElementById('btn-pdf-indir');
-const pdfDropdown  = document.getElementById('pdf-dropdown');
 const durumBar      = document.getElementById('durum-bar');
 const pdfModal      = document.getElementById('pdfModal');
 const pdfIframe     = document.getElementById('pdf-iframe');
@@ -1588,57 +1554,67 @@ async function pdfOlustur() {
   const { width: PW, height: PH } = page.getSize();
   console.log('PDF sayfa boyutu:', PW.toFixed(1), '×', PH.toFixed(1), 'pt');
 
-  // Aktif görevler
-  const aktifOgeler = VARSAYILAN_OGELERI.filter(function(og) {
-    const ayar  = _ayarlar[og.id] || {};
-    const aktif = ayar.aktif != null ? ayar.aktif : og.aktif;
-    const kaynak= og.kaynak === 'sema' ? sema : yapi;
-    return aktif && kaynak && kaynak[og.alan];
-  });
-
-  const toplam = aktifOgeler.length;
+  // Tüm öğeleri sırayla işle
+  const toplam = VARSAYILAN_OGELERI.length;
   let tamamlanan = 0;
+  let yerlestirildi = 0;
 
   gosterDurum('🖼️ ' + toplam + ' öğe işlenecek...', 'info');
 
-  for (let i = 0; i < aktifOgeler.length; i++) {
-    const og    = aktifOgeler[i];
+  for (let i = 0; i < VARSAYILAN_OGELERI.length; i++) {
+    const og    = VARSAYILAN_OGELERI[i];
     const ayar  = _ayarlar[og.id] || {};
+    const aktif = ayar.aktif != null ? ayar.aktif : og.aktif;
     const scale = ayar.scale != null ? ayar.scale : og.scale;
     const posX  = ayar.x     != null ? ayar.x     : og.x;
     const posY  = ayar.y     != null ? ayar.y     : og.y; // üstten aşağı (pt)
     const dpi   = ayar.dpi   != null ? ayar.dpi   : og.dpi;
 
+    console.log(`[PDF] ${og.baslik} işleniyor... (id: ${og.id})`);
+
+    if (!aktif) {
+      console.log(`[PDF] ${og.baslik} → Atlandı (PDF'e eklenmeyecek)`);
+      tamamlanan++;
+      setProgress(10 + (tamamlanan / toplam) * 85);
+      continue;
+    }
+
     const kaynak = og.kaynak === 'sema' ? sema : yapi;
-    const veri   = kaynak[og.alan];
+    const veri   = kaynak && kaynak[og.alan];
+
+    if (!veri) {
+      console.warn(`[PDF] ${og.baslik} → Veri bulunamadı (${og.kaynak}.${og.alan}), atlanıyor`);
+      tamamlanan++;
+      setProgress(10 + (tamamlanan / toplam) * 85);
+      continue;
+    }
 
     gosterDurum('🖼️ [' + (i+1) + '/' + toplam + '] ' + og.baslik + ' işleniyor...', 'info');
 
     try {
-      let result;
+      let pngSonuc;
 
       if (og.tip === 'svg') {
         // SVG → PNG (dpiMul canvas kalite çarpanı)
-        result = await svgToPng(veri, og.pxW, og.pxH, dpi);
+        pngSonuc = await svgToPng(veri, og.pxW, og.pxH, dpi);
       } else {
         // HTML → PNG (html2canvas dpi = scale parametresi)
-        result = await htmlToPng(veri, og.renderW, dpi);
+        pngSonuc = await htmlToPng(veri, og.renderW, dpi);
       }
+
+      console.log(`[PDF] ${og.baslik} → PNG hazır: ${pngSonuc.w}x${pngSonuc.h}px (DPI×${og.dpi})`);
 
       // Canvas boyutu dpiMul ile büyütülmüş olduğundan
       // asıl boyutu geri hesapla, sonra scale uygula
-      const naturalW = result.w / result.dpiMul;
-      const naturalH = result.h / result.dpiMul;
-      const finalW   = naturalW * scale;
-      const finalH   = naturalH * scale;
+      const naturalW = pngSonuc.w / pngSonuc.dpiMul;
+      const naturalH = pngSonuc.h / pngSonuc.dpiMul;
+      const imgW     = naturalW * scale;
+      const imgH     = naturalH * scale;
 
-      await embedPng(pdfDoc, page, PH, result.dataUrl, posX, posY, finalW, finalH);
+      await embedPng(pdfDoc, page, PH, pngSonuc.dataUrl, posX, posY, imgW, imgH);
 
-      console.log('✅', og.id,
-        '→ x:', posX.toFixed(0), 'y:', posY.toFixed(0),
-        'w:', finalW.toFixed(0), 'h:', finalH.toFixed(0),
-        'dpi×:', dpi
-      );
+      console.log(`[PDF] ${og.baslik} → PDF'e yerleştirildi: x=${posX}, y=${posY}, scale=${scale}, imgW=${imgW.toFixed(1)}pt, imgH=${imgH.toFixed(1)}pt`);
+      yerlestirildi++;
     } catch(e) {
       console.warn('⚠️', og.id, 'yerleştirilemedi:', e.message);
     }
@@ -1647,10 +1623,12 @@ async function pdfOlustur() {
     setProgress(10 + (tamamlanan / toplam) * 85);
   }
 
+  console.log('[PDF] ✅ Tüm öğeler işlendi, PDF hazır.');
+
   const finalBytes = await pdfDoc.save();
   pdfBlob = new Blob([finalBytes], { type: 'application/pdf' });
   setProgress(100);
-  gosterDurum('✅ PDF hazır! (' + toplam + ' öğe yerleştirildi)', 'tamam');
+  gosterDurum('✅ PDF hazır! (' + yerlestirildi + ' öğe yerleştirildi)', 'tamam');
   return pdfBlob;
 }
 
@@ -1658,25 +1636,13 @@ async function pdfOlustur() {
 // BUTON OLAYLARI
 // ═══════════════════════════════════════════════════════
 document.getElementById('btn-proje-ozeti').addEventListener('click', function() {
+  document.getElementById('on-degerlendirme-sonuc').style.display = 'none';
   /* Proje Özeti - henüz eklenmedi */
 });
 
-const pdfMenuWrap = document.querySelector('.pdf-menu-wrap');
-
-btnPdfMenu.addEventListener('click', function(e) {
-  e.stopPropagation();
+btnPdfMenu.addEventListener('click', async function() {
   if (btnPdfMenu.disabled) return;
-  pdfDropdown.classList.toggle('acik');
-});
-
-document.addEventListener('click', function(e) {
-  if (!pdfMenuWrap.contains(e.target)) {
-    pdfDropdown.classList.remove('acik');
-  }
-});
-
-btnPdfOnizle.addEventListener('click', async function() {
-  pdfDropdown.classList.remove('acik');
+  document.getElementById('on-degerlendirme-sonuc').style.display = 'none';
   if (!kontrolGecti) return;
   btnPdfMenu.disabled    = true;
   btnPdfMenu.textContent = '⏳ Oluşturuluyor...';
@@ -1690,27 +1656,7 @@ btnPdfOnizle.addEventListener('click', async function() {
     console.error(e);
   } finally {
     btnPdfMenu.disabled    = false;
-    btnPdfMenu.textContent = '📄 PDF Önizle / İndir ▼';
-  }
-});
-
-btnPdfIndir.addEventListener('click', async function() {
-  pdfDropdown.classList.remove('acik');
-  if (!kontrolGecti) return;
-  btnPdfMenu.disabled    = true;
-  btnPdfMenu.textContent = '⏳...';
-  try {
-    const blob = pdfBlob || await pdfOlustur();
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement('a');
-    a.href = url; a.download = DOSYA_ADI; a.click();
-    URL.revokeObjectURL(url);
-  } catch(e) {
-    gosterDurum('❌ İndirme hatası: ' + e.message, 'hata');
-    console.error(e);
-  } finally {
-    btnPdfMenu.disabled    = false;
-    btnPdfMenu.textContent = '📄 PDF Önizle / İndir ▼';
+    btnPdfMenu.textContent = '📄 PDF Önizle / İndir';
   }
 });
 
