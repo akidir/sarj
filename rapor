@@ -181,24 +181,6 @@ const VARSAYILAN_OGELERI = [
     x:20,  y:1050, scale:0.60, dpi:2, aktif:true
   },
   {
-    id:'tesisatguc', baslik:'⚡ Tesisat Güç Bilgileri',
-    kaynak:'sema', alan:'tesisatGucHtml', tip:'html',
-    renderW: 900,
-    x:20,  y:1280, scale:0.60, dpi:2, aktif:true
-  },
-  {
-    id:'kofreolem', baslik:'🔧 Kofre Ölçüm Değerleri',
-    kaynak:'sema', alan:'kofreOlcumHtml', tip:'html',
-    renderW: 700,
-    x:20,  y:1420, scale:0.60, dpi:2, aktif:true
-  },
-  {
-    id:'yapiguc', baslik:'🏗️ Yapı Güç Bilgileri',
-    kaynak:'sema', alan:'yapiGucHtml', tip:'html',
-    renderW: 1200,
-    x:20,  y:1580, scale:0.60, dpi:2, aktif:true
-  },
-  {
     id:'gduzun', baslik:'📉 GD Hesabı (En Uzun)',
     kaynak:'sema', alan:'gdEnUzunHtml', tip:'html',
     renderW: 700,

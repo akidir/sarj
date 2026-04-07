@@ -1906,7 +1906,9 @@ function saveState() {
       gdEnUzun:     (typeof window.getGDData === 'function') ? window.getGDData('en_uzun')  : null,
       gdEnGuclu:    (typeof window.getGDData === 'function') ? window.getGDData('en_guclu') : null,
       gdEnUzunHtml: (typeof window.renderGD  === 'function') ? window.renderGD('en_uzun')   : null,
-      gdEnGucluHtml:(typeof window.renderGD  === 'function') ? window.renderGD('en_guclu')  : null
+      gdEnGucluHtml:(typeof window.renderGD  === 'function') ? window.renderGD('en_guclu')  : null,
+      svgString:    _serializeSvgTemiz(qs('katman_1')),
+      cetveliHtml:  qs('cetveli-canli-alan') ? qs('cetveli-canli-alan').innerHTML : null
     }));
   } catch(e) { console.warn('[saveState] error:', e); }
   window.dispatchEvent(new CustomEvent('semaGuncellendi'));
