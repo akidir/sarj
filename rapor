@@ -18,8 +18,15 @@
     .btn:disabled{opacity:.45;cursor:not-allowed;transform:none!important}
     .btn-kontrol{background:#e67e22;color:#fff}
     .btn-kontrol.ok{background:#27ae60}
-    .btn-onizle{background:#005088;color:#fff}
-    .btn-indir{background:#27ae60;color:#fff}
+    .btn-ozet{background:#7f8c8d;color:#fff}
+    .btn-pdf{background:#005088;color:#fff}
+    .pdf-menu-wrap{position:relative;display:inline-block}
+    .pdf-dropdown{position:absolute;top:100%;left:0;margin-top:4px;background:#fff;border:1px solid #ccd6e0;border-radius:7px;box-shadow:0 4px 14px rgba(0,0,0,.15);min-width:170px;z-index:999;display:none}
+    .pdf-dropdown.acik{display:block}
+    .pdf-dropdown-item{display:block;width:100%;padding:11px 18px;border:none;background:transparent;text-align:left;font-size:14px;font-weight:600;cursor:pointer;color:#333;transition:background .15s}
+    .pdf-dropdown-item:first-child{border-radius:7px 7px 0 0}
+    .pdf-dropdown-item:last-child{border-radius:0 0 7px 7px}
+    .pdf-dropdown-item:hover{background:#f0f6fc;color:#005088}
     .durum-bar{padding:12px 18px;border-radius:7px;margin-bottom:20px;font-size:13px;font-weight:600;display:none}
     .durum-bar.info{background:#e8f4fd;color:#1565c0;border-left:4px solid #1565c0}
     .durum-bar.hata{background:#fdecea;color:#c62828;border-left:4px solid #c62828}
@@ -46,7 +53,7 @@
     .modal-kapat{align-self:flex-end;font-size:34px;line-height:1;cursor:pointer;color:#999;font-weight:700;margin-bottom:8px}
     .modal-kapat:hover{color:#e74c3c}
     #pdf-iframe{width:100%;height:80vh;border:2px solid #ddd;border-radius:8px}
-    .modal-indir-btn{margin-top:16px}
+    .modal-indir-btn{margin-top:16px;background:#27ae60;color:#fff}
 
     /* Sandbox */
     #html-sandbox{position:fixed;left:-99999px;top:0;background:#fff;z-index:-1;pointer-events:none}
@@ -93,8 +100,14 @@
 
     <div class="btn-row">
       <button class="btn btn-kontrol" id="btn-kontrol">🔍 Ön Değerlendirme</button>
-      <button class="btn btn-onizle"  id="btn-onizle" disabled>🔍 PDF Önizle</button>
-      <button class="btn btn-indir"   id="btn-indir"  disabled>⬇️ PDF İndir</button>
+      <button class="btn btn-ozet" id="btn-proje-ozeti">📋 Proje Özeti</button>
+      <div class="pdf-menu-wrap">
+        <button class="btn btn-pdf" id="btn-pdf-menu" disabled>📄 PDF Önizle / İndir ▼</button>
+        <div class="pdf-dropdown" id="pdf-dropdown">
+          <button class="pdf-dropdown-item" id="btn-pdf-onizle">🔍 PDF Önizle</button>
+          <button class="pdf-dropdown-item" id="btn-pdf-indir">⬇️ PDF İndir</button>
+        </div>
+      </div>
     </div>
 
     <!-- Ön Değerlendirme Sonuç Alanı -->
@@ -121,7 +134,7 @@
     <span class="modal-kapat" id="kapat-modal">&times;</span>
     <h4 style="margin-bottom:16px;font-size:18px;color:#333">📄 PDF Önizleme</h4>
     <iframe id="pdf-iframe"></iframe>
-    <button class="btn btn-indir modal-indir-btn" id="btn-indir-modal">⬇️ PDF İndir</button>
+    <button class="btn modal-indir-btn" id="btn-indir-modal">⬇️ PDF İndir</button>
   </div>
 </div>
 
@@ -213,8 +226,10 @@ const VARSAYILAN_OGELERI = [
 ];
 // ── DOM ──────────────────────────────────────────────
 const btnKontrol    = document.getElementById('btn-kontrol');
-const btnOnizle     = document.getElementById('btn-onizle');
-const btnIndir      = document.getElementById('btn-indir');
+const btnPdfMenu   = document.getElementById('btn-pdf-menu');
+const btnPdfOnizle = document.getElementById('btn-pdf-onizle');
+const btnPdfIndir  = document.getElementById('btn-pdf-indir');
+const pdfDropdown  = document.getElementById('pdf-dropdown');
 const durumBar      = document.getElementById('durum-bar');
 const pdfModal      = document.getElementById('pdfModal');
 const pdfIframe     = document.getElementById('pdf-iframe');
@@ -1522,7 +1537,7 @@ btnKontrol.addEventListener('click', function() {
 
   if (hatalar.length) {
     gosterDurum('❌ ' + hatalar.join(' | '), 'hata');
-    btnOnizle.disabled = true; btnIndir.disabled = true;
+    btnPdfMenu.disabled = true;
     const sonucEl = document.getElementById('on-degerlendirme-sonuc');
     if (sonucEl) { sonucEl.style.display = 'none'; sonucEl.innerHTML = ''; }
     return;
@@ -1538,8 +1553,7 @@ btnKontrol.addEventListener('click', function() {
 
   kontrolGecti = true;
   btnKontrol.textContent = '🔍 Ön Değerlendirme';
-  btnOnizle.disabled = false;
-  btnIndir.disabled  = false;
+  btnPdfMenu.disabled = false;
 
   if (uyarilar.length) {
     gosterDurum('⚠️ Şu öğeler eksik/boş (PDF\'de atlanacak): ' + uyarilar.join(', '), 'info');
@@ -1643,10 +1657,29 @@ async function pdfOlustur() {
 // ═══════════════════════════════════════════════════════
 // BUTON OLAYLARI
 // ═══════════════════════════════════════════════════════
-btnOnizle.addEventListener('click', async function() {
+document.getElementById('btn-proje-ozeti').addEventListener('click', function() {
+  /* Proje Özeti - henüz eklenmedi */
+});
+
+const pdfMenuWrap = document.querySelector('.pdf-menu-wrap');
+
+btnPdfMenu.addEventListener('click', function(e) {
+  e.stopPropagation();
+  if (btnPdfMenu.disabled) return;
+  pdfDropdown.classList.toggle('acik');
+});
+
+document.addEventListener('click', function(e) {
+  if (!pdfMenuWrap.contains(e.target)) {
+    pdfDropdown.classList.remove('acik');
+  }
+});
+
+btnPdfOnizle.addEventListener('click', async function() {
+  pdfDropdown.classList.remove('acik');
   if (!kontrolGecti) return;
-  btnOnizle.disabled    = true;
-  btnOnizle.textContent = '⏳ Oluşturuluyor...';
+  btnPdfMenu.disabled    = true;
+  btnPdfMenu.textContent = '⏳ Oluşturuluyor...';
   try {
     const blob = await pdfOlustur();
     const url  = URL.createObjectURL(blob);
@@ -1656,15 +1689,16 @@ btnOnizle.addEventListener('click', async function() {
     gosterDurum('❌ Hata: ' + e.message, 'hata');
     console.error(e);
   } finally {
-    btnOnizle.disabled    = false;
-    btnOnizle.textContent = '🔍 PDF Önizle';
+    btnPdfMenu.disabled    = false;
+    btnPdfMenu.textContent = '📄 PDF Önizle / İndir ▼';
   }
 });
 
-btnIndir.addEventListener('click', async function() {
+btnPdfIndir.addEventListener('click', async function() {
+  pdfDropdown.classList.remove('acik');
   if (!kontrolGecti) return;
-  btnIndir.disabled    = true;
-  btnIndir.textContent = '⏳...';
+  btnPdfMenu.disabled    = true;
+  btnPdfMenu.textContent = '⏳...';
   try {
     const blob = pdfBlob || await pdfOlustur();
     const url  = URL.createObjectURL(blob);
@@ -1675,8 +1709,8 @@ btnIndir.addEventListener('click', async function() {
     gosterDurum('❌ İndirme hatası: ' + e.message, 'hata');
     console.error(e);
   } finally {
-    btnIndir.disabled    = false;
-    btnIndir.textContent = '⬇️ PDF İndir';
+    btnPdfMenu.disabled    = false;
+    btnPdfMenu.textContent = '📄 PDF Önizle / İndir ▼';
   }
 });
 
