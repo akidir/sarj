@@ -1579,7 +1579,7 @@ function temizleTekhatSvg(svgString) {
 
   // SVG içindeki mevcut style bloklarına hit-layer override ekle
   doc.querySelectorAll('style').forEach(function(styleEl) {
-    styleEl.textContent = styleEl.textContent + '\n.hit-layer { fill: none !important; stroke: none !important; pointer-events: none !important; }';
+    styleEl.textContent = `${styleEl.textContent}\n.hit-layer { fill: none !important; stroke: none !important; pointer-events: none !important; }`;
   });
 
   // Style bloğu yoksa yeni bir tane ekle
