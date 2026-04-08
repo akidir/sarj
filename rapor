@@ -192,6 +192,25 @@ const VARSAYILAN_OGELERI = [
     renderW: 700,
     x: 380, y: 1280, scale: 0.65, dpi: 3, aktif: true
   },
+  // ── Elektrik Şeması Güç Tabloları ──
+  {
+    id: 'tesisatguc', baslik: '⚡ Tesisat Güç Bilgileri',
+    kaynak: 'sema', alan: 'tesisatGucHtml', tip: 'html',
+    renderW: 600,
+    x: 20, y: 1550, scale: 0.65, dpi: 3, aktif: true
+  },
+  {
+    id: 'kofreolem', baslik: '🔧 Kofre Ölçüm Değerleri',
+    kaynak: 'sema', alan: 'kofre_olcumHtml', tip: 'html',
+    renderW: 600,
+    x: 240, y: 1550, scale: 0.65, dpi: 3, aktif: true
+  },
+  {
+    id: 'yapiguc', baslik: '🏗️ Yapı Güç Bilgileri',
+    kaynak: 'sema', alan: 'yapiGucHtml', tip: 'html',
+    renderW: 600,
+    x: 460, y: 1550, scale: 0.65, dpi: 3, aktif: true
+  },
 ];
 // ── DOM ──────────────────────────────────────────────
 const btnKontrol    = document.getElementById('btn-kontrol');
@@ -343,8 +362,18 @@ function svgToPng(svgString, pxW, pxH, dpiMul) {
     const url  = URL.createObjectURL(blob);
     const img  = new Image();
     img.onload = function() {
-      const cw = (pxW || img.naturalWidth  || 800) * dpiMul;
-      const ch = (pxH || img.naturalHeight || 600) * dpiMul;
+      const naturalW = img.naturalWidth  || pxW || 800;
+      const naturalH = img.naturalHeight || pxH || 600;
+      // Aspect ratio'yu koruyarak maksimum boyutlara sığdır
+      let cw, ch;
+      if (pxW && pxH) {
+        const ratio = Math.min(pxW / naturalW, pxH / naturalH);
+        cw = Math.round(naturalW * ratio) * dpiMul;
+        ch = Math.round(naturalH * ratio) * dpiMul;
+      } else {
+        cw = naturalW * dpiMul;
+        ch = naturalH * dpiMul;
+      }
       const canvas  = document.createElement('canvas');
       canvas.width  = cw;
       canvas.height = ch;
@@ -1532,6 +1561,39 @@ btnKontrol.addEventListener('click', function() {
 });
 
 // ═══════════════════════════════════════════════════════
+// TEKHAT SVG TEMİZLEME
+// hit-layer elementlerinin fill'ini none yaparak PDF'de
+// siyah görünmesini engeller
+// ═══════════════════════════════════════════════════════
+function temizleTekhatSvg(svgString) {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(svgString, 'image/svg+xml');
+
+  // hit-layer class'ına sahip tüm elementleri bul ve fill/pointer-events ayarla
+  doc.querySelectorAll('.hit-layer').forEach(function(el) {
+    el.setAttribute('fill', 'none');
+    el.setAttribute('pointer-events', 'none');
+    el.style.fill = 'none';
+    el.style.pointerEvents = 'none';
+  });
+
+  // SVG içindeki mevcut style bloklarına hit-layer override ekle
+  doc.querySelectorAll('style').forEach(function(styleEl) {
+    styleEl.textContent = styleEl.textContent + '\n.hit-layer { fill: none !important; stroke: none !important; pointer-events: none !important; }';
+  });
+
+  // Style bloğu yoksa yeni bir tane ekle
+  const svgEl = doc.querySelector('svg');
+  if (svgEl && !doc.querySelector('style')) {
+    const styleEl = doc.createElementNS('http://www.w3.org/2000/svg', 'style');
+    styleEl.textContent = '.hit-layer { fill: none !important; stroke: none !important; pointer-events: none !important; }';
+    svgEl.insertBefore(styleEl, svgEl.firstChild);
+  }
+
+  return new XMLSerializer().serializeToString(doc);
+}
+
+// ═══════════════════════════════════════════════════════
 // ANA PDF OLUŞTURMA
 // ═══════════════════════════════════════════════════════
 async function pdfOlustur() {
@@ -1596,7 +1658,12 @@ async function pdfOlustur() {
 
       if (og.tip === 'svg') {
         // SVG → PNG (dpiMul canvas kalite çarpanı)
-        pngSonuc = await svgToPng(veri, og.pxW, og.pxH, dpi);
+        // tekhat için hit-layer fill'lerini temizle
+        let svgData = veri;
+        if (og.id === 'tekhat') {
+          svgData = temizleTekhatSvg(svgData);
+        }
+        pngSonuc = await svgToPng(svgData, og.pxW, og.pxH, dpi);
       } else {
         // HTML → PNG (html2canvas dpi = scale parametresi)
         pngSonuc = await htmlToPng(veri, og.renderW, dpi);
