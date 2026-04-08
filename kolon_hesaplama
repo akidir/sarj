@@ -196,7 +196,10 @@
       istekUnit     : state.istekUnit,
       adpKatAdi     : adpKatAdi,
       adpKatValue   : adpKatValue,
-      adpTipiValue  : adpTipiValue
+      adpTipiValue  : adpTipiValue,
+      binaSvg       : _binaSvgOlustur(),
+      kolonSvg      : document.getElementById('svgContainer')     ? document.getElementById('svgContainer').innerHTML     : '',
+      panoSvg       : document.getElementById('panoSvgContainer') ? document.getElementById('panoSvgContainer').innerHTML : '',
     };
     localStorage.setItem(LS_KEY, JSON.stringify(data));
     showSaveIndicator();

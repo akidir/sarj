@@ -188,7 +188,7 @@ const VARSAYILAN_OGELERI = [
   },
   {
     id:'kofreolem', baslik:'🔧 Kofre Ölçüm Değerleri',
-    kaynak:'sema', alan:'kofreOlcumHtml', tip:'html',
+    kaynak:'sema', alan:'kofre_olcumHtml', tip:'html',
     renderW: 700,
     x:20,  y:1420, scale:0.60, dpi:2, aktif:true
   },
@@ -351,8 +351,174 @@ function loadLS(key) {
 
 // ═══════════════════════════════════════════════════════
 // PDF OLUŞTURMA FONKSİYONLARI
-// (Yeniden yazılacak)
 // ═══════════════════════════════════════════════════════
+
+function _svgViewBoxSize(svgString) {
+  // viewBox="minX minY width height" — capture 3rd and 4th values (width, height)
+  var m = svgString.match(/viewBox\s*=\s*["']\s*[-\d.]+[\s,]+[-\d.]+[\s,]+([\d.]+)[\s,]+([\d.]+)/);
+  if (m) return { w: parseFloat(m[1]), h: parseFloat(m[2]) };
+  return null;
+}
+
+function svgToPng(svgString, pxW, pxH, dpiMul) {
+  return new Promise(function(resolve, reject) {
+    var blob   = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
+    var url    = URL.createObjectURL(blob);
+    var img    = new Image();
+    img.onload = function() {
+      var srcW = img.naturalWidth  > 0 ? img.naturalWidth  : null;
+      var srcH = img.naturalHeight > 0 ? img.naturalHeight : null;
+      if (!srcW || !srcH) {
+        var vb = _svgViewBoxSize(svgString);
+        srcW = vb ? vb.w : pxW;
+        srcH = vb ? vb.h : pxH;
+      }
+      var w = srcW * dpiMul;
+      var h = srcH * dpiMul;
+      var canvas = document.createElement('canvas');
+      canvas.width  = w;
+      canvas.height = h;
+      var ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, w, h);
+      var dataUrl = canvas.toDataURL('image/png');
+      canvas.width = 0;
+      URL.revokeObjectURL(url);
+      resolve({ dataUrl: dataUrl, w: w, h: h, dpiMul: dpiMul });
+    };
+    img.onerror = function(e) {
+      URL.revokeObjectURL(url);
+      reject(e);
+    };
+    img.src = url;
+  });
+}
+
+function htmlToJpeg(htmlStr, renderW, dpiMul) {
+  return new Promise(function(resolve, reject) {
+    sandbox.style.width  = renderW + 'px';
+    sandbox.innerHTML    = htmlStr;
+    var el = sandbox.firstElementChild || sandbox;
+    setTimeout(function() {
+      html2canvas(el, {
+        backgroundColor: '#ffffff',
+        scale          : dpiMul,
+        useCORS        : true,
+        allowTaint     : true,
+        logging        : false,
+        windowWidth    : renderW,
+        scrollX        : 0,
+        scrollY        : 0
+      }).then(function(canvas) {
+        var w       = canvas.width;
+        var h       = canvas.height;
+        var dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+        canvas.width = 0;
+        sandbox.innerHTML = '';
+        resolve({ dataUrl: dataUrl, w: w, h: h, dpiMul: dpiMul });
+      }).catch(function(e) {
+        sandbox.innerHTML = '';
+        reject(e);
+      });
+    }, 80);
+  });
+}
+
+async function embedImage(pdfDoc, page, pdfH, dataUrl, imgX, imgY_top, imgW, imgH) {
+  var isJpeg  = dataUrl.indexOf('image/jpeg') !== -1;
+  var b64     = dataUrl.split(',')[1];
+  var binStr  = atob(b64);
+  var arrBuf  = new Uint8Array(binStr.length);
+  for (var i = 0; i < binStr.length; i++) { arrBuf[i] = binStr.charCodeAt(i); }
+  var img  = isJpeg ? await pdfDoc.embedJpg(arrBuf) : await pdfDoc.embedPng(arrBuf);
+  var pdfY = pdfH - imgY_top - imgH;
+  page.drawImage(img, { x: imgX, y: pdfY, width: imgW, height: imgH });
+}
+
+async function pdfOlustur() {
+  try {
+    gosterDurum('📥 Veriler okunuyor...', 'info');
+    setProgress(5);
+    var sema = loadLS(KEY_SEMA);
+    var yapi = loadLS(KEY_YAPI);
+
+    gosterDurum('📄 PDF şablonu indiriliyor...', 'info');
+    setProgress(10);
+    var templateBytes = await fetch(PDF_URL).then(function(r) { return r.arrayBuffer(); });
+    var pdfDoc = await PDFLib.PDFDocument.load(templateBytes);
+    var page   = pdfDoc.getPages()[0];
+    var size   = page.getSize();
+    var PW     = size.width;
+    var PH     = size.height;
+
+    var aktifOgeler = VARSAYILAN_OGELERI.filter(function(og) {
+      var ayar = _ayarlar[og.id] || {};
+      var aktif = ayar.aktif != null ? ayar.aktif : og.aktif;
+      if (!aktif) return false;
+      var kaynak = og.kaynak === 'sema' ? sema : yapi;
+      return kaynak && kaynak[og.alan];
+    });
+
+    // SVG öğeleri paralel işle
+    var svgOgeler = aktifOgeler.filter(function(og) { return og.tip === 'svg'; });
+    setProgress(30);
+    var svgSonuclar = await Promise.all(svgOgeler.map(function(og) {
+      var veri    = (og.kaynak === 'sema' ? sema : yapi)[og.alan];
+      var ayar    = _ayarlar[og.id] || {};
+      var dpiMul  = ayar.dpi != null ? ayar.dpi : og.dpi;
+      return svgToPng(veri, og.pxW, og.pxH, dpiMul).then(function(r) { return { og: og, result: r }; });
+    }));
+    setProgress(55);
+
+    // HTML öğeleri sıralı işle
+    var htmlOgeler  = aktifOgeler.filter(function(og) { return og.tip === 'html'; });
+    var htmlSonuclar = [];
+    for (var i = 0; i < htmlOgeler.length; i++) {
+      var og    = htmlOgeler[i];
+      var veri  = (og.kaynak === 'sema' ? sema : yapi)[og.alan];
+      var ayar  = _ayarlar[og.id] || {};
+      var dpiMul = ayar.dpi != null ? ayar.dpi : og.dpi;
+      gosterDurum('🖼️ ' + og.baslik + ' işleniyor...', 'info');
+      var r = await htmlToJpeg(veri, og.renderW, dpiMul);
+      htmlSonuclar.push({ og: og, result: r });
+      setProgress(55 + (htmlSonuclar.length / htmlOgeler.length) * 30);
+    }
+
+    // Tüm sonuçları VARSAYILAN_OGELERI sırasına göre PDF'e yerleştir
+    var tumSonuclar = svgSonuclar.concat(htmlSonuclar);
+    tumSonuclar.sort(function(a, b) {
+      return VARSAYILAN_OGELERI.findIndex(function(o) { return o.id === a.og.id; }) -
+             VARSAYILAN_OGELERI.findIndex(function(o) { return o.id === b.og.id; });
+    });
+    for (var j = 0; j < tumSonuclar.length; j++) {
+      var og     = tumSonuclar[j].og;
+      var result = tumSonuclar[j].result;
+      var ayar   = _ayarlar[og.id] || {};
+      var scale  = ayar.scale != null ? ayar.scale : og.scale;
+      var posX   = ayar.x     != null ? ayar.x     : og.x;
+      var posY   = ayar.y     != null ? ayar.y     : og.y;
+      var naturalW = result.w / result.dpiMul;
+      var naturalH = result.h / result.dpiMul;
+      var finalW   = naturalW * scale;
+      var finalH   = naturalH * scale;
+      try {
+        await embedImage(pdfDoc, page, PH, result.dataUrl, posX, posY, finalW, finalH);
+        console.log('✅', og.id, '→ x:', posX.toFixed(0), 'y:', posY.toFixed(0), 'w:', finalW.toFixed(0), 'h:', finalH.toFixed(0));
+      } catch(e) {
+        console.warn('⚠️', og.id, 'yerleştirilemedi:', e.message);
+      }
+    }
+
+    var finalBytes = await pdfDoc.save();
+    var blob = new Blob([finalBytes], { type: 'application/pdf' });
+    pdfDoc = null;
+    setProgress(100);
+    gosterDurum('✅ PDF hazır!', 'tamam');
+    return blob;
+  } catch(e) {
+    gosterDurum('❌ Hata: ' + e.message, 'hata');
+    throw e;
+  }
+}
 
 // ═══════════════════════════════════════════════════════
 // ÖN DEĞERLENDİRME KURAL SETİ
@@ -1458,15 +1624,50 @@ btnKontrol.addEventListener('click', function() {
 // BUTON OLAYLARI
 // ═══════════════════════════════════════════════════════
 btnOnizle.addEventListener('click', async function() {
-  console.log('PDF önizleme — henüz implemente edilmedi');
+  if (!kontrolGecti) return;
+  btnOnizle.disabled    = true;
+  btnOnizle.textContent = '⏳ Oluşturuluyor...';
+  try {
+    const blob = await pdfOlustur();
+    const url  = URL.createObjectURL(blob);
+    pdfIframe.src          = url;
+    pdfModal.style.display = 'block';
+  } catch(e) {
+    gosterDurum('❌ Hata: ' + e.message, 'hata');
+    console.error(e);
+  } finally {
+    btnOnizle.disabled    = false;
+    btnOnizle.textContent = '🔍 PDF Önizle';
+  }
 });
 
 btnIndir.addEventListener('click', async function() {
-  console.log('PDF indirme — henüz implemente edilmedi');
+  if (!kontrolGecti) return;
+  btnIndir.disabled    = true;
+  btnIndir.textContent = '⏳...';
+  try {
+    const blob = await pdfOlustur();
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url; a.download = DOSYA_ADI; a.click();
+    URL.revokeObjectURL(url);
+  } catch(e) {
+    gosterDurum('❌ İndirme hatası: ' + e.message, 'hata');
+    console.error(e);
+  } finally {
+    btnIndir.disabled    = false;
+    btnIndir.textContent = '⬇️ PDF İndir';
+  }
 });
 
 btnIndirModal.addEventListener('click', async function() {
-  console.log('PDF indirme (modal) — henüz implemente edilmedi');
+  try {
+    const blob = await pdfOlustur();
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url; a.download = DOSYA_ADI; a.click();
+    URL.revokeObjectURL(url);
+  } catch(e) { alert('Hata: ' + e.message); }
 });
 
 kapatModalEl.addEventListener('click', function() {
