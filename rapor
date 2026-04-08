@@ -153,26 +153,26 @@ const VARSAYILAN_OGELERI = [
     id:'bina', baslik:'🏢 Bina Görseli',
     kaynak:'yapi', alan:'binaSvg', tip:'svg',
     pxW:600, pxH:500,
-    x:20,  y:40,   scale:0.55, dpi:3, aktif:true
+    x:20,  y:40,   scale:0.55, dpi:2, aktif:true
   },
   {
     id:'kolon', baslik:'🏛️ Kolon Şeması',
     kaynak:'yapi', alan:'kolonSvg', tip:'svg',
     pxW:1400, pxH:900,
-    x:20,  y:340,  scale:0.45, dpi:3, aktif:true
+    x:20,  y:340,  scale:0.45, dpi:2, aktif:true
   },
   {
     id:'pano', baslik:'🗄️ Pano Görseli',
     kaynak:'yapi', alan:'panoSvg', tip:'svg',
     pxW:1100, pxH:700,
-    x:20,  y:700,  scale:0.45, dpi:3, aktif:true
+    x:20,  y:700,  scale:0.45, dpi:2, aktif:true
   },
   // ── Elektrik Şeması sekmesinden ──
   {
     id:'tekhat', baslik:'🔌 Tekhat Şeması',
     kaynak:'sema', alan:'svgString', tip:'svg',
     pxW:1800, pxH:560,
-    x:20,  y:900,  scale:0.45, dpi:3, aktif:true
+    x:20,  y:900,  scale:0.45, dpi:2, aktif:true
   },
   {
     id:'cetvel', baslik:'📋 Yükleme Cetveli',
@@ -353,11 +353,11 @@ function loadLS(key) {
 // ═══════════════════════════════════════════════════════
 // SVG → Yüksek Kalite PNG
 // Vektörel SVG'yi canvas'a çizip dataURL döner.
-// dpiMul: canvas ölçeği (3 = ~300dpi eşdeğeri)
+// dpiMul: canvas ölçeği (2 = ~200dpi eşdeğeri)
 // ═══════════════════════════════════════════════════════
 function svgToPng(svgString, pxW, pxH, dpiMul) {
   return new Promise(function(resolve, reject) {
-    dpiMul = dpiMul || 3;
+    dpiMul = dpiMul || 2;
     const blob = new Blob([svgString], {type:'image/svg+xml;charset=utf-8'});
     const url  = URL.createObjectURL(blob);
     const img  = new Image();
@@ -368,11 +368,11 @@ function svgToPng(svgString, pxW, pxH, dpiMul) {
       canvas.width  = cw;
       canvas.height = ch;
       const c2d = canvas.getContext('2d');
-      c2d.fillStyle = '#ffffff';
-      c2d.fillRect(0, 0, cw, ch);
       c2d.drawImage(img, 0, 0, cw, ch);
       URL.revokeObjectURL(url);
-      resolve({ dataUrl: canvas.toDataURL('image/png'), w: cw, h: ch, dpiMul: dpiMul });
+      const dataUrl = canvas.toDataURL('image/png');
+      canvas.width = 0; canvas.height = 0;
+      resolve({ dataUrl: dataUrl, w: cw, h: ch, dpiMul: dpiMul });
     };
     img.onerror = function(e) {
       URL.revokeObjectURL(url);
@@ -390,12 +390,12 @@ function svgToPng(svgString, pxW, pxH, dpiMul) {
 // ═══════════════════════════════════════════════════════
 function htmlToPng(htmlStr, renderW, dpiMul) {
   return new Promise(function(resolve, reject) {
-    dpiMul  = dpiMul  || 3;
+    dpiMul  = dpiMul  || 2;
     renderW = renderW || 1200;
 
     // Sandbox ayarla
     sandbox.style.width      = renderW + 'px';
-    sandbox.style.background = '#ffffff';
+    sandbox.style.background = 'transparent';
 
     // HTML'i sandbox'a yerleştir
     // Güvenli: outerHTML ya da innerHTML olabilir
@@ -408,7 +408,7 @@ function htmlToPng(htmlStr, renderW, dpiMul) {
     // Stillerin yüklenmesini bekle
     setTimeout(function() {
       window.html2canvas(el, {
-        backgroundColor : '#ffffff',
+        backgroundColor : null,
         scale           : dpiMul,
         useCORS         : true,
         allowTaint      : true,
@@ -421,12 +421,10 @@ function htmlToPng(htmlStr, renderW, dpiMul) {
         y               : 0,
       }).then(function(canvas) {
         sandbox.innerHTML = '';
-        resolve({
-          dataUrl : canvas.toDataURL('image/png'),
-          w       : canvas.width,
-          h       : canvas.height,
-          dpiMul  : dpiMul,
-        });
+        const dataUrl = canvas.toDataURL('image/png');
+        const w = canvas.width, h = canvas.height;
+        canvas.width = 0; canvas.height = 0;
+        resolve({ dataUrl: dataUrl, w: w, h: h, dpiMul: dpiMul });
       }).catch(function(e) {
         sandbox.innerHTML = '';
         reject(e);
@@ -436,18 +434,65 @@ function htmlToPng(htmlStr, renderW, dpiMul) {
 }
 
 // ═══════════════════════════════════════════════════════
-// PDF'E PNG EMBED
+// HTML → JPEG (html2canvas, küçük dosya boyutu)
+// htmlStr : outerHTML string
+// renderW : sandbox genişliği (layout)
+// dpiMul  : html2canvas scale parametresi
+// ═══════════════════════════════════════════════════════
+function htmlToJpeg(htmlStr, renderW, dpiMul) {
+  return new Promise(function(resolve, reject) {
+    dpiMul  = dpiMul  || 2;
+    renderW = renderW || 1200;
+
+    sandbox.style.width      = renderW + 'px';
+    sandbox.style.background = 'transparent';
+
+    sandbox.innerHTML = htmlStr;
+
+    const el = sandbox.firstElementChild || sandbox;
+
+    setTimeout(function() {
+      window.html2canvas(el, {
+        backgroundColor : null,
+        scale           : dpiMul,
+        useCORS         : true,
+        allowTaint      : true,
+        logging         : false,
+        windowWidth     : renderW,
+        scrollX         : 0,
+        scrollY         : 0,
+        x               : 0,
+        y               : 0,
+      }).then(function(canvas) {
+        sandbox.innerHTML = '';
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+        const w = canvas.width, h = canvas.height;
+        canvas.width = 0; canvas.height = 0;
+        resolve({ dataUrl: dataUrl, w: w, h: h, dpiMul: dpiMul });
+      }).catch(function(e) {
+        sandbox.innerHTML = '';
+        reject(e);
+      });
+    }, 80);
+  });
+}
+
+// ═══════════════════════════════════════════════════════
+// PDF'E GÖRSEL EMBED (PNG veya JPEG)
 // pdfH    : sayfa yüksekliği (pt) — pdf-lib sol-alt origin için
 // imgX, imgY_top: sol-üst köşe koordinatı (x soldan, y yukarıdan)
 // imgW, imgH    : PDF üzerindeki boyut (pt)
+// format        : 'png' veya 'jpeg'
 // ═══════════════════════════════════════════════════════
-async function embedPng(pdfDoc, page, pdfH, dataUrl, imgX, imgY_top, imgW, imgH) {
-  const resp     = await fetch(dataUrl);
-  const arrBuf   = await resp.arrayBuffer();
-  const pngImage = await pdfDoc.embedPng(arrBuf);
+async function embedImage(pdfDoc, page, pdfH, dataUrl, imgX, imgY_top, imgW, imgH, format) {
+  const resp   = await fetch(dataUrl);
+  const arrBuf = await resp.arrayBuffer();
+  const pdfImage = format === 'jpeg'
+    ? await pdfDoc.embedJpg(arrBuf)
+    : await pdfDoc.embedPng(arrBuf);
   // pdf-lib: y = sol-altta origin → dönüştür
   const pdfY = pdfH - imgY_top - imgH;
-  page.drawImage(pngImage, { x: imgX, y: pdfY, width: imgW, height: imgH });
+  page.drawImage(pdfImage, { x: imgX, y: pdfY, width: imgW, height: imgH });
 }
 
 // ═══════════════════════════════════════════════════════
@@ -1555,6 +1600,9 @@ btnKontrol.addEventListener('click', function() {
 // ANA PDF OLUŞTURMA
 // ═══════════════════════════════════════════════════════
 async function pdfOlustur() {
+  // Eski blob varsa temizle
+  if (pdfBlob) { pdfBlob = null; }
+
   gosterDurum('📥 Veriler okunuyor...', 'info');
   setProgress(5);
 
@@ -1574,69 +1622,68 @@ async function pdfOlustur() {
   const { width: PW, height: PH } = page.getSize();
   console.log('PDF sayfa boyutu:', PW.toFixed(1), '×', PH.toFixed(1), 'pt');
 
-  // Aktif görevler
-  const aktifOgeler = VARSAYILAN_OGELERI.filter(function(og) {
+  // Tüm görselleri paralel üret
+  const gorevler = VARSAYILAN_OGELERI.map(function(og) {
     const ayar  = _ayarlar[og.id] || {};
     const aktif = ayar.aktif != null ? ayar.aktif : og.aktif;
-    const kaynak= og.kaynak === 'sema' ? sema : yapi;
-    return aktif && kaynak && kaynak[og.alan];
+    if (!aktif) return Promise.resolve(null);
+    const kaynak = og.kaynak === 'sema' ? sema : yapi;
+    const veri   = kaynak ? kaynak[og.alan] : null;
+    if (!veri) return Promise.resolve(null);
+
+    const dpi = ayar.dpi != null ? ayar.dpi : og.dpi;
+
+    if (og.tip === 'svg') {
+      return svgToPng(veri, og.pxW, og.pxH, dpi)
+        .then(function(r) { return Object.assign({}, r, { format: 'png', ogDef: og, ayar: ayar }); })
+        .catch(function(e) { console.warn('⚠️', og.id, 'SVG dönüştürme hatası:', e.message); return null; });
+    } else {
+      return htmlToJpeg(veri, og.renderW, dpi)
+        .then(function(r) { return Object.assign({}, r, { format: 'jpeg', ogDef: og, ayar: ayar }); })
+        .catch(function(e) { console.warn('⚠️', og.id, 'HTML dönüştürme hatası:', e.message); return null; });
+    }
   });
 
-  const toplam = aktifOgeler.length;
-  let tamamlanan = 0;
+  gosterDurum('🖼️ Görseller paralel üretiliyor...', 'info');
+  const sonuclar = await Promise.all(gorevler);
+  setProgress(70);
 
-  gosterDurum('🖼️ ' + toplam + ' öğe işlenecek...', 'info');
+  const aktifSonuclar = sonuclar.filter(function(s) { return s !== null; });
+  gosterDurum('📄 ' + aktifSonuclar.length + ' görsel PDF\'e yerleştiriliyor...', 'info');
 
-  for (let i = 0; i < aktifOgeler.length; i++) {
-    const og    = aktifOgeler[i];
-    const ayar  = _ayarlar[og.id] || {};
+  for (let i = 0; i < sonuclar.length; i++) {
+    const img = sonuclar[i];
+    if (!img) continue;
+
+    const og    = img.ogDef;
+    const ayar  = img.ayar;
     const scale = ayar.scale != null ? ayar.scale : og.scale;
     const posX  = ayar.x     != null ? ayar.x     : og.x;
-    const posY  = ayar.y     != null ? ayar.y     : og.y; // üstten aşağı (pt)
-    const dpi   = ayar.dpi   != null ? ayar.dpi   : og.dpi;
+    const posY  = ayar.y     != null ? ayar.y     : og.y;
 
-    const kaynak = og.kaynak === 'sema' ? sema : yapi;
-    const veri   = kaynak[og.alan];
-
-    gosterDurum('🖼️ [' + (i+1) + '/' + toplam + '] ' + og.baslik + ' işleniyor...', 'info');
+    const naturalW = img.w / img.dpiMul;
+    const naturalH = img.h / img.dpiMul;
+    const finalW   = naturalW * scale;
+    const finalH   = naturalH * scale;
 
     try {
-      let result;
-
-      if (og.tip === 'svg') {
-        // SVG → PNG (dpiMul canvas kalite çarpanı)
-        result = await svgToPng(veri, og.pxW, og.pxH, dpi);
-      } else {
-        // HTML → PNG (html2canvas dpi = scale parametresi)
-        result = await htmlToPng(veri, og.renderW, dpi);
-      }
-
-      // Canvas boyutu dpiMul ile büyütülmüş olduğundan
-      // asıl boyutu geri hesapla, sonra scale uygula
-      const naturalW = result.w / result.dpiMul;
-      const naturalH = result.h / result.dpiMul;
-      const finalW   = naturalW * scale;
-      const finalH   = naturalH * scale;
-
-      await embedPng(pdfDoc, page, PH, result.dataUrl, posX, posY, finalW, finalH);
-
+      await embedImage(pdfDoc, page, PH, img.dataUrl, posX, posY, finalW, finalH, img.format);
       console.log('✅', og.id,
         '→ x:', posX.toFixed(0), 'y:', posY.toFixed(0),
         'w:', finalW.toFixed(0), 'h:', finalH.toFixed(0),
-        'dpi×:', dpi
+        'fmt:', img.format, 'dpi×:', img.dpiMul
       );
     } catch(e) {
       console.warn('⚠️', og.id, 'yerleştirilemedi:', e.message);
     }
 
-    tamamlanan++;
-    setProgress(10 + (tamamlanan / toplam) * 85);
+    setProgress(70 + ((i + 1) / sonuclar.length) * 25);
   }
 
   const finalBytes = await pdfDoc.save();
   pdfBlob = new Blob([finalBytes], { type: 'application/pdf' });
   setProgress(100);
-  gosterDurum('✅ PDF hazır! (' + toplam + ' öğe yerleştirildi)', 'tamam');
+  gosterDurum('✅ PDF hazır! (' + aktifSonuclar.length + ' öğe yerleştirildi)', 'tamam');
   return pdfBlob;
 }
 
