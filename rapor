@@ -226,7 +226,6 @@ const sandbox       = document.getElementById('html-sandbox');
 const ayarGrid      = document.getElementById('ayar-grid');
 
 let kontrolGecti = false;
-let pdfBlob      = null;
 
 // ═══════════════════════════════════════════════════════
 // AYAR PANELI OLUŞTURMA
@@ -351,104 +350,9 @@ function loadLS(key) {
 }
 
 // ═══════════════════════════════════════════════════════
-// SVG → Yüksek Kalite PNG
-// Vektörel SVG'yi canvas'a çizip dataURL döner.
-// dpiMul: canvas ölçeği (3 = ~300dpi eşdeğeri)
+// PDF OLUŞTURMA FONKSİYONLARI
+// (Yeniden yazılacak)
 // ═══════════════════════════════════════════════════════
-function svgToPng(svgString, pxW, pxH, dpiMul) {
-  return new Promise(function(resolve, reject) {
-    dpiMul = dpiMul || 3;
-    const blob = new Blob([svgString], {type:'image/svg+xml;charset=utf-8'});
-    const url  = URL.createObjectURL(blob);
-    const img  = new Image();
-    img.onload = function() {
-      const cw = (pxW || img.naturalWidth  || 800) * dpiMul;
-      const ch = (pxH || img.naturalHeight || 600) * dpiMul;
-      const canvas  = document.createElement('canvas');
-      canvas.width  = cw;
-      canvas.height = ch;
-      const c2d = canvas.getContext('2d');
-      c2d.fillStyle = '#ffffff';
-      c2d.fillRect(0, 0, cw, ch);
-      c2d.drawImage(img, 0, 0, cw, ch);
-      URL.revokeObjectURL(url);
-      resolve({ dataUrl: canvas.toDataURL('image/png'), w: cw, h: ch, dpiMul: dpiMul });
-    };
-    img.onerror = function(e) {
-      URL.revokeObjectURL(url);
-      reject(new Error('SVG yüklenemedi'));
-    };
-    img.src = url;
-  });
-}
-
-// ═══════════════════════════════════════════════════════
-// HTML → Yüksek Kalite PNG (html2canvas)
-// htmlStr : outerHTML string
-// renderW : sandbox genişliği (layout)
-// dpiMul  : html2canvas scale parametresi
-// ═══════════════════════════════════════════════════════
-function htmlToPng(htmlStr, renderW, dpiMul) {
-  return new Promise(function(resolve, reject) {
-    dpiMul  = dpiMul  || 3;
-    renderW = renderW || 1200;
-
-    // Sandbox ayarla
-    sandbox.style.width      = renderW + 'px';
-    sandbox.style.background = '#ffffff';
-
-    // HTML'i sandbox'a yerleştir
-    // Güvenli: outerHTML ya da innerHTML olabilir
-    // Eğer içerik bir element outerHTML'iyse direkt koy
-    sandbox.innerHTML = htmlStr;
-
-    // Render edilecek element
-    const el = sandbox.firstElementChild || sandbox;
-
-    // Stillerin yüklenmesini bekle
-    setTimeout(function() {
-      window.html2canvas(el, {
-        backgroundColor : '#ffffff',
-        scale           : dpiMul,
-        useCORS         : true,
-        allowTaint      : true,
-        logging         : false,
-        windowWidth     : renderW,
-        // Ekran dışı sandbox için scrollX/Y
-        scrollX         : 0,
-        scrollY         : 0,
-        x               : 0,
-        y               : 0,
-      }).then(function(canvas) {
-        sandbox.innerHTML = '';
-        resolve({
-          dataUrl : canvas.toDataURL('image/png'),
-          w       : canvas.width,
-          h       : canvas.height,
-          dpiMul  : dpiMul,
-        });
-      }).catch(function(e) {
-        sandbox.innerHTML = '';
-        reject(e);
-      });
-    }, 80); // kısa bekleme → layout tamamlanması için
-  });
-}
-
-// ═══════════════════════════════════════════════════════
-// PDF'E PNG EMBED
-// pdfH    : sayfa yüksekliği (pt) — pdf-lib sol-alt origin için
-// imgX, imgY_top: sol-üst köşe koordinatı (x soldan, y yukarıdan)
-// imgW, imgH    : PDF üzerindeki boyut (pt)
-// ═══════════════════════════════════════════════════════
-async function embedPng(pdfDoc, page, pdfH, dataUrl, imgX, imgY_top, imgW, imgH) {
-  const resp     = await fetch(dataUrl);
-  const arrBuf   = await resp.arrayBuffer();
-  const pngImage = await pdfDoc.embedPng(arrBuf);
-  // pdf-lib: y = sol-altta origin → dönüştür
-  const pdfY = pdfH - imgY_top - imgH;
-  page.drawImage(pngImage, { x: imgX, y: pdfY, width: imgW, height: imgH });
-}
 
 // ═══════════════════════════════════════════════════════
 // ÖN DEĞERLENDİRME KURAL SETİ
@@ -1510,7 +1414,6 @@ function onDegerlendirmeYap(sema, yapi) {
 // ═══════════════════════════════════════════════════════
 btnKontrol.addEventListener('click', function() {
   kontrolGecti = false;
-  pdfBlob      = null;
 
   const sema = loadLS(KEY_SEMA);
   const yapi = loadLS(KEY_YAPI);
@@ -1552,142 +1455,18 @@ btnKontrol.addEventListener('click', function() {
 });
 
 // ═══════════════════════════════════════════════════════
-// ANA PDF OLUŞTURMA
-// ═══════════════════════════════════════════════════════
-async function pdfOlustur() {
-  gosterDurum('📥 Veriler okunuyor...', 'info');
-  setProgress(5);
-
-  const sema = loadLS(KEY_SEMA) || {};
-  const yapi = loadLS(KEY_YAPI) || {};
-
-  gosterDurum('📄 PDF şablonu indiriliyor...', 'info');
-  setProgress(10);
-
-  const resp = await fetch(PDF_URL, { cache: 'no-cache' });
-  if (!resp.ok) throw new Error('Şablon indirilemedi: HTTP ' + resp.status);
-  const templateBytes = await resp.arrayBuffer();
-
-  const { PDFDocument } = window.PDFLib;
-  const pdfDoc = await PDFDocument.load(templateBytes);
-  const page   = pdfDoc.getPage(0);
-  const { width: PW, height: PH } = page.getSize();
-  console.log('PDF sayfa boyutu:', PW.toFixed(1), '×', PH.toFixed(1), 'pt');
-
-  // Aktif görevler
-  const aktifOgeler = VARSAYILAN_OGELERI.filter(function(og) {
-    const ayar  = _ayarlar[og.id] || {};
-    const aktif = ayar.aktif != null ? ayar.aktif : og.aktif;
-    const kaynak= og.kaynak === 'sema' ? sema : yapi;
-    return aktif && kaynak && kaynak[og.alan];
-  });
-
-  const toplam = aktifOgeler.length;
-  let tamamlanan = 0;
-
-  gosterDurum('🖼️ ' + toplam + ' öğe işlenecek...', 'info');
-
-  for (let i = 0; i < aktifOgeler.length; i++) {
-    const og    = aktifOgeler[i];
-    const ayar  = _ayarlar[og.id] || {};
-    const scale = ayar.scale != null ? ayar.scale : og.scale;
-    const posX  = ayar.x     != null ? ayar.x     : og.x;
-    const posY  = ayar.y     != null ? ayar.y     : og.y; // üstten aşağı (pt)
-    const dpi   = ayar.dpi   != null ? ayar.dpi   : og.dpi;
-
-    const kaynak = og.kaynak === 'sema' ? sema : yapi;
-    const veri   = kaynak[og.alan];
-
-    gosterDurum('🖼️ [' + (i+1) + '/' + toplam + '] ' + og.baslik + ' işleniyor...', 'info');
-
-    try {
-      let result;
-
-      if (og.tip === 'svg') {
-        // SVG → PNG (dpiMul canvas kalite çarpanı)
-        result = await svgToPng(veri, og.pxW, og.pxH, dpi);
-      } else {
-        // HTML → PNG (html2canvas dpi = scale parametresi)
-        result = await htmlToPng(veri, og.renderW, dpi);
-      }
-
-      // Canvas boyutu dpiMul ile büyütülmüş olduğundan
-      // asıl boyutu geri hesapla, sonra scale uygula
-      const naturalW = result.w / result.dpiMul;
-      const naturalH = result.h / result.dpiMul;
-      const finalW   = naturalW * scale;
-      const finalH   = naturalH * scale;
-
-      await embedPng(pdfDoc, page, PH, result.dataUrl, posX, posY, finalW, finalH);
-
-      console.log('✅', og.id,
-        '→ x:', posX.toFixed(0), 'y:', posY.toFixed(0),
-        'w:', finalW.toFixed(0), 'h:', finalH.toFixed(0),
-        'dpi×:', dpi
-      );
-    } catch(e) {
-      console.warn('⚠️', og.id, 'yerleştirilemedi:', e.message);
-    }
-
-    tamamlanan++;
-    setProgress(10 + (tamamlanan / toplam) * 85);
-  }
-
-  const finalBytes = await pdfDoc.save();
-  pdfBlob = new Blob([finalBytes], { type: 'application/pdf' });
-  setProgress(100);
-  gosterDurum('✅ PDF hazır! (' + toplam + ' öğe yerleştirildi)', 'tamam');
-  return pdfBlob;
-}
-
-// ═══════════════════════════════════════════════════════
 // BUTON OLAYLARI
 // ═══════════════════════════════════════════════════════
 btnOnizle.addEventListener('click', async function() {
-  if (!kontrolGecti) return;
-  btnOnizle.disabled    = true;
-  btnOnizle.textContent = '⏳ Oluşturuluyor...';
-  try {
-    const blob = await pdfOlustur();
-    const url  = URL.createObjectURL(blob);
-    pdfIframe.src          = url;
-    pdfModal.style.display = 'block';
-  } catch(e) {
-    gosterDurum('❌ Hata: ' + e.message, 'hata');
-    console.error(e);
-  } finally {
-    btnOnizle.disabled    = false;
-    btnOnizle.textContent = '🔍 PDF Önizle';
-  }
+  console.log('PDF önizleme — henüz implemente edilmedi');
 });
 
 btnIndir.addEventListener('click', async function() {
-  if (!kontrolGecti) return;
-  btnIndir.disabled    = true;
-  btnIndir.textContent = '⏳...';
-  try {
-    const blob = pdfBlob || await pdfOlustur();
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement('a');
-    a.href = url; a.download = DOSYA_ADI; a.click();
-    URL.revokeObjectURL(url);
-  } catch(e) {
-    gosterDurum('❌ İndirme hatası: ' + e.message, 'hata');
-    console.error(e);
-  } finally {
-    btnIndir.disabled    = false;
-    btnIndir.textContent = '⬇️ PDF İndir';
-  }
+  console.log('PDF indirme — henüz implemente edilmedi');
 });
 
 btnIndirModal.addEventListener('click', async function() {
-  try {
-    const blob = pdfBlob || await pdfOlustur();
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement('a');
-    a.href = url; a.download = DOSYA_ADI; a.click();
-    URL.revokeObjectURL(url);
-  } catch(e) { alert('Hata: ' + e.message); }
+  console.log('PDF indirme (modal) — henüz implemente edilmedi');
 });
 
 kapatModalEl.addEventListener('click', function() {
