@@ -354,6 +354,7 @@ function loadLS(key) {
 // ═══════════════════════════════════════════════════════
 
 function _svgViewBoxSize(svgString) {
+  // viewBox="minX minY width height" — capture 3rd and 4th values (width, height)
   var m = svgString.match(/viewBox\s*=\s*["']\s*[-\d.]+[\s,]+[-\d.]+[\s,]+([\d.]+)[\s,]+([\d.]+)/);
   if (m) return { w: parseFloat(m[1]), h: parseFloat(m[2]) };
   return null;
