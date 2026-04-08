@@ -1852,6 +1852,19 @@ function buildYapiGucTablosu() {
 }
 function saveState() {
   try {
+    var cetveliAlan = document.getElementById('cetveli-canli-alan');
+    var cetveliHtml = null;
+    if (cetveliAlan && cetveliAlan.innerHTML.trim()) {
+      var yc_css = '<style>'
+        + '.yc-tablo{width:100%;border-collapse:collapse;font-family:Arial,sans-serif;font-size:11px;border:2px solid #000;margin-bottom:30px}'
+        + '.yc-tablo th,.yc-tablo td{border:1px solid #000;padding:8px 6px;text-align:center}'
+        + '.yc-tablo th{background:#e8e8e8;font-weight:bold;font-size:12px}'
+        + '.yc-tablo .toplam-satir td{background:#d0d0d0!important;font-weight:bold;border-top:2px solid #000}'
+        + '.yc-baslik{text-align:center;font-size:16px;font-weight:bold;letter-spacing:2px;border-bottom:3px solid #000;padding-bottom:8px;margin-bottom:15px}'
+        + '.yc-tablo-sabit{width:auto;table-layout:fixed}'
+        + '</style>';
+      cetveliHtml = '<div>' + yc_css + cetveliAlan.innerHTML + '</div>';
+    }
     localStorage.setItem(LS_SEMA_KEY, JSON.stringify({
       // Metin verileri (mevcut)
       kofre:            getText('txt_kofre'),
@@ -1906,7 +1919,12 @@ function saveState() {
       gdEnUzun:     (typeof window.getGDData === 'function') ? window.getGDData('en_uzun')  : null,
       gdEnGuclu:    (typeof window.getGDData === 'function') ? window.getGDData('en_guclu') : null,
       gdEnUzunHtml: (typeof window.renderGD  === 'function') ? window.renderGD('en_uzun')   : null,
-      gdEnGucluHtml:(typeof window.renderGD  === 'function') ? window.renderGD('en_guclu')  : null
+      gdEnGucluHtml:(typeof window.renderGD  === 'function') ? window.renderGD('en_guclu')  : null,
+      svgString:    _serializeSvgTemiz(document.getElementById('katman_1')),
+      cetveliHtml:  cetveliHtml,
+      tesisatGucHtml: buildTesisatGucTablosu(),
+      kofre_olcumHtml: buildKofreOlcumTablosu(),
+      yapiGucHtml:  buildYapiGucTablosu()
     }));
   } catch(e) { console.warn('[saveState] error:', e); }
   window.dispatchEvent(new CustomEvent('semaGuncellendi'));
