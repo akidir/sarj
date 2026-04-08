@@ -139,7 +139,7 @@ const PDF_URL    = 'https://voltevas.com/wp-content/uploads/2026/03/sarj_proje_t
 const DOSYA_ADI  = 'Elektrik_Proje_Raporu.pdf';
 const KEY_SEMA   = 'proje_sema_v1';
 const KEY_YAPI   = 'proje_yapi_v1';
-const LS_AYAR    = 'rapor_ayarlar_v2';
+const LS_AYAR    = 'rapor_ayarlar_v3';  // v2 → v3 (eski cache'i geçersiz kılmak için)
 
 // ── Her öğenin varsayılan ayarları ──────────────────────
 // kaynak: 'sema' veya 'yapi' (hangi localStorage key)
@@ -181,6 +181,24 @@ const VARSAYILAN_OGELERI = [
     x: 20, y: 1050, scale: 0.60, dpi: 3, aktif: true
   },
   {
+    id: 'tesisatguc', baslik: '⚡ Tesisat Güç Bilgileri',
+    kaynak: 'sema', alan: 'tesisatGucHtml', tip: 'html',
+    renderW: 900,
+    x: 20, y: 1500, scale: 0.60, dpi: 3, aktif: true
+  },
+  {
+    id: 'kofreolem', baslik: '🔧 Kofre Ölçüm Değerleri',
+    kaynak: 'sema', alan: 'kofreOlcumHtml', tip: 'html',
+    renderW: 700,
+    x: 20, y: 1650, scale: 0.60, dpi: 3, aktif: true
+  },
+  {
+    id: 'yapiguc', baslik: '🏗️ Yapı Güç Bilgileri',
+    kaynak: 'sema', alan: 'yapiGucHtml', tip: 'html',
+    renderW: 1200,
+    x: 20, y: 1800, scale: 0.60, dpi: 3, aktif: true
+  },
+  {
     id: 'gduzun', baslik: '📉 GD Hesabı (En Uzun)',
     kaynak: 'sema', alan: 'gdEnUzunHtml', tip: 'html',
     renderW: 700,
@@ -216,6 +234,8 @@ let _ayarlar = {}; // { id: {x,y,scale,dpi,aktif} }
 
 function yukleAyarlar() {
   try {
+    // Eski versiyonu temizle
+    localStorage.removeItem('rapor_ayarlar_v2');
     const raw = localStorage.getItem(LS_AYAR);
     if (raw) return JSON.parse(raw);
   } catch(e){}
@@ -332,6 +352,45 @@ function loadLS(key) {
 }
 
 // ═══════════════════════════════════════════════════════
+function sanitizeSvg(svgStr) {
+  if (!svgStr || typeof svgStr !== 'string') return svgStr;
+  let s = svgStr.trim();
+  // xmlns eksikse ekle
+  if (!s.includes('xmlns=')) {
+    s = s.replace('<svg', '<svg xmlns="http://www.w3.org/2000/svg"');
+  }
+  return s;
+}
+
+function cropWhitespace(canvas) {
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width, h = canvas.height;
+  const data = ctx.getImageData(0, 0, w, h).data;
+  let top = h, bottom = 0, left = w, right = 0;
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const idx = (y * w + x) * 4;
+      const r = data[idx], g = data[idx+1], b = data[idx+2], a = data[idx+3];
+      // Beyaz olmayan veya şeffaf olmayan piksel
+      if (a > 10 && !(r > 245 && g > 245 && b > 245)) {
+        if (y < top) top = y;
+        if (y > bottom) bottom = y;
+        if (x < left) left = x;
+        if (x > right) right = x;
+      }
+    }
+  }
+  // İçerik bulunamazsa orijinali döndür
+  if (top > bottom || left > right) return canvas;
+  const cw = right - left + 1;
+  const ch = bottom - top + 1;
+  const cropped = document.createElement('canvas');
+  cropped.width = cw;
+  cropped.height = ch;
+  cropped.getContext('2d').drawImage(canvas, left, top, cw, ch, 0, 0, cw, ch);
+  return cropped;
+}
+
 // SVG → Yüksek Kalite PNG
 // Vektörel SVG'yi canvas'a çizip dataURL döner.
 // dpiMul: canvas ölçeği (3 = ~300dpi eşdeğeri)
@@ -339,6 +398,7 @@ function loadLS(key) {
 function svgToPng(svgString, pxW, pxH, dpiMul) {
   return new Promise(function(resolve, reject) {
     dpiMul = dpiMul || 3;
+    svgString = sanitizeSvg(svgString);
     const blob = new Blob([svgString], {type:'image/svg+xml;charset=utf-8'});
     const url  = URL.createObjectURL(blob);
     const img  = new Image();
@@ -353,10 +413,12 @@ function svgToPng(svgString, pxW, pxH, dpiMul) {
       c2d.fillRect(0, 0, cw, ch);
       c2d.drawImage(img, 0, 0, cw, ch);
       URL.revokeObjectURL(url);
-      resolve({ dataUrl: canvas.toDataURL('image/png'), w: cw, h: ch, dpiMul: dpiMul });
+      const cropped = cropWhitespace(canvas);
+      resolve({ dataUrl: cropped.toDataURL('image/png'), w: cropped.width, h: cropped.height, dpiMul: dpiMul });
     };
     img.onerror = function(e) {
       URL.revokeObjectURL(url);
+      console.warn('[SVG] Yüklenemedi, ilk 200 karakter:', svgString ? svgString.substring(0, 200) : 'BOŞ');
       reject(new Error('SVG yüklenemedi'));
     };
     img.src = url;
@@ -402,10 +464,11 @@ function htmlToPng(htmlStr, renderW, dpiMul) {
         y               : 0,
       }).then(function(canvas) {
         sandbox.innerHTML = '';
+        const cropped = cropWhitespace(canvas);
         resolve({
-          dataUrl : canvas.toDataURL('image/png'),
-          w       : canvas.width,
-          h       : canvas.height,
+          dataUrl : cropped.toDataURL('image/png'),
+          w       : cropped.width,
+          h       : cropped.height,
           dpiMul  : dpiMul,
         });
       }).catch(function(e) {
