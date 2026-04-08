@@ -353,14 +353,27 @@ function loadLS(key) {
 // PDF OLUŞTURMA FONKSİYONLARI
 // ═══════════════════════════════════════════════════════
 
+function _svgViewBoxSize(svgString) {
+  var m = svgString.match(/viewBox\s*=\s*["']\s*[-\d.]+[\s,]+[-\d.]+[\s,]+([\d.]+)[\s,]+([\d.]+)/);
+  if (m) return { w: parseFloat(m[1]), h: parseFloat(m[2]) };
+  return null;
+}
+
 function svgToPng(svgString, pxW, pxH, dpiMul) {
   return new Promise(function(resolve, reject) {
     var blob   = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
     var url    = URL.createObjectURL(blob);
     var img    = new Image();
-    var w      = pxW * dpiMul;
-    var h      = pxH * dpiMul;
     img.onload = function() {
+      var srcW = img.naturalWidth  > 0 ? img.naturalWidth  : null;
+      var srcH = img.naturalHeight > 0 ? img.naturalHeight : null;
+      if (!srcW || !srcH) {
+        var vb = _svgViewBoxSize(svgString);
+        srcW = vb ? vb.w : pxW;
+        srcH = vb ? vb.h : pxH;
+      }
+      var w = srcW * dpiMul;
+      var h = srcH * dpiMul;
       var canvas = document.createElement('canvas');
       canvas.width  = w;
       canvas.height = h;
